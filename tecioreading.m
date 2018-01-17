@@ -27,7 +27,7 @@ N = 19; % number of samples
 
 % for g=2.^(4:8)
 for g=2.^(4:7)
-    gridname = fullfile('Data',['Grid' num2str(g)]);
+    gridname = ['Grid' num2str(g)];
     m = (g+1)^3; % number of spatial points
     Y = zeros(N,m*n*p);
     for t=0:p
@@ -82,7 +82,7 @@ for g=2.^(4:7)
         Y(:,m*n*t+1:m*n*(t+1)) = Yt;
         
     end
-    save(fullfile('Data',['data' num2str(g) '.mat']),'Y');
+    save(fullfile(gridname,['data' num2str(g) '.mat']),'Y');
 end
 
 if libisloaded('tecio')

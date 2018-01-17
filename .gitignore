@@ -3,7 +3,8 @@
 *.dat
 *.plt
 *.szplt
+*.out
+*.par
+*.don
 *.mat
 .DS_Store
-Data/
-Results/
