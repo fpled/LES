@@ -1,0 +1,9 @@
+*~
+*.o
+*.dat
+*.plt
+*.szplt
+*.mat
+.DS_Store
+Data/
+Results/
