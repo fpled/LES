@@ -4,7 +4,7 @@ close all
 
 %%%%%%%%%% TecIO Setup %%%%%%%%%%%%%
 if ismac
-    tecplot_home = '/Applications/Tecplot 360 EX 2017 R2/Tecplot 360 EX 2017 R2.app/Contents/MacOS');
+    tecplot_home = '/Applications/Tecplot 360 EX 2017 R2/Tecplot 360 EX 2017 R2.app/Contents/MacOS';
     tecio_path = strcat(tecplot_home,'/libtecio.dylib');
 elseif isunix
     % tecplot_home = '/usr/local/apps/tecplot360';
@@ -26,16 +26,21 @@ p = 50; % number of time steps
 N = 19; % number of samples
 
 % for g=2.^(4:8)
-for g=2.^(4:7)
+for g=2.^(4:6)
     gridname = ['Grid' num2str(g)];
+    disp(gridname)
     m = (g+1)^3; % number of spatial points
-    Y = zeros(N,m*n*p);
-    for t=0:p
-        filename = ['InvPhase3d_' num2str(t,'%05d00') '.szplt'];
+    % Y = zeros(N,m*n,p+1);
+    Y = zeros(N,n,m,p+1);
+    for l=1:N
+        foldername = ['CasInvPhase3D-' num2str(l)];
         
-        Yt = zeros(N,m*n);
-        for l=1:N
-            foldername = ['CasInvPhase3D-' num2str(l)];
+        % Yl = zeros(m*n,p+1);
+        Yl = zeros(n,m,p+1);
+        for t=0:p
+            filename = ['InvPhase3d_' num2str(t,'%05d00') '.szplt'];
+            
+            
             
             file = fullfile(gridname,foldername,filename);
             [isok,~,handle] = calllib('tecio','tecFileReaderOpen',file,[]);
@@ -54,7 +59,8 @@ for g=2.^(4:7)
                 error(['Wrong number of zones in file ' file])
             end
             
-            Yl = zeros(m*n,1);
+            % Yt = zeros(m*n,1);
+            Yt = zeros(n,m);
             for var=1:numvars
                 name = libpointer('stringPtrPtr',cell(1,1));
                 [isok,~,name] = calllib('tecio','tecVarGetName',handle,var,name);
@@ -62,6 +68,15 @@ for g=2.^(4:7)
                 if isvar
                     zone = 1;
                     % for zone=1:numzones
+%                         type = 0;
+%                         [isok,~,type] = calllib('tecio','tecZoneGetType',handle,zone,type);
+%                         
+%                         % 0 - Ordered, 1- FE line, ... 5- FE Brick...
+%                         if type == 0
+%                             I = 0; J = 0; K = 0;
+%                             [isok,~,I,J,K] = calllib('tecio','tecZoneGetIJK',handle,zone,I,J,K);
+%                         end
+                        
                         numvals = 0;
                         [isok,~,numvals] = calllib('tecio','tecZoneVarGetNumValues',handle,zone,var,numvals);
                         if numvals~=m
@@ -71,18 +86,21 @@ for g=2.^(4:7)
                         values = zeros(numvals,1);
                         [isok,~,values] = calllib('tecio','tecZoneVarGetFloatValues',handle,zone,var,1,numvals,values);
                         
-                        Yl((0:m-1)*n+i) = values;
+                        % Yt((0:m-1)*n+i) = values;
+                        Yt(i,:) = values;
                     % end
                 end
             end
-            Yt(l,:) = Yl;
+            % Yl(:,t+1) = Yt;
+            Yl(:,:,t+1) = Yt;
             
             calllib('tecio','tecFileReaderClose',handle) ;
         end
-        Y(:,m*n*t+1:m*n*(t+1)) = Yt;
+        % Y(l,:,:) = Yl;
+        Y(l,:,:,:) = Yl;
         
     end
-    save(fullfile(gridname,['data' num2str(g) '.mat']),'Y');
+    save(fullfile(gridname,'data.mat'),'Y');
 end
 
 if libisloaded('tecio')
