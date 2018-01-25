@@ -26,7 +26,7 @@ p = 50; % number of time steps
 N = 19; % number of samples
 
 % for g=2.^(4:8)
-for g=2.^(4:6)
+for g=2.^(4:7)
     gridname = ['Grid' num2str(g)];
     disp(gridname)
     m = (g+1)^3; % number of spatial points
@@ -39,8 +39,6 @@ for g=2.^(4:6)
         Yl = zeros(n,m,p+1);
         for t=0:p
             filename = ['InvPhase3d_' num2str(t,'%05d00') '.szplt'];
-            
-            
             
             file = fullfile(gridname,foldername,filename);
             [isok,~,handle] = calllib('tecio','tecFileReaderOpen',file,[]);

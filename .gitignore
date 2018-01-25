@@ -12,4 +12,6 @@
 *.eps
 *.pdf
 *.fig
+*.avi
+*.mp4
 .DS_Store
