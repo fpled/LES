@@ -7,4 +7,9 @@
 *.par
 *.don
 *.mat
+*.png
+*.tex
+*.eps
+*.pdf
+*.fig
 .DS_Store

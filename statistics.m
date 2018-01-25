@@ -128,10 +128,11 @@ for g=2.^4
         % surf(CZa)
         imagesc(CZa)
         colorbar
+        axis image
         set(gca,'FontSize',fontsize)
         xlabel('$k$','Interpreter','latex')
         ylabel('$k''$','Interpreter','latex')
-        title(['Covariance matrix $[C_{Z_{\alpha}}]_{k,k''}$ for $\alpha=$' num2str(a)],'Interpreter','latex')
+        title(['Covariance matrix $[C_{\zeta}(t^k,t^{k''})]_{\alpha,\alpha} = [C_{Z_{\alpha}}]_{k,k''}$ for $\alpha=$' num2str(a)],'Interpreter','latex')
         mysaveas(gridname,['covariance_CZ_a' num2str(a)],formats,renderer);
         mymatlab2tikz(gridname,['covariance_CZ_a' num2str(a) '.tex']);
     end
@@ -156,48 +157,120 @@ for g=2.^4
     ylabel('$\Lambda_{\beta}$','Interpreter','latex')
     l = legend(leg{:},'Location','NorthEastOutside');
     set(l,'Interpreter','latex');
-    mysaveas(gridname,'eigenvalues_CZ',formats,renderer);
-    mymatlab2tikz(gridname,'eigenvalues_CZ');
+    mysaveas(gridname,'eigenvalues_CZa',formats,renderer);
+    mymatlab2tikz(gridname,'eigenvalues_CZa.tex');
     
-%     q = (p+1)*Rmax;
-%     Zc = Z(:,:)';
-%     [W,S,X] = svdtruncate(Zc,tol);
-%     S = S/sqrt(N-1);
-%     X = X*sqrt(N-1);
-%     Zc_approx = W*diag(S)*X';
-%     errZ = norm(full(Zc_approx-Zc))/norm(full(Zc));
-%     Q = length(S);
-%     fprintf('\nrank R = %d, rank Q = %d, error = %.3e for Z',Rmax,Q,errZ);
-%     
-%     mX = mean(X,1)';
-%     CX = cov(X); % CX = 1/(N-1)*X'*X;
+    q = (p+1)*Rmax;
+    Zc = Z(:,:)';
+    [W,S,X] = svdtruncate(Zc,tol);
+    S = S/sqrt(N-1);
+    X = X*sqrt(N-1);
+    Zc_approx = W*diag(S)*X';
+    errZ = norm(full(Zc_approx-Zc))/norm(full(Zc));
+    Q = length(S);
+    fprintf('\nrank R = %d, rank Q = %d, error = %.3e for Z',Rmax,Q,errZ);
+    
+    mX = mean(X,1)';
+    CX = cov(X); % CX = 1/(N-1)*X'*X;
 %     norm(mX)
 %     norm(CX-eye(Q))
 %     norm(W'*W-eye(Q))
-%     
-%     CZ_approx = W*diag(S).^2*W';
-%     CZ = cov(Zc'); % CZ = 1/(N-1)*Zc(:,:)*Zc(:,:)';
-%     errCZ = norm(full(CZ_approx-CZ))/norm(full(CZ));
-%     fprintf('\nerror = %.3e for CZ',errCZ);
-%     fprintf('\n');
+    
+    CZ_approx = W*diag(S).^2*W';
+    CZ = cov(Zc'); % CZ = 1/(N-1)*Zc(:,:)*Zc(:,:)';
+    errCZ = norm(full(CZ_approx-CZ))/norm(full(CZ));
+    fprintf('\nerror = %.3e for CZ',errCZ);
+    fprintf('\n');
+    
+    figure('Name','Covariance matrix')
+    clf
+    % surf(CZ)
+    imagesc(CZ)
+    colorbar
+    axis image
+    set(gca,'FontSize',fontsize)
+    xlabel('$K=(k-1)R+\alpha$','Interpreter','latex')
+    ylabel('$K''=(k''-1)R+\alpha''$','Interpreter','latex')
+    title('Covariance matrix $[C_{\zeta}(t^k,t^{k''})]_{\alpha,\alpha''} = [C_Z]_{K,K''}$','Interpreter','latex')
+    mysaveas(gridname,'covariance_CZ',formats,renderer);
+    mymatlab2tikz(gridname,'covariance_CZ.tex');
+    
 %     for t=0:p
 %         CZt_approx = CZ_approx(t*Rmax+(1:Rmax),t*Rmax+(1:Rmax));
 %         CZt = CZ(t*Rmax+(1:Rmax),t*Rmax+(1:Rmax));
-%         norm(CZt_approx-eye(Q,Q))
-%         norm(CZt-eye(Q,Q))
+%         
+%         figure('Name','Covariance matrix')
+%         clf
+%         % surf(CZt)
+%         imagesc(CZt)
+%         colorbar
+%         axis image
+%         set(gca,'FontSize',fontsize)
+%         xlabel('$\alpha$','Interpreter','latex')
+%         ylabel('$\alpha''$','Interpreter','latex')
+%         title(['Covariance matrix $[C_{\zeta}(t^k,t^k)]_{\alpha,\alpha''} = [C_{Z_k}]_{\alpha,\alpha''}$ for $k=$' num2str(t)],'Interpreter','latex')
+%         mysaveas(gridname,['covariance_CZ_t' num2str(t*100)],formats,renderer);
+%         mymatlab2tikz(gridname,['covariance_CZ_t' num2str(t*100) '.tex']);
 %     end
-%     
-%     figure('Name','Evolution of eigenvalues')
-%     clf
-%     semilogy(1:Q,S(:).^2,'LineStyle','-','Color','b','LineWidth',1);
-%     grid on
-%     box on
-%     set(gca,'FontSize',fontsize)
-%     xlabel('$\beta$','Interpreter','latex')
-%     ylabel('$\Lambda_{\beta}$','Interpreter','latex')
-%     mysaveas(gridname,'eigenvalues_CZ',formats,renderer);
-%     mymatlab2tikz(gridname,'eigenvalues_CZ');
     
+    figure('Name','Evolution of eigenvalues')
+    clf
+    semilogy(1:Q,S(:).^2,'LineStyle','-','Color','b','LineWidth',1);
+    grid on
+    box on
+    set(gca,'FontSize',fontsize)
+    xlabel('$\beta$','Interpreter','latex')
+    ylabel('$\Lambda_{\beta}$','Interpreter','latex')
+    mysaveas(gridname,'eigenvalues_CZ',formats,renderer);
+    mymatlab2tikz(gridname,'eigenvalues_CZ.tex');
+    
+    
+    q = (p+1)*Rmax;
+    Zc = permute(Z,[1,3,2]);
+    Zc = Zc(:,:)';
+    [W,S,X] = svdtruncate(Zc,tol);
+    S = S/sqrt(N-1);
+    X = X*sqrt(N-1);
+    Zc_approx = W*diag(S)*X';
+    errZ = norm(full(Zc_approx-Zc))/norm(full(Zc));
+    Q = length(S);
+    fprintf('\nrank R = %d, rank Q = %d, error = %.3e for Z',Rmax,Q,errZ);
+    
+    mX = mean(X,1)';
+    CX = cov(X); % CX = 1/(N-1)*X'*X;
+    norm(mX)
+    norm(CX-eye(Q))
+    norm(W'*W-eye(Q))
+    
+    CZ_approx = W*diag(S).^2*W';
+    CZ = cov(Zc'); % CZ = 1/(N-1)*Zc(:,:)*Zc(:,:)';
+    errCZ = norm(full(CZ_approx-CZ))/norm(full(CZ));
+    fprintf('\nerror = %.3e for CZ',errCZ);
+    fprintf('\n');
+    
+    figure('Name','Covariance matrix')
+    clf
+    % surf(CZ)
+    imagesc(CZ)
+    colorbar
+    axis image
+    set(gca,'FontSize',fontsize)
+    xlabel('$K=\alpha p+k$','Interpreter','latex')
+    ylabel('$K''=\alpha'' p+k''$','Interpreter','latex')
+    title('Covariance matrix $[C_{\zeta}(t^k,t^{k''})]_{\alpha,\alpha''} = [C_Z]_{K,K''}$','Interpreter','latex')
+    mysaveas(gridname,'covariance_CZ',formats,renderer);
+    mymatlab2tikz(gridname,'covariance_CZ.tex');
+    
+    figure('Name','Evolution of eigenvalues')
+    clf
+    semilogy(1:Q,S(:).^2,'LineStyle','-','Color','b','LineWidth',1);
+    grid on
+    box on
+    set(gca,'FontSize',fontsize)
+    xlabel('$\beta$','Interpreter','latex')
+    ylabel('$\Lambda_{\beta}$','Interpreter','latex')
+    mysaveas(gridname,'eigenvalues_CZ',formats,renderer);
+    mymatlab2tikz(gridname,'eigenvalues_CZ.tex');
     
     % save(fullfile(gridname,'res.mat'),'mY','V','W','Sig','S');
     
