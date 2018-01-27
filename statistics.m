@@ -45,7 +45,7 @@ for g=2.^(4:7)
     if solveProblem
         %% First reduction step
         mY = mean(Y,1);
-        Yc = Y - mY.*ones(N,1,1,1); % Yc = Y - repmat(mY,N,1,1,1);
+        Yc = Y - repmat(mY,N,1,1,1); % Yc = Y - mY.*ones(N,1,1,1);
         Sig = zeros(R,p+1);
         V = zeros(r,R,p+1);
         Z = zeros(N,R,p+1);
