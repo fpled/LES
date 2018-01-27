@@ -1,9 +1,9 @@
 clc
 clearvars
-% close all
+close all
 
 solveProblem = true;
-displaySolution = true;
+displaySolution = false;
 displayEigenvales = false;
 displayCovariance  = false;
 
@@ -21,8 +21,8 @@ renderer = 'OpenGL';
 pathname = fileparts(mfilename('fullpath'));
 
 % for g=2.^(4:8)
-% for g=2.^(4:6)
-for g=2.^4
+for g=2.^(4:7)
+% for g=2.^4
     gridname = ['Grid' num2str(g)];
     disp(gridname)
     pathnamegrid = fullfile(pathname,gridname);
@@ -286,13 +286,23 @@ for g=2.^4
             W = reshape(W',[Q,Rmax,p+1]);
             % Z_approx = reshape(Zc_approx',[N,Rmax,p+1]);
     end
-    Yc_approx = zeros(N,n,m,p+1);
+    % Yc_approx = zeros(N,n,m,p+1);
     Uc_approx = zeros(Q,n,m,p+1);
+    
+%     u = repmat({zeros(3*m,p+1)},1,N);
+%     phase = repmat({zeros(m,p+1)},1,N);
     mu = zeros(3*m,p+1);
     Vu = zeros(3*m,p+1);
     mphase = zeros(m,p+1);
     Vphase = zeros(m,p+1);
     for t=0:p
+%         for l=1:N
+%             Ylt = reshape(Y(l,:,:,t+1),[n,m]);
+%             ult = Ylt(1:3,:);
+%             phaselt = Ylt(4,:);
+%             u{l}(:,t+1) = ult(:);
+%             phase{l}(:,t+1) = phaselt(:);
+%         end
         mYt = reshape(mY(1,:,:,t+1),[n,m]);
         mut = mYt(1:3,:);
         mphaset = mYt(4,:);
@@ -304,9 +314,9 @@ for g=2.^4
         Sigt = Sig(:,t+1);
         Wt = reshape(W(:,:,t+1),[Q,Rmax]);
         % Zt_approx = reshape(Z_approx(:,:,t+1),[N,Rmax]);
-        Zt_approx = X*diag(S)*Wt;
-        Yct_approx = Vt*diag(Sigt)*Zt_approx';
-        Yc_approx(:,:,:,t+1) = reshape(Yct_approx',[N,n,m]);
+        % Zt_approx = X*diag(S)*Wt;
+        % Yct_approx = Vt*diag(Sigt)*Zt_approx';
+        % Yc_approx(:,:,:,t+1) = reshape(Yct_approx',[N,n,m]);
         Uct_approx = Wt*diag(Sigt)*Vt';
         Uc_approx(:,:,:,t+1) = reshape(Uct_approx,[Q,n,m]);
         
@@ -319,10 +329,15 @@ for g=2.^4
         VYt = 1/(N-1)*sum(Yct(:,:).^2)';
         errVYt = norm(full(VYt_approx-VYt))/norm(full(VYt));
         fprintf('\nTime t = %4.f s : error = %.3e for VY',t*100,errVYt);
+        
         Vu(:,t+1) = VYt(setdiff(1:end,n:n:end));
         Vphase(:,t+1) = VYt(n:n:end);
     end
     fprintf('\n');
+%     for l=1:N
+%         u{l} = TIMEMATRIX(u{l},T);
+%         phase{l} = TIMEMATRIX(phase{l},T);
+%     end
     mu = TIMEMATRIX(mu,T);
     mphase = TIMEMATRIX(mphase,T);
     Vu = TIMEMATRIX(Vu,T);
@@ -347,8 +362,8 @@ for g=2.^4
         for i=1:3
             evolSolution(M,mu,'displ',i,'colormap',cmap,'filename',['evol_mean_u' num2str(i)],'pathname',pathnamegrid,'FrameRate',framerate,...
                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-            % evolSolution(M,Vu,'displ',i,'colormap',cmap,'filename',['evol_var_u' num2str(i)],'pathname',pathnamegrid,'FrameRate',framerate);,...
-            %     'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
+%             evolSolution(M,Vu,'displ',i,'colormap',cmap,'filename',['evol_var_u' num2str(i)],'pathname',pathnamegrid,'FrameRate',framerate);,...
+%                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
             
             figure('Name',['Mean of velocity u' num2str(i)])
             clf
@@ -373,15 +388,16 @@ for g=2.^4
 %             mysaveas(pathnamegrid,['var_u' num2str(i) '_t' num2str(t*100)],formats,renderer);
         end
         
-        M = final(M,DDL('Phase'));
-        evolSolution(M,mphase,'colormap',cmap,'filename','evol_mean_phase','pathname',pathnamegrid,'FrameRate',framerate,...
+        Mphase = final(M,DDL('Phase'));
+        
+        evolSolution(Mphase,mphase,'colormap',cmap,'filename','evol_mean_phase','pathname',pathnamegrid,'FrameRate',framerate,...
             'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-        % evolSolution(M,Vphase,'colormap',cmap,'filename','evol_var_phase','pathname',pathnamegrid,'FrameRate',framerate,...
-        %         'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
+%         evolSolution(Mphase,Vphase,'colormap',cmap,'filename','evol_var_phase','pathname',pathnamegrid,'FrameRate',framerate,...
+%             'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
         
         figure('Name','Mean of phase')
         clf
-        plot_sol(M,getmatrixatstep(mphase,t+1));
+        plot_sol(Mphase,getmatrixatstep(mphase,t+1));
         title(['time ' num2str(t*100,'%.2f') ' s'],'FontSize',fontsize)
         colormap(cmap)
         colorbar
@@ -392,19 +408,34 @@ for g=2.^4
         
 %         figure('Name','Variance of phase')
 %         clf
-%         plot_sol(M,getmatrixatstep(Vphase,t+1));
+%         plot_sol(Mphase,getmatrixatstep(Vphase,t+1));
 %         title(['time ' num2str(t*100,'%.2f') ' s'],'FontSize',fontsize)
 %         colormap(cmap)
 %         colorbar
 %         box on
 %         set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
 %         mysaveas(gridname,['var_phase_t' num2str(t*100)],formats,renderer);
-        
-        for t=0:p
-            mut = getmatrixatstep(mu,t+1);
-            mphaset = getmatrixatstep(mphase,t+1);
-            write_vtk_mesh(M,mut,mphaset,pathnamegrid,'diphasic_fluids_mean',1,t);
-        end
-        make_pvd_file(pathnamegrid,'diphasic_fluids_mean',1,p+1);
+    
     end
+    
+%     for l=1:N
+%         for t=0:p
+%             ult = getmatrixatstep(u{l},t+1);
+%             phaselt = getmatrixatstep(phase{l},t+1);
+%             write_vtk_mesh(M,ult,phaselt,pathnamegrid,['diphasic_fluids_sample' num2str(l)],1,t);
+%         end
+%         make_pvd_file(pathnamegrid,['diphasic_fluids_sample' num2str(l)],1,p+1);
+%     end
+    
+    for t=0:p
+        mut = getmatrixatstep(mu,t+1);
+        mphaset = getmatrixatstep(mphase,t+1);
+        Vut = getmatrixatstep(mu,t+1);
+        Vphaset = getmatrixatstep(mphase,t+1);
+        write_vtk_mesh(M,mut,mphaset,pathnamegrid,'diphasic_fluids_mean',1,t);
+        write_vtk_mesh(M,Vut,Vphaset,pathnamegrid,'diphasic_fluids_variance',1,t);
+    end
+    make_pvd_file(pathnamegrid,'diphasic_fluids_mean',1,p+1);
+    make_pvd_file(pathnamegrid,'diphasic_fluids_variance',1,p+1);
+
 end

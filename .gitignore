@@ -16,4 +16,5 @@
 *.mp4
 *.vtu
 *.pvd
+*.pvsm
 .DS_Store
