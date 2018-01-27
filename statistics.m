@@ -40,7 +40,7 @@ for g=2.^(4:7)
     fprintf('\np+1 = %d time steps',p+1);
     fprintf('\n');
     
-    tol = 0;
+    tol = eps;
     
     if solveProblem
         %% First reduction step
