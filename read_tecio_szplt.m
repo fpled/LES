@@ -25,10 +25,13 @@ n = length(varnames); % number of variables
 p = 50; % number of time steps
 N = 19; % number of samples
 
+pathname = fileparts(mfilename('fullpath'));
+
 % for g=2.^(4:8)
 for g=2.^(4:7)
     gridname = ['Grid' num2str(g)];
     disp(gridname)
+    
     m = (g+1)^3; % number of spatial points
     % Y = zeros(N,m*n,p+1);
     Y = zeros(N,n,m,p+1);
@@ -40,7 +43,7 @@ for g=2.^(4:7)
         for t=0:p
             filename = ['InvPhase3d_' num2str(t,'%05d00') '.szplt'];
             
-            file = fullfile(gridname,foldername,filename);
+            file = fullfile(pathname,gridname,foldername,filename);
             [isok,~,handle] = calllib('tecio','tecFileReaderOpen',file,[]);
             
             title = libpointer('stringPtrPtr',cell(1,1));
@@ -98,7 +101,8 @@ for g=2.^(4:7)
         Y(l,:,:,:) = Yl;
         
     end
-    save(fullfile(gridname,'data.mat'),'Y');
+    
+    save(fullfile(pathname,gridname,'data.mat'),'Y');
 end
 
 if libisloaded('tecio')
