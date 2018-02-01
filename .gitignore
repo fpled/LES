@@ -6,6 +6,7 @@
 *.out
 *.par
 *.don
+*.ini
 *.mat
 *.png
 *.tex
