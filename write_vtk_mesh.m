@@ -1,12 +1,18 @@
 function []=write_vtk_mesh(M,u,phase,pathname,filename,part,time,binary_output)
 
-if nargin<6
+if nargin<4 || isempty(pathname)
+    pathname='.';
+end
+if nargin<5 || isempty(filename)
+    filename='paraview';
+end
+if nargin<6 || isempty(part)
     part=1;
 end
-if nargin<7
+if nargin<7 || isempty(time)
     time=0;
 end
-if nargin<8
+if nargin<8 || isempty(binary_output)
     binary_output=1;
 end
 

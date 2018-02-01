@@ -1,11 +1,11 @@
 clc
 clearvars
-close all
+% close all
 
 solveProblem = true;
 displaySolution = false;
 displayEigenvales = false;
-displayCovariance  = false;
+displayCovariance  = true;
 
 % index = 'time';
 index = 'coord';
@@ -21,8 +21,8 @@ renderer = 'OpenGL';
 pathname = fileparts(mfilename('fullpath'));
 
 % for g=2.^(4:8)
-for g=2.^(4:7)
-% for g=2.^4
+% for g=2.^(4:7)
+for g=2.^4
     gridname = ['Grid' num2str(g)];
     disp(gridname)
     pathnamegrid = fullfile(pathname,gridname);
@@ -295,6 +295,8 @@ for g=2.^(4:7)
     Vu = zeros(3*m,p+1);
     mphase = zeros(m,p+1);
     Vphase = zeros(m,p+1);
+%     v = repmat({zeros(3*m,p+1)},1,N);
+%     vphase = repmat({zeros(m,p+1)},1,N);
     for t=0:p
 %         for l=1:N
 %             Ylt = reshape(Y(l,:,:,t+1),[n,m]);
@@ -302,6 +304,13 @@ for g=2.^(4:7)
 %             phaselt = Ylt(4,:);
 %             u{l}(:,t+1) = ult(:);
 %             phase{l}(:,t+1) = phaselt(:);
+%         end
+%         for a=1:Rmax
+%             Vat = reshape(V(:,a,t+1),[n,m]);
+%             vat = Vat(1:3,:);
+%             vphaseat = Vat(4,:);
+%             v{a}(:,t+1) = vat(:);
+%             vphase{a}(:,t+1) = vphaseat(:);
 %         end
         mYt = reshape(mY(1,:,:,t+1),[n,m]);
         mut = mYt(1:3,:);
@@ -337,6 +346,10 @@ for g=2.^(4:7)
 %     for l=1:N
 %         u{l} = TIMEMATRIX(u{l},T);
 %         phase{l} = TIMEMATRIX(phase{l},T);
+%     end
+%     for a=1:Rmax
+%         v{a} = TIMEMATRIX(v{a},T);
+%         vphase{a} = TIMEMATRIX(vphase{a},T);
 %     end
     mu = TIMEMATRIX(mu,T);
     mphase = TIMEMATRIX(mphase,T);
@@ -425,6 +438,14 @@ for g=2.^(4:7)
 %             write_vtk_mesh(M,ult,phaselt,pathnamegrid,['diphasic_fluids_sample' num2str(l)],1,t);
 %         end
 %         make_pvd_file(pathnamegrid,['diphasic_fluids_sample' num2str(l)],1,p+1);
+%     end
+%     for a=1:Rmax
+%         for t=0:p
+%             vat = getmatrixatstep(v{a},t+1);
+%             vphaseat = getmatrixatstep(vphase{a},t+1);
+%             write_vtk_mesh(M,vat,vphaseat,pathnamegrid,['diphasic_fluids_eigenvector' num2str(a)],1,t);
+%         end
+%         make_pvd_file(pathnamegrid,['diphasic_fluids_eigenvector' num2str(a)],1,p+1);
 %     end
     
     for t=0:p

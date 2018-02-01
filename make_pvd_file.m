@@ -1,12 +1,18 @@
-function []=make_pvd_file(dirname,filename,np,nt,ext)
+function []=make_pvd_file(pathname,filename,np,nt,ext)
 
-if nargin<3
+if nargin<1 || isempty(pathname)
+    pathname='.';
+end
+if nargin<2 || isempty(filename)
+    filename='paraview';
+end
+if nargin<3 || isempty(np)
     np=1;
 end
-if nargin<4
+if nargin<4 || isempty(nt)
     nt=1;
 end
-if nargin<5
+if nargin<5 || isempty(ext)
     ext='vtu';
 end
 
@@ -19,7 +25,7 @@ else
     endian_paraview='BigEndian';
 end
 
-f = fullfile(dirname,filename);
+f = fullfile(pathname,filename);
 filename = strcat(f,'.pvd');
 fmesh = fopen(filename,'w',endian_matlab);
 fprintf(fmesh,'<?xml version="1" ?>\n');
