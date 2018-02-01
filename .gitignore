@@ -8,6 +8,8 @@
 *.don
 *.ini
 *.mat
+*.gz
+*.tar
 *.png
 *.tex
 *.eps
