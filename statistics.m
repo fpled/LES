@@ -1,11 +1,11 @@
 clc
 clearvars
-% close all
+close all
 
 solveProblem = true;
 displaySolution = false;
 displayEigenvales = false;
-displayCovariance  = true;
+displayCovariance  = false;
 
 % index = 'time';
 index = 'coord';
