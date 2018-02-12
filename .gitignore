@@ -1,15 +1,15 @@
 *~
 *.o
+*.out
+*.output
+*.don
+*.par
+*.ini
+*.slurm
 *.dat
 *.plt
 *.szplt
-*.out
-*.par
-*.don
-*.ini
 *.mat
-*.gz
-*.tar
 *.png
 *.tex
 *.eps
@@ -20,4 +20,5 @@
 *.vtu
 *.pvd
 *.pvsm
+thetis
 .DS_Store
