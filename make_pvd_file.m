@@ -25,8 +25,8 @@ else
     endian_paraview='BigEndian';
 end
 
-f = fullfile(pathname,filename);
-filename = strcat(f,'.pvd');
+f = filename;
+filename = fullfile(pathname,strcat(filename,'.pvd'));
 fid = fopen(filename,'w',endian_matlab);
 fprintf(fid,'<?xml version="1" ?>\n');
 

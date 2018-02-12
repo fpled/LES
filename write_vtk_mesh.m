@@ -51,7 +51,7 @@ else
 end
 offset=0;
 
-filename=fullfile(pathname,strcat(filename,'_',num2str(part),'_',num2str(time),'.vtu'));
+filename = fullfile(pathname,strcat(filename,'_',num2str(part),'_',num2str(time),'.vtu'));
 fid = fopen(filename,'w',endian_matlab);
 fprintf(fid,'<?xml version="1" ?>\n');
 
