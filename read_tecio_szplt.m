@@ -23,12 +23,12 @@ end
 varnames = {'vitesse_x1','vitesse_x2','vitesse_x3','fluide2'}; % variable names
 n = length(varnames); % number of variables
 p = 50; % number of time steps
-N = 19; % number of samples
+N = 40; % number of samples
 
 pathname = fileparts(mfilename('fullpath'));
 
 % for g=2.^(4:8)
-for g=2.^(4:7)
+for g=2.^4
     gridname = ['Grid' num2str(g)];
     disp(gridname)
     
@@ -36,14 +36,14 @@ for g=2.^(4:7)
     % Y = zeros(N,m*n,p+1);
     Y = zeros(N,n,m,p+1);
     for l=1:N
-        foldername = ['CasInvPhase3D-' num2str(l)];
+        foldername = ['Cas-' num2str(l)];
         
         % Yl = zeros(m*n,p+1);
         Yl = zeros(n,m,p+1);
         for t=0:p
             filename = ['InvPhase3d_' num2str(t,'%05d00') '.szplt'];
             
-            file = fullfile(pathname,gridname,foldername,filename);
+            file = fullfile(pathname,gridname,foldername,'validation',filename);
             [isok,~,handle] = calllib('tecio','tecFileReaderOpen',file,[]);
             
             title = libpointer('stringPtrPtr',cell(1,1));
