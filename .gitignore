@@ -20,4 +20,5 @@
 *.vtu
 *.pvd
 *.pvsm
+thetis
 .DS_Store
