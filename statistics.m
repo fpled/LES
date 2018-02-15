@@ -21,19 +21,13 @@ renderer = 'OpenGL';
 pathname = fileparts(mfilename('fullpath'));
 
 % for g=2.^(4:8)
-% for g=2.^(4:7)
-for g=2.^4
+for g=2.^(4:7)
+% for g=2.^7
     gridname = ['Grid' num2str(g)];
     disp(gridname)
     pathnamegrid = fullfile(pathname,gridname);
-    load(fullfile(pathnamegrid,'data.mat'),'Y');
+    load(fullfile(pathnamegrid,'data.mat'),'N','n','m','p');
     
-    N = size(Y,1);
-    n = size(Y,2);
-    m = size(Y,3);
-    p = size(Y,4)-1;
-    r = n*m;
-    R = min(r,N);
     fprintf('\nn = %d variables',n);
     fprintf('\nN = %d samples',N);
     fprintf('\nm = %d spatial points',m);
@@ -43,9 +37,17 @@ for g=2.^4
     tol = eps;
     
     if solveProblem
+        load(fullfile(pathnamegrid,'data.mat'),'Y');
+        % N = size(Y,1);
+        % n = size(Y,2);
+        % m = size(Y,3);
+        % p = size(Y,4)-1;
+        r = n*m;
+        R = min(r,N);
         %% First reduction step
         mY = mean(Y,1);
         Yc = Y - repmat(mY,N,1,1,1); % Yc = Y - mY.*ones(N,1,1,1);
+        clear Y
         Sig = zeros(R,p+1);
         V = zeros(r,R,p+1);
         Z = zeros(N,R,p+1);
@@ -289,29 +291,11 @@ for g=2.^4
     % Yc_approx = zeros(N,n,m,p+1);
     Uc_approx = zeros(Q,n,m,p+1);
     
-%     u = repmat({zeros(3*m,p+1)},1,N);
-%     phase = repmat({zeros(m,p+1)},1,N);
     mu = zeros(3*m,p+1);
     Vu = zeros(3*m,p+1);
     mphase = zeros(m,p+1);
     Vphase = zeros(m,p+1);
-%     v = repmat({zeros(3*m,p+1)},1,N);
-%     vphase = repmat({zeros(m,p+1)},1,N);
     for t=0:p
-%         for l=1:N
-%             Ylt = reshape(Y(l,:,:,t+1),[n,m]);
-%             ult = Ylt(1:3,:);
-%             phaselt = Ylt(4,:);
-%             u{l}(:,t+1) = ult(:);
-%             phase{l}(:,t+1) = phaselt(:);
-%         end
-%         for a=1:Rmax
-%             Vat = reshape(V(:,a,t+1),[n,m]);
-%             vat = Vat(1:3,:);
-%             vphaseat = Vat(4,:);
-%             v{a}(:,t+1) = vat(:);
-%             vphase{a}(:,t+1) = vphaseat(:);
-%         end
         mYt = reshape(mY(1,:,:,t+1),[n,m]);
         mut = mYt(1:3,:);
         mphaset = mYt(4,:);
@@ -343,14 +327,6 @@ for g=2.^4
         Vphase(:,t+1) = VYt(n:n:end);
     end
     fprintf('\n');
-%     for l=1:N
-%         u{l} = TIMEMATRIX(u{l},T);
-%         phase{l} = TIMEMATRIX(phase{l},T);
-%     end
-%     for a=1:Rmax
-%         v{a} = TIMEMATRIX(v{a},T);
-%         vphase{a} = TIMEMATRIX(vphase{a},T);
-%     end
     mu = TIMEMATRIX(mu,T);
     mphase = TIMEMATRIX(mphase,T);
     Vu = TIMEMATRIX(Vu,T);
@@ -430,23 +406,6 @@ for g=2.^4
 %         mysaveas(gridname,['var_phase_t' num2str(t*100)],formats,renderer);
     
     end
-    
-%     for l=1:N
-%         for t=0:p
-%             ult = getmatrixatstep(u{l},t+1);
-%             phaselt = getmatrixatstep(phase{l},t+1);
-%             write_vtk_mesh(M,ult,phaselt,pathnamegrid,['diphasic_fluids_sample' num2str(l)],1,t);
-%         end
-%         make_pvd_file(pathnamegrid,['diphasic_fluids_sample' num2str(l)],1,p+1);
-%     end
-%     for a=1:Rmax
-%         for t=0:p
-%             vat = getmatrixatstep(v{a},t+1);
-%             vphaseat = getmatrixatstep(vphase{a},t+1);
-%             write_vtk_mesh(M,vat,vphaseat,pathnamegrid,['diphasic_fluids_eigenvector' num2str(a)],1,t);
-%         end
-%         make_pvd_file(pathnamegrid,['diphasic_fluids_eigenvector' num2str(a)],1,p+1);
-%     end
     
     for t=0:p
         mut = getmatrixatstep(mu,t+1);

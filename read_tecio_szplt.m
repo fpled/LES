@@ -28,7 +28,7 @@ N = 40; % number of samples
 pathname = fileparts(mfilename('fullpath'));
 
 % for g=2.^(4:8)
-for g=2.^4
+for g=2.^(4:7)
     gridname = ['Grid' num2str(g)];
     disp(gridname)
     
@@ -37,6 +37,7 @@ for g=2.^4
     Y = zeros(N,n,m,p+1);
     for l=1:N
         foldername = ['Cas-' num2str(l)];
+        disp(foldername)
         
         % Yl = zeros(m*n,p+1);
         Yl = zeros(n,m,p+1);
@@ -101,8 +102,8 @@ for g=2.^4
         Y(l,:,:,:) = Yl;
         
     end
-    
-    save(fullfile(pathname,gridname,'data.mat'),'Y');
+    fprintf('\n');
+    save(fullfile(pathname,gridname,'data.mat'),'Y','N','n','m','p');
 end
 
 if libisloaded('tecio')
