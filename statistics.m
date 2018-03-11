@@ -21,12 +21,13 @@ renderer = 'OpenGL';
 pathname = fileparts(mfilename('fullpath'));
 
 % for g=2.^(4:8)
-% for g=2.^(4:7)
-for g=2.^8
+for g=2.^(4:7)
+% for g=2.^4
     gridname = ['Grid' num2str(g)];
     disp(gridname)
     pathnamegrid = fullfile(pathname,gridname);
     load(fullfile(pathnamegrid,'data.mat'),'N','n','m','p');
+    r = n*m;
     
     fprintf('\nn = %d variables',n);
     fprintf('\nN = %d samples',N);
@@ -46,7 +47,6 @@ for g=2.^8
         else
             mY = zeros(1,n,m,p+1);
         end
-        r = n*m;
         R = min(r,N);
         Sig = zeros(R,p+1);
         V = zeros(r,R,p+1);
@@ -86,104 +86,58 @@ for g=2.^8
         V = V(:,1:Rmax,:);
         Z = Z(:,1:Rmax,:);
         
-        if displayEigenvales
-            time = 0:10:p;
-            for i=1:length(time)-1
-                figure('Name','Evolution of eigenvalues')
-                clf
-                leg = cell(1,11);
-                c = 0;
-                for t=time(i):time(i+1)
-                    c = c+1;
-                    semilogy(1:Rmax,Sig(:,t+1).^2,'LineStyle','-','Color',getfacecolor(c),'LineWidth',1);
-                    leg{c} = ['t = ' num2str(t*100) ' s'];
-                    hold on
-                end
-                hold off
-                grid on
-                box on
-                set(gca,'FontSize',fontsize)
-                xlabel('$\alpha$','Interpreter','latex')
-                ylabel('$\lambda_{\alpha}(t)$','Interpreter','latex')
-                legend(leg{:},'Location','NorthEastOutside')
-                mysaveas(pathnamegrid,['eigenvalues_CY_t' num2str(time(i)*100) '_t' num2str(time(i+1)*100)],formats,renderer);
-                mymatlab2tikz(pathnamegrid,['eigenvalues_CY_t' num2str(time(i)*100) '_t' num2str(time(i+1)*100) '.tex']);
-            end
-        end
-        
         %% Second reduction step for each coordinate
-        Q = min(p+1,N);
-        S = zeros(Q,Rmax);
-        W = zeros(p+1,Q,Rmax);
-        X = zeros(N,Q,Rmax);
-        Q = zeros(1,Rmax);
-        Qmax = 1;
-        for a=1:Rmax
-            Zca = Z(:,a,:);
-            Zca = Zca(:,:)';
-            [Wa,Sa,Xa] = svdtruncate(Zca,tol);
-            Sa = Sa/sqrt(N-1);
-            Xa = Xa*sqrt(N-1);
-            Zca_approx = Wa*diag(Sa)*Xa';
-            errZa = norm(full(Zca_approx-Zca))/norm(full(Zca));
-            Qa = length(Sa);
-            Qmax = max(Qmax,Qa);
-            fprintf('\nCoordinate alpha = %2.f : rank Q = %d, error = %.3e for Z',a,Qa,errZa);
-            S(1:Qa,a) = Sa;
-            W(:,1:Qa,a) = Wa;
-            X(:,1:Qa,a) = Xa;
-            Q(a) = Qa;
-            
-            % mXa = mean(Xa,1)';
-            % CXa = cov(Xa); % CXa = 1/(N-1)*Xa(:,:)'*Xa(:,:);
-            % norm(mXa)
-            % norm(CXa-eye(Qa))
-            % norm(Wa'*Wa-eye(Qa))
-            
-            CZa_approx = Wa*diag(Sa).^2*Wa';
-            CZa = cov(Zca'); % CZa = 1/(N-1)*Zca(:,:)*Zca(:,:)';
-            errCZa = norm(full(CZa_approx-CZa))/norm(full(CZa));
-            fprintf('\n                                     error = %.3e for CZ',errCZa);
-            
-            if displayCovariance
-                figure('Name','Covariance matrix')
-                clf
-                imagesc(CZa)
-                colorbar
-                axis image
-                set(gca,'FontSize',fontsize)
-                xlabel('$k$','Interpreter','latex')
-                ylabel('$k''$','Interpreter','latex')
-                title(['Covariance matrix $[C_{\zeta}(t^k,t^{k''})]_{\alpha,\alpha} = [C_{Z_{\alpha}}]_{k,k''}$ for $\alpha=$' num2str(a)],'Interpreter','latex')
-                mysaveas(pathnamegrid,['covariance_CZ_a' num2str(a)],formats,renderer);
-                mymatlab2tikz(pathnamegrid,['covariance_CZ_a' num2str(a) '.tex']);
-            end
-        end
-        fprintf('\n');
-        S = S(1:Qmax,:);
-        W = W(:,1:Qmax,:);
-        X = X(:,1:Qmax,:);
-        
-        if displayEigenvales
-            figure('Name','Evolution of eigenvalues')
-            clf
-            leg = cell(1,Rmax);
-            for a=1:Rmax
-                semilogy(1:Q(a),S(1:Q(a),a).^2,'LineStyle','-','Color',getfacecolor(a),'LineWidth',1);
-                leg{a} = ['$\alpha$ = ' num2str(a)];
-                hold on
-            end
-            hold off
-            grid on
-            box on
-            set(gca,'FontSize',fontsize)
-            xlabel('$\beta$','Interpreter','latex')
-            ylabel('$\Lambda_{\beta}$','Interpreter','latex')
-            l = legend(leg{:},'Location','NorthEastOutside');
-            set(l,'Interpreter','latex');
-            mysaveas(pathnamegrid,'eigenvalues_CZa',formats,renderer);
-            mymatlab2tikz(pathnamegrid,'eigenvalues_CZa.tex');
-        end
+%         Q = min(p+1,N);
+%         S = zeros(Q,Rmax);
+%         W = zeros(p+1,Q,Rmax);
+%         X = zeros(N,Q,Rmax);
+%         Q = zeros(1,Rmax);
+%         Qmax = 1;
+%         for a=1:Rmax
+%             Zca = Z(:,a,:);
+%             Zca = Zca(:,:)';
+%             [Wa,Sa,Xa] = svdtruncate(Zca,tol);
+%             Sa = Sa/sqrt(N-1);
+%             Xa = Xa*sqrt(N-1);
+%             Zca_approx = Wa*diag(Sa)*Xa';
+%             errZa = norm(full(Zca_approx-Zca))/norm(full(Zca));
+%             Qa = length(Sa);
+%             Qmax = max(Qmax,Qa);
+%             fprintf('\nCoordinate alpha = %2.f : rank Q = %d, error = %.3e for Z',a,Qa,errZa);
+%             S(1:Qa,a) = Sa;
+%             W(:,1:Qa,a) = Wa;
+%             X(:,1:Qa,a) = Xa;
+%             Q(a) = Qa;
+%             
+%             % mXa = mean(Xa,1)';
+%             % CXa = cov(Xa); % CXa = 1/(N-1)*Xa(:,:)'*Xa(:,:);
+%             % norm(mXa)
+%             % norm(CXa-eye(Qa))
+%             % norm(Wa'*Wa-eye(Qa))
+%             
+%             CZa_approx = Wa*diag(Sa).^2*Wa';
+%             CZa = cov(Zca'); % CZa = 1/(N-1)*Zca(:,:)*Zca(:,:)';
+%             errCZa = norm(full(CZa_approx-CZa))/norm(full(CZa));
+%             fprintf('\n                                     error = %.3e for CZ',errCZa);
+%             
+%             if displayCovariance
+%                 figure('Name','Covariance matrix')
+%                 clf
+%                 imagesc(CZa)
+%                 colorbar
+%                 axis image
+%                 set(gca,'FontSize',fontsize)
+%                 xlabel('$k$','Interpreter','latex')
+%                 ylabel('$k''$','Interpreter','latex')
+%                 title(['Covariance matrix $[C_{\zeta}(t^k,t^{k''})]_{\alpha,\alpha} = [C_{Z_{\alpha}}]_{k,k''}$ for $\alpha=$' num2str(a)],'Interpreter','latex')
+%                 mysaveas(pathnamegrid,['covariance_CZ_a' num2str(a)],formats,renderer);
+%                 mymatlab2tikz(pathnamegrid,['covariance_CZ_a' num2str(a) '.tex']);
+%             end
+%         end
+%         fprintf('\n');
+%         S = S(1:Qmax,:);
+%         W = W(:,1:Qmax,:);
+%         X = X(:,1:Qmax,:);
         
         %% Second reduction step
         % q = (p+1)*Rmax;
@@ -257,25 +211,69 @@ for g=2.^8
 %             end
         end
         
-        if displayEigenvales
-            figure('Name','Evolution of eigenvalues')
-            clf
-            semilogy(1:Q,S(:).^2,'LineStyle','-','Color','b','LineWidth',1);
-            grid on
-            box on
-            set(gca,'FontSize',fontsize)
-            xlabel('$\beta$','Interpreter','latex')
-            ylabel('$\Lambda_{\beta}$','Interpreter','latex')
-            mysaveas(pathnamegrid,'eigenvalues_CZ',formats,renderer);
-            mymatlab2tikz(pathnamegrid,'eigenvalues_CZ.tex');
-        end
-        
         save(fullfile(pathnamegrid,'solution.mat'),'mY','V','W','Sig','S','Rmax','Q');
     else
         load(fullfile(pathnamegrid,'solution.mat'),'mY','V','W','Sig','S','Rmax','Q');
     end
     
     %% Outputs
+    % Display eigenvalues
+    if displayEigenvales
+        time = 0:10:p;
+        for i=1:length(time)-1
+            figure('Name','Evolution of eigenvalues')
+            clf
+            leg = cell(1,11);
+            c = 0;
+            for t=time(i):time(i+1)
+                c = c+1;
+                semilogy(1:Rmax,Sig(:,t+1).^2,'LineStyle','-','Color',getfacecolor(c),'LineWidth',1);
+                leg{c} = ['t = ' num2str(t*100) ' s'];
+                hold on
+            end
+            hold off
+            grid on
+            box on
+            set(gca,'FontSize',fontsize)
+            xlabel('$\alpha$','Interpreter','latex')
+            ylabel('$\lambda_{\alpha}(t)$','Interpreter','latex')
+            legend(leg{:},'Location','NorthEastOutside')
+            mysaveas(pathnamegrid,['eigenvalues_CY_t' num2str(time(i)*100) '_t' num2str(time(i+1)*100)],formats,renderer);
+            mymatlab2tikz(pathnamegrid,['eigenvalues_CY_t' num2str(time(i)*100) '_t' num2str(time(i+1)*100) '.tex']);
+        end
+        
+%         figure('Name','Evolution of eigenvalues')
+%         clf
+%         leg = cell(1,Rmax);
+%         for a=1:Rmax
+%             semilogy(1:Q(a),S(1:Q(a),a).^2,'LineStyle','-','Color',getfacecolor(a),'LineWidth',1);
+%             leg{a} = ['$\alpha$ = ' num2str(a)];
+%             hold on
+%         end
+%         hold off
+%         grid on
+%         box on
+%         set(gca,'FontSize',fontsize)
+%         xlabel('$\beta$','Interpreter','latex')
+%         ylabel('$\Lambda_{\beta}$','Interpreter','latex')
+%         l = legend(leg{:},'Location','NorthEastOutside');
+%         set(l,'Interpreter','latex');
+%         mysaveas(pathnamegrid,'eigenvalues_CZa',formats,renderer);
+%         mymatlab2tikz(pathnamegrid,'eigenvalues_CZa.tex');
+        
+        figure('Name','Evolution of eigenvalues')
+        clf
+        semilogy(1:Q,S(:).^2,'LineStyle','-','Color','b','LineWidth',1);
+        grid on
+        box on
+        set(gca,'FontSize',fontsize)
+        xlabel('$\beta$','Interpreter','latex')
+        ylabel('$\Lambda_{\beta}$','Interpreter','latex')
+        mysaveas(pathnamegrid,'eigenvalues_CZ',formats,renderer);
+        mymatlab2tikz(pathnamegrid,'eigenvalues_CZ.tex');
+        
+    end
+    
     % Mesh
     L = 1;
     D = DOMAIN(3,[0.0,0.0,0.0],[L,L,L]);
@@ -301,6 +299,12 @@ for g=2.^8
         Uc_approx = zeros(Q,n,m,p+1);
     end
     
+    if g<2^8
+        load(fullfile(pathnamegrid,'data.mat'),'Y');
+        Yc = Y - repmat(mY,N,1,1,1); % Yc = Y - mY.*ones(N,1,1,1);
+        clear Y
+    end
+    
     mu = zeros(3*m,p+1);
     Vu = zeros(3*m,p+1);
     mphase = zeros(m,p+1);
@@ -311,7 +315,6 @@ for g=2.^8
         mphaset = mYt(4,:);
         mu(:,t+1) = mut(:);
         mphase(:,t+1) = mphaset(:);
-        
         if g<2^8
             Yct = Yc(:,:,:,t+1);
         else
@@ -335,14 +338,15 @@ for g=2.^8
         % CYt_approx = Uct_approx(:,:)'*diag(S).^2*Uct_approx(:,:);
         % VYt_approx = diag(CYt_approx);
         VYt_approx = sum((diag(S)*Uct_approx(:,:)).^2)';
+        
         % CYt = cov(Yct(:,:)); % CYt = 1/(N-1)*Yct(:,:)'*Yct(:,:);
         % VYt = diag(CYt);
         VYt = 1/(N-1)*sum(Yct(:,:).^2)';
         errVYt = norm(full(VYt_approx-VYt))/norm(full(VYt));
         fprintf('\nTime t = %4.f s : error = %.3e for VY',t*100,errVYt);
         
-        Vu(:,t+1) = VYt(setdiff(1:end,n:n:end));
-        Vphase(:,t+1) = VYt(n:n:end);
+        Vu(:,t+1) = VYt_approx(setdiff(1:end,n:n:end));
+        Vphase(:,t+1) = VYt_approx(n:n:end);
     end
     fprintf('\n');
     mu = TIMEMATRIX(mu,T);
@@ -355,13 +359,14 @@ for g=2.^8
         % CY_approx = Uc_approx(:,:)'*diag(S).^2*Uc_approx(:,:);
         % VY_approx = diag(CY_approx);
         VY_approx = sum((diag(S)*Uc_approx(:,:)).^2)';
+        
         % CY = cov(Yc(:,:)); % CY = 1/(N-1)*Yc(:,:)'*Yc(:,:);
         % VY = diag(CY);
         VY = 1/(N-1)*sum(Yc(:,:).^2)';
         errVY = norm(full(VY_approx-VY))/norm(full(VY));
         fprintf('\nerror = %.3e for VY',errVY);
+        fprintf('\n');
     end
-    fprintf('\n');
     
     % Display solution
     if displaySolution
