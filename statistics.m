@@ -44,7 +44,7 @@ for g=2.^8
             Yc = Y - repmat(mY,N,1,1,1); % Yc = Y - mY.*ones(N,1,1,1);
             clear Y
         else
-            mY = zeros(n,m,p+1);
+            mY = zeros(1,n,m,p+1);
         end
         r = n*m;
         R = min(r,N);
@@ -59,7 +59,7 @@ for g=2.^8
             else
                 load(fullfile(pathnamegrid,['data_t' num2str(t) '.mat']),'Yt');
                 mYt = mean(Yt,1);
-                mY(:,:,t+1) = mYt;
+                mY(1,:,:,t+1) = mYt;
                 Yct = Yt - repmat(mYt,N,1,1); % Yct = Yt - mYt.*ones(N,1,1);
             end
             Yct = Yct(:,:)';
@@ -310,7 +310,13 @@ for g=2.^8
         mu(:,t+1) = mut(:);
         mphase(:,t+1) = mphaset(:);
         
-        Yct = Yc(:,:,:,t+1);
+        if g<2^8
+            Yct = Yc(:,:,:,t+1);
+        else
+            load(fullfile(pathnamegrid,['data_t' num2str(t) '.mat']),'Yt');
+            mYt = mean(Yt,1);
+            Yct = Yt - repmat(mYt,N,1,1); % Yct = Yt - mYt.*ones(N,1,1);
+        end
         Vt = reshape(V(:,:,t+1),[r,Rmax]);
         Sigt = Sig(:,t+1);
         Wt = reshape(W(:,:,t+1),[Q,Rmax]);
