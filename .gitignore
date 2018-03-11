@@ -2,6 +2,7 @@
 *.o
 *.out
 *.output
+*.f90
 *.don
 *.par
 *.ini
