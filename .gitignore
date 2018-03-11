@@ -5,6 +5,8 @@
 *.f90
 *.don
 *.par
+*.in
+*.in_gfortran
 *.ini
 *.slurm
 *.dat
@@ -22,4 +24,5 @@
 *.pvd
 *.pvsm
 thetis
+Makefile
 .DS_Store
