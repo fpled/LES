@@ -25,28 +25,25 @@ n = length(varnames); % number of variables
 p = 50; % number of time steps
 N = 40; % number of samples
 
-pathname = fileparts(mfilename('fullpath'));
+% pathname = fileparts(mfilename('fullpath'));
+pathname = '/mnt/tcm13/SV_FP/';
 
-% for g=2.^(4:8)
-% for g=2.^(4:7)
 for g=2^8
     gridname = ['Grid' num2str(g)];
     disp(gridname)
     
     m = (g+1)^3; % number of spatial points
-    % Y = zeros(N,m*n,p+1);
-    Y = zeros(N,n,m,p+1);
-    for l=1:N
-        foldername = ['Cas-' num2str(l)];
-        disp(foldername)
+    for t=0:p
+        time = ['Time ' num2str(t)];
+        disp(time)
         
-        % Yl = zeros(m*n,p+1);
-        Yl = zeros(n,m,p+1);
-        for t=0:p
-            time = ['Time ' num2str(t)];
-            disp(time)
-            
-            filename = ['InvPhase3d_' num2str(t,'%05d00') '.szplt'];
+        filename = ['InvPhase3d_' num2str(t,'%05d00') '.szplt'];
+        
+        % Yt = zeros(N,n*m);
+        Yt = zeros(N,n,m);
+        for l=1:N
+            foldername = ['Cas-' num2str(l)];
+            disp(foldername)
             
             file = fullfile(pathname,gridname,foldername,'validation',filename);
             [isok,~,handle] = calllib('tecio','tecFileReaderOpen',file,[]);
@@ -65,8 +62,8 @@ for g=2^8
                 error(['Wrong number of zones in file ' file])
             end
             
-            % Yt = zeros(m*n,1);
-            Yt = zeros(n,m);
+            % Yl = zeros(m*n,1);
+            Yl = zeros(n,m);
             for var=1:numvars
                 name = libpointer('stringPtrPtr',cell(1,1));
                 [isok,~,name] = calllib('tecio','tecVarGetName',handle,var,name);
@@ -92,22 +89,22 @@ for g=2^8
                         values = zeros(numvals,1);
                         [isok,~,values] = calllib('tecio','tecZoneVarGetFloatValues',handle,zone,var,1,numvals,values);
                         
-                        % Yt((0:m-1)*n+i) = values;
-                        Yt(i,:) = values;
+                        % Yl((0:m-1)*n+i) = values;
+                        Yl(i,:) = values;
                     % end
                 end
             end
-            % Yl(:,t+1) = Yt;
-            Yl(:,:,t+1) = Yt;
+            % Yt(l,:) = Yl;
+            Yt(l,:,:) = Yl;
             
             calllib('tecio','tecFileReaderClose',handle);
+            
+            save(fullfile(pathname,gridname,['data_t' num2str(t) '.mat']),'Yt');
         end
-        % Y(l,:,:) = Yl;
-        Y(l,:,:,:) = Yl;
         
     end
     fprintf('\n');
-    save(fullfile(pathname,gridname,'data.mat'),'Y','N','n','m','p');
+    save(fullfile(pathname,gridname,'data.mat'),'N','n','m','p');
 end
 
 if libisloaded('tecio')

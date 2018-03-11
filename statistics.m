@@ -296,8 +296,10 @@ for g=2.^8
             W = reshape(W',[Q,Rmax,p+1]);
             % Z_approx = reshape(Zc_approx',[N,Rmax,p+1]);
     end
-    % Yc_approx = zeros(N,n,m,p+1);
-    Uc_approx = zeros(Q,n,m,p+1);
+    if g<2^8
+        % Yc_approx = zeros(N,n,m,p+1);
+        Uc_approx = zeros(Q,n,m,p+1);
+    end
     
     mu = zeros(3*m,p+1);
     Vu = zeros(3*m,p+1);
@@ -325,7 +327,9 @@ for g=2.^8
         % Yct_approx = Vt*diag(Sigt)*Zt_approx';
         % Yc_approx(:,:,:,t+1) = reshape(Yct_approx',[N,n,m]);
         Uct_approx = Wt*diag(Sigt)*Vt';
-        Uc_approx(:,:,:,t+1) = reshape(Uct_approx,[Q,n,m]);
+        if g<2^8
+            Uc_approx(:,:,:,t+1) = reshape(Uct_approx,[Q,n,m]);
+        end
         
         % CYt_approx = cov(Yct_approx(:,:)'); % CYt_approx = 1/(N-1)*Yct_approx(:,:)*Yct_approx(:,:)';
         % CYt_approx = Uct_approx(:,:)'*diag(S).^2*Uct_approx(:,:);
@@ -346,15 +350,17 @@ for g=2.^8
     Vu = TIMEMATRIX(Vu,T);
     Vphase = TIMEMATRIX(Vphase,T);
     
-    % CY_approx = cov(Yc_approx(:,:)); % CY_approx = 1/(N-1)*Yc_approx(:,:)'*Yc_approx(:,:);
-    % CY_approx = Uc_approx(:,:)'*diag(S).^2*Uc_approx(:,:);
-    % VY_approx = diag(CY_approx);
-    VY_approx = sum((diag(S)*Uc_approx(:,:)).^2)';
-    % CY = cov(Yc(:,:)); % CY = 1/(N-1)*Yc(:,:)'*Yc(:,:);
-    % VY = diag(CY);
-    VY = 1/(N-1)*sum(Yc(:,:).^2)';
-    errVY = norm(full(VY_approx-VY))/norm(full(VY));
-    fprintf('\nerror = %.3e for VY',errVY);
+    if g<2^8
+        % CY_approx = cov(Yc_approx(:,:)); % CY_approx = 1/(N-1)*Yc_approx(:,:)'*Yc_approx(:,:);
+        % CY_approx = Uc_approx(:,:)'*diag(S).^2*Uc_approx(:,:);
+        % VY_approx = diag(CY_approx);
+        VY_approx = sum((diag(S)*Uc_approx(:,:)).^2)';
+        % CY = cov(Yc(:,:)); % CY = 1/(N-1)*Yc(:,:)'*Yc(:,:);
+        % VY = diag(CY);
+        VY = 1/(N-1)*sum(Yc(:,:).^2)';
+        errVY = norm(full(VY_approx-VY))/norm(full(VY));
+        fprintf('\nerror = %.3e for VY',errVY);
+    end
     fprintf('\n');
     
     % Display solution
