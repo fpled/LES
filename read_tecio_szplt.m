@@ -28,7 +28,8 @@ N = 40; % number of samples
 pathname = fileparts(mfilename('fullpath'));
 
 % for g=2.^(4:8)
-for g=2.^(4:7)
+% for g=2.^(4:7)
+for g=2^8
     gridname = ['Grid' num2str(g)];
     disp(gridname)
     
@@ -96,7 +97,7 @@ for g=2.^(4:7)
             % Yl(:,t+1) = Yt;
             Yl(:,:,t+1) = Yt;
             
-            calllib('tecio','tecFileReaderClose',handle) ;
+            calllib('tecio','tecFileReaderClose',handle);
         end
         % Y(l,:,:) = Yl;
         Y(l,:,:,:) = Yl;

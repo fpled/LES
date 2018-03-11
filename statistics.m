@@ -21,8 +21,8 @@ renderer = 'OpenGL';
 pathname = fileparts(mfilename('fullpath'));
 
 % for g=2.^(4:8)
-for g=2.^(4:7)
-% for g=2.^7
+% for g=2.^(4:7)
+for g=2.^8
     gridname = ['Grid' num2str(g)];
     disp(gridname)
     pathnamegrid = fullfile(pathname,gridname);
@@ -37,23 +37,31 @@ for g=2.^(4:7)
     tol = eps;
     
     if solveProblem
-        load(fullfile(pathnamegrid,'data.mat'),'Y');
-        % N = size(Y,1);
-        % n = size(Y,2);
-        % m = size(Y,3);
-        % p = size(Y,4)-1;
+        %% First reduction step
+        if g<2^8
+            load(fullfile(pathnamegrid,'data.mat'),'Y');
+            mY = mean(Y,1);
+            Yc = Y - repmat(mY,N,1,1,1); % Yc = Y - mY.*ones(N,1,1,1);
+            clear Y
+        else
+            mY = zeros(n,m,p+1);
+        end
         r = n*m;
         R = min(r,N);
-        %% First reduction step
-        mY = mean(Y,1);
-        Yc = Y - repmat(mY,N,1,1,1); % Yc = Y - mY.*ones(N,1,1,1);
-        clear Y
         Sig = zeros(R,p+1);
         V = zeros(r,R,p+1);
         Z = zeros(N,R,p+1);
+        
         Rmax = 1;
         for t=0:p
-            Yct = Yc(:,:,:,t+1);
+            if g<2^8
+                Yct = Yc(:,:,:,t+1);
+            else
+                load(fullfile(pathnamegrid,['data_t' num2str(t) '.mat']),'Yt');
+                mYt = mean(Yt,1);
+                mY(:,:,t+1) = mYt;
+                Yct = Yt - repmat(mYt,N,1,1); % Yct = Yt - mYt.*ones(N,1,1);
+            end
             Yct = Yct(:,:)';
             [Vt,Sigt,Zt] = svdtruncate(Yct,tol);
             Sigt = Sigt/sqrt(N-1);
