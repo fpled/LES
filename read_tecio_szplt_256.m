@@ -98,9 +98,8 @@ for g=2^8
             Yt(l,:,:) = Yl;
             
             calllib('tecio','tecFileReaderClose',handle);
-            
-            save(fullfile(pathname,gridname,['data_t' num2str(t) '.mat']),'Yt');
         end
+        save(fullfile(pathname,gridname,['data_t' num2str(t) '.mat']),'Yt');
         
     end
     fprintf('\n');
