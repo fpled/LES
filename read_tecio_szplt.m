@@ -26,6 +26,7 @@ p = 50; % number of time steps
 N = 40; % number of samples
 
 pathname = fileparts(mfilename('fullpath'));
+% pathname = '/mnt/tcm13/SV_FP/';
 
 for g=2.^(4:7)
 % for g=2^4
@@ -110,6 +111,6 @@ for g=2.^(4:7)
 end
 
 if libisloaded('tecio')
-    unloadlibrary('tecio') 
+    unloadlibrary('tecio')
 end
 
