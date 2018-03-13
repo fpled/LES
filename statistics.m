@@ -21,8 +21,7 @@ renderer = 'OpenGL';
 pathname = fileparts(mfilename('fullpath'));
 
 % for g=2.^(4:8)
-for g=2.^(4:7)
-% for g=2.^4
+for g=2.^4
     gridname = ['Grid' num2str(g)];
     disp(gridname)
     pathnamegrid = fullfile(pathname,gridname);
@@ -47,10 +46,13 @@ for g=2.^(4:7)
         else
             mY = zeros(1,n,m,p+1);
         end
-        R = min(r,N);
-        Sig = zeros(R,p+1);
-        V = zeros(r,R,p+1);
-        Z = zeros(N,R,p+1);
+        Rinit = min(r,N);
+        if g<2^8
+            Sig = zeros(Rinit,p+1);
+            V = zeros(r,Rinit,p+1);
+            R = zeros(p+1,1);
+        end
+        Z = zeros(N,Rinit,p+1);
         
         Rmax = 1;
         for t=0:p
@@ -71,8 +73,13 @@ for g=2.^(4:7)
             Rt = length(Sigt);
             Rmax = max(Rmax,Rt);
             fprintf('\nTime t = %4.f s : rank R = %d, error = %.3e for Y',t*100,Rt,errYct);
-            Sig(1:Rt,t+1) = Sigt;
-            V(:,1:Rt,t+1) = Vt;
+            if g<2^8
+                Sig(1:Rt,t+1) = Sigt;
+                V(:,1:Rt,t+1) = Vt;
+                R(t+1) = Rt;
+            else
+                save(fullfile(pathnamegrid,['PCA_t' num2str(t) '.mat']),'Sigt','Vt','Rt');
+            end
             Z(:,1:Rt,t+1) = Zt;
             
             % mZt = mean(Zt,1)';
@@ -82,8 +89,10 @@ for g=2.^(4:7)
             % norm(Vt'*Vt-eye(Rt))
         end
         fprintf('\n');
-        Sig = Sig(1:Rmax,:);
-        V = V(:,1:Rmax,:);
+        if g<2^8
+            Sig = Sig(1:Rmax,:);
+            V = V(:,1:Rmax,:);
+        end
         Z = Z(:,1:Rmax,:);
         
         %% Second reduction step for each coordinate
@@ -211,9 +220,17 @@ for g=2.^(4:7)
 %             end
         end
         
-        save(fullfile(pathnamegrid,'solution.mat'),'mY','V','W','Sig','S','Rmax','Q');
+        if g<2^8
+            save(fullfile(pathnamegrid,'solution.mat'),'mY','Sig','S','V','W','Rmax','R','Q');
+        else
+            save(fullfile(pathnamegrid,'solution.mat'),'mY','S','W','Rmax','Q');
+        end
     else
-        load(fullfile(pathnamegrid,'solution.mat'),'mY','V','W','Sig','S','Rmax','Q');
+        if g<2^8
+            load(fullfile(pathnamegrid,'solution.mat'),'mY','Sig','S','V','W','Rmax','R','Q');
+        else
+            load(fullfile(pathnamegrid,'solution.mat'),'mY','S','W','Rmax','Q');
+        end
     end
     
     %% Outputs
@@ -227,7 +244,13 @@ for g=2.^(4:7)
             c = 0;
             for t=time(i):time(i+1)
                 c = c+1;
-                semilogy(1:Rmax,Sig(:,t+1).^2,'LineStyle','-','Color',getfacecolor(c),'LineWidth',1);
+                if g<2^8
+                    Rt = R(t+1);
+                    semilogy(1:Rt,Sig(1:Rt,t+1).^2,'LineStyle','-','Color',getfacecolor(c),'LineWidth',1);
+                else
+                    load(fullfile(pathnamegrid,['PCA_t' num2str(t) '.mat']),'Sigt','Rt');
+                    semilogy(1:Rt,Sigt(:).^2,'LineStyle','-','Color',getfacecolor(c),'LineWidth',1);
+                end
                 leg{c} = ['t = ' num2str(t*100) ' s'];
                 hold on
             end
@@ -317,15 +340,18 @@ for g=2.^(4:7)
         mphase(:,t+1) = mphaset(:);
         if g<2^8
             Yct = Yc(:,:,:,t+1);
+            Rt = R(t+1);
+            Sigt = Sig(1:Rt,t+1);
+            Vt = reshape(V(:,:,t+1),[r,Rt]);
         else
             load(fullfile(pathnamegrid,['data_t' num2str(t) '.mat']),'Yt');
-            mYt = mean(Yt,1);
+            % mYt = mean(Yt,1);
+            mYt = mY(1,:,:,t+1);
             Yct = Yt - repmat(mYt,N,1,1); % Yct = Yt - mYt.*ones(N,1,1);
+            load(fullfile(pathnamegrid,['PCA_t' num2str(t) '.mat']),'Sigt','Vt','Rt');
         end
-        Vt = reshape(V(:,:,t+1),[r,Rmax]);
-        Sigt = Sig(:,t+1);
-        Wt = reshape(W(:,:,t+1),[Q,Rmax]);
-        % Zt_approx = reshape(Z_approx(:,:,t+1),[N,Rmax]);
+        Wt = reshape(W(:,:,t+1),[Q,Rt]);
+        % Zt_approx = reshape(Z_approx(:,:,t+1),[N,Rt]);
         % Zt_approx = X*diag(S)*Wt;
         % Yct_approx = Vt*diag(Sigt)*Zt_approx';
         % Yc_approx(:,:,:,t+1) = reshape(Yct_approx',[N,n,m]);
