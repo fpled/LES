@@ -28,21 +28,21 @@ end
 f = filename;
 filename = fullfile(pathname,strcat(filename,'.pvd'));
 fid = fopen(filename,'w',endian_matlab);
-fprintf(fid,'<?xml version="1" ?>\n');
+fprintf(fid,'<?xml version="1.0" ?>\n');
 
 fprintf(fid,['<VTKFile type="Collection" version="0.1" byte_order="',endian_paraview,'">\n']);
-fprintf(fid,'<Collection>\n');
+fprintf(fid,'\t <Collection>\n');
 
 for i=1:np
     for j=0:nt-1
-        fprintf(fid,'<DataSet timestep="%u" group="" part="%u" ',j,i);
+        fprintf(fid,'\t\t <DataSet timestep="%u" group="" part="%u" ',j,i);
         fprintf(fid,'file="%s_%u_%u.',f,i,j);
         fprintf(fid,ext);
         fprintf(fid,'"/>\n');
     end
 end
 
-fprintf(fid,'</Collection>\n');
+fprintf(fid,'\t </Collection>\n');
 fprintf(fid,'</VTKFile>\n');
 
 fclose(fid);

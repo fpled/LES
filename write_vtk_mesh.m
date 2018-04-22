@@ -1,18 +1,18 @@
-function []=write_vtk_mesh(M,u,phase,pathname,filename,part,time,binary_output)
+function []=write_vtk_mesh(M,u,C,tauConv,tauDiff,tauSurf,tauInterf,pathname,filename,part,time,binary_output)
 
-if nargin<4 || isempty(pathname)
+if nargin<8 || isempty(pathname)
     pathname='.';
 end
-if nargin<5 || isempty(filename)
+if nargin<9 || isempty(filename)
     filename='paraview';
 end
-if nargin<6 || isempty(part)
+if nargin<10 || isempty(part)
     part=1;
 end
-if nargin<7 || isempty(time)
+if nargin<11 || isempty(time)
     time=0;
 end
-if nargin<8 || isempty(binary_output)
+if nargin<12 || isempty(binary_output)
     binary_output=1;
 end
 
@@ -53,7 +53,7 @@ offset=0;
 
 filename = fullfile(pathname,strcat(filename,'_',num2str(part),'_',num2str(time),'.vtu'));
 fid = fopen(filename,'w',endian_matlab);
-fprintf(fid,'<?xml version="1" ?>\n');
+fprintf(fid,'<?xml version="1.0" ?>\n');
 
 fprintf(fid,['<VTKFile type="UnstructuredGrid" version="0.1" byte_order="',endian_paraview,'">\n']);
 fprintf(fid,'\t <UnstructuredGrid>\n');
@@ -66,7 +66,15 @@ if binary_output
     fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="velocity" NumberOfComponents="3" format="appended" offset="%u" />\n',offset);
     offset=offset+4+4*numel(u);
     fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="phase" NumberOfComponents="1" format="appended" offset="%u" />\n',offset);
-    offset=offset+4+4*numel(phase);
+    offset=offset+4+4*numel(C);
+    fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="tau conv" NumberOfComponents="3" format="appended" offset="%u" />\n',offset);
+    offset=offset+4+4*numel(tauConv);
+    fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="tau diff" NumberOfComponents="3" format="appended" offset="%u" />\n',offset);
+    offset=offset+4+4*numel(tauDiff);
+    fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="tau surf" NumberOfComponents="3" format="appended" offset="%u" />\n',offset);
+    offset=offset+4+4*numel(tauSurf);
+    fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="tau interf" NumberOfComponents="1" format="appended" offset="%u" />\n',offset);
+    offset=offset+4+4*numel(tauInterf);
     fprintf(fid,'\t\t\t </PointData> \n');
     
     % CELL DATA
@@ -97,9 +105,25 @@ if binary_output
     fwrite(fid,4*numel(u),'uint32');
     fwrite(fid,u,'float32');
     
-    % PHASE
-    fwrite(fid,4*numel(phase),'uint32');
-    fwrite(fid,phase,'float32');
+    % PHASE C
+    fwrite(fid,4*numel(C),'uint32');
+    fwrite(fid,C,'float32');
+    
+    % CONVECTION STRESS TAU CONV
+    fwrite(fid,4*numel(tauConv),'uint32');
+    fwrite(fid,tauConv,'float32');
+    
+    % DIFFUSION (VISCOSITY) STRESS TAU DIFF
+    fwrite(fid,4*numel(tauDiff),'uint32');
+    fwrite(fid,tauDiff,'float32');
+    
+    % SURFACE TENSION (CAPILLARY) STRESS TAU SURF
+    fwrite(fid,4*numel(tauSurf),'uint32');
+    fwrite(fid,tauSurf,'float32');
+    
+    % INTERFACE TRACKING STRESS TAU INTERF
+    fwrite(fid,4*numel(tauInterf),'uint32');
+    fwrite(fid,tauInterf,'float32');
     
     % NODES
     fwrite(fid,4*numel(node),'uint32');
@@ -122,7 +146,19 @@ else
     fprintf(fid,'%e \n',u);
     fprintf(fid,'\t\t\t\t </DataArray>\n');
     fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="phase" NumberOfComponents="1" format="ascii">\n');
-    fprintf(fid,'%e \n',phase);
+    fprintf(fid,'%e \n',C);
+    fprintf(fid,'\t\t\t\t </DataArray>\n');
+    fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="tau conv" NumberOfComponents="3" format="ascii">\n');
+    fprintf(fid,'%e \n',tauConv);
+    fprintf(fid,'\t\t\t\t </DataArray>\n');
+    fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="tau diff" NumberOfComponents="3" format="ascii">\n');
+    fprintf(fid,'%e \n',tauDiff);
+    fprintf(fid,'\t\t\t\t </DataArray>\n');
+    fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="tau surf" NumberOfComponents="3" format="ascii">\n');
+    fprintf(fid,'%e \n',tauSurf);
+    fprintf(fid,'\t\t\t\t </DataArray>\n');
+    fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="tau Interf" NumberOfComponents="1" format="ascii">\n');
+    fprintf(fid,'%e \n',tauInterf);
     fprintf(fid,'\t\t\t\t </DataArray>\n');
     fprintf(fid,'\t\t\t </PointData> \n');
     
