@@ -21,6 +21,7 @@ renderer = 'OpenGL';
 pathname = fileparts(mfilename('fullpath'));
 
 % for g=2.^(4:8)
+for g=2^4
     gridname = ['Grid' num2str(g)];
     disp(gridname)
     pathnamegrid = fullfile(pathname,gridname);

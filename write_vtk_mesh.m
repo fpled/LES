@@ -96,9 +96,11 @@ if binary_output
     fprintf(fid,'\t\t\t\t <DataArray type="Int8" Name="types" format="appended" offset="%u" />\n',offset);
     fprintf(fid,'\t\t\t </Cells>\n');
     
-    % APPENDED DATA
+    % END VTK FILE
     fprintf(fid,'\t\t </Piece>\n');
     fprintf(fid,'\t </UnstructuredGrid> \n');
+    
+    % APPENDED DATA
     fprintf(fid,'\t <AppendedData encoding="raw"> \n _');
     
     % DISPLACEMENT U
@@ -157,7 +159,7 @@ else
     fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="tau surf" NumberOfComponents="3" format="ascii">\n');
     fprintf(fid,'%e \n',tauSurf);
     fprintf(fid,'\t\t\t\t </DataArray>\n');
-    fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="tau Interf" NumberOfComponents="1" format="ascii">\n');
+    fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="tau interf" NumberOfComponents="1" format="ascii">\n');
     fprintf(fid,'%e \n',tauInterf);
     fprintf(fid,'\t\t\t\t </DataArray>\n');
     fprintf(fid,'\t\t\t </PointData> \n');
