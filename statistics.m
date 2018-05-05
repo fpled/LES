@@ -20,8 +20,8 @@ renderer = 'OpenGL';
 
 pathname = fileparts(mfilename('fullpath'));
 
-% for g=2.^(4:8)
-for g=2^4
+for g=2.^(4:8)
+% for g=2^4
     gridname = ['Grid' num2str(g)];
     disp(gridname)
     pathnamegrid = fullfile(pathname,gridname);
@@ -362,12 +362,14 @@ for g=2^4
         mYt = reshape(mY(1,:,:,t+1),[n,m]);
         mut = mYt(1:3,:);
         mCt = mYt(4,:);
-        mtauConvt = mYt(4+(1:3),:);
-        mtauDifft = mYt(4+(4:6),:);
-        mtauSurft = mYt(4+(7:9),:);
-        mtauInterft = mYt(4+10,:);
+        mtauTimet = mYt(4+(1:3),:);
+        mtauConvt = mYt(4+(4:6),:);
+        mtauDifft = mYt(4+(7:9),:);
+        mtauSurft = mYt(4+(10:12),:);
+        mtauInterft = mYt(4+13,:);
         mu(:,t+1) = mut(:);
         mC(:,t+1) = mCt(:);
+        mtauTime(:,t+1) = mtauTimet(:);
         mtauConv(:,t+1) = mtauConvt(:);
         mtauDiff(:,t+1) = mtauDifft(:);
         mtauSurf(:,t+1) = mtauSurft(:);
@@ -411,17 +413,20 @@ for g=2^4
         fprintf('\nTime t = %4.f s : error = %.3e for VY',t*100,errVYt);
         
         indu = zeros(3*m,1);
+        indtauTime = zeros(3*m,1);
         indtauConv = zeros(3*m,1);
         indtauDiff = zeros(3*m,1);
         indtauSurf = zeros(3*m,1);
         for i=1:m
             indu(3*(i-1)+(1:3)) = n*(i-1)+(1:3);
-            indtauConv(3*(i-1)+(1:3)) = n*(i-1)+(5:7);
-            indtauDiff(3*(i-1)+(1:3)) = n*(i-1)+(8:10);
-            indtauSurf(3*(i-1)+(1:3)) = n*(i-1)+(11:13);
+            indtauTime(3*(i-1)+(1:3)) = n*(i-1)+(5:7);
+            indtauConv(3*(i-1)+(1:3)) = n*(i-1)+(8:10);
+            indtauDiff(3*(i-1)+(1:3)) = n*(i-1)+(11:13);
+            indtauSurf(3*(i-1)+(1:3)) = n*(i-1)+(14:16);
         end
         Vu(:,t+1) = VYt_approx(indu);
         VC(:,t+1) = VYt_approx(4:n:end);
+        VtauTime(:,t+1) = VYt_approx(indtauTime);
         VtauConv(:,t+1) = VYt_approx(indtauConv);
         VtauDiff(:,t+1) = VYt_approx(indtauDiff);
         VtauSurf(:,t+1) = VYt_approx(indtauSurf);
@@ -430,12 +435,14 @@ for g=2^4
     fprintf('\n');
     mu = TIMEMATRIX(mu,T);
     mC = TIMEMATRIX(mC,T);
+    mtauTime = TIMEMATRIX(mtauTime,T);
     mtauConv = TIMEMATRIX(mtauConv,T);
     mtauDiff = TIMEMATRIX(mtauDiff,T);
     mtauSurf = TIMEMATRIX(mtauSurf,T);
     mtauInterf = TIMEMATRIX(mtauInterf,T);
     Vu = TIMEMATRIX(Vu,T);
     VC = TIMEMATRIX(VC,T);
+    VtauTime = TIMEMATRIX(VtauTime,T);
     VtauConv = TIMEMATRIX(VtauConv,T);
     VtauDiff = TIMEMATRIX(VtauDiff,T);
     VtauSurf = TIMEMATRIX(VtauSurf,T);
@@ -463,6 +470,8 @@ for g=2^4
         for i=1:3
             evolSolution(M,mu,'displ',i,'colormap',cmap,'filename',['evol_mean_u' num2str(i)],'pathname',pathnamegrid,'FrameRate',framerate,...
                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
+            evolSolution(M,mtauTime,'displ',i,'colormap',cmap,'filename',['evol_mean_tauTime' num2str(i)],'pathname',pathnamegrid,'FrameRate',framerate,...
+                'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
             evolSolution(M,mtauConv,'displ',i,'colormap',cmap,'filename',['evol_mean_tauConv' num2str(i)],'pathname',pathnamegrid,'FrameRate',framerate,...
                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
             evolSolution(M,mtauDiff,'displ',i,'colormap',cmap,'filename',['evol_mean_tauDiff' num2str(i)],'pathname',pathnamegrid,'FrameRate',framerate,...
@@ -471,6 +480,8 @@ for g=2^4
                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
             
 %             evolSolution(M,Vu,'displ',i,'colormap',cmap,'filename',['evol_var_u' num2str(i)],'pathname',pathnamegrid,'FrameRate',framerate);,...
+%                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
+%             evolSolution(M,VtauTime,'displ',i,'colormap',cmap,'filename',['evol_var_tauTime' num2str(i)],'pathname',pathnamegrid,'FrameRate',framerate);,...
 %                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
 %             evolSolution(M,VtauConv,'displ',i,'colormap',cmap,'filename',['evol_var_tauConv' num2str(i)],'pathname',pathnamegrid,'FrameRate',framerate);,...
 %                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
@@ -489,6 +500,17 @@ for g=2^4
             box on
             set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
             mysaveas(pathnamegrid,['mean_u' num2str(i) '_t' num2str(t*100)],formats,renderer);
+            
+            figure('Name',['Mean of tau time ' num2str(i)])
+            clf
+            plot_sol(M,getmatrixatstep(mtauTime,t+1),'displ',i,'ampl',ampl);
+            title(['time ' num2str(t*100,'%.2f') ' s'],'FontSize',fontsize)
+            colormap(cmap)
+            colorbar
+            axis on
+            box on
+            set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
+            mysaveas(pathnamegrid,['mean_tauTime' num2str(i) '_t' num2str(t*100)],formats,renderer);
             
             figure('Name',['Mean of tau conv ' num2str(i)])
             clf
@@ -533,6 +555,17 @@ for g=2^4
 %             box on
 %             set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
 %             mysaveas(pathnamegrid,['var_u' num2str(i) '_t' num2str(t*100)],formats,renderer);
+%             
+%             figure('Name',['Variance of tau time ' num2str(i)])
+%             clf
+%             plot_sol(M,getmatrixatstep(VtauTime,t+1),'displ',i,'ampl',ampl);
+%             title(['time ' num2str(t*100,'%.2f') ' s'],'FontSize',fontsize)
+%             colormap(cmap)
+%             colorbar
+%             axis on
+%             box on
+%             set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
+%             mysaveas(pathnamegrid,['var_tauTime' num2str(i) '_t' num2str(t*100)],formats,renderer);
 %             
 %             figure('Name',['Variance of tau conv ' num2str(i)])
 %             clf
@@ -626,18 +659,20 @@ for g=2^4
     for t=0:p
         mut = getmatrixatstep(mu,t+1);
         mCt = getmatrixatstep(mC,t+1);
+        mtauTimet = getmatrixatstep(mtauTime,t+1);
         mtauConvt = getmatrixatstep(mtauConv,t+1);
         mtauDifft = getmatrixatstep(mtauDiff,t+1);
         mtauSurft = getmatrixatstep(mtauSurf,t+1);
         mtauInterft = getmatrixatstep(mtauInterf,t+1);
         Vut = getmatrixatstep(Vu,t+1);
         VCt = getmatrixatstep(VC,t+1);
+        VtauTimet = getmatrixatstep(VtauTime,t+1);
         VtauConvt = getmatrixatstep(VtauConv,t+1);
         VtauDifft = getmatrixatstep(VtauDiff,t+1);
         VtauSurft = getmatrixatstep(VtauSurf,t+1);
         VtauInterft = getmatrixatstep(VtauInterf,t+1);
-        write_vtk_mesh(M,mut,mCt,mtauConvt,mtauDifft,mtauSurft,mtauInterft,pathnamegrid,'diphasic_fluids_mean',1,t);
-        write_vtk_mesh(M,Vut,VCt,VtauConvt,VtauDifft,VtauSurft,VtauInterft,pathnamegrid,'diphasic_fluids_variance',1,t);
+        write_vtk_mesh(M,mut,mCt,mtauTimet,mtauConvt,mtauDifft,mtauSurft,mtauInterft,pathnamegrid,'diphasic_fluids_mean',1,t);
+        write_vtk_mesh(M,Vut,VCt,VtauTimet,VtauConvt,VtauDifft,VtauSurft,VtauInterft,pathnamegrid,'diphasic_fluids_variance',1,t);
     end
     make_pvd_file(pathnamegrid,'diphasic_fluids_mean',1,p+1);
     make_pvd_file(pathnamegrid,'diphasic_fluids_variance',1,p+1);

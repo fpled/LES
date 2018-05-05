@@ -1,18 +1,18 @@
-function []=write_vtk_mesh(M,u,C,tauConv,tauDiff,tauSurf,tauInterf,pathname,filename,part,time,binary_output)
+function []=write_vtk_mesh(M,u,C,tauTime,tauConv,tauDiff,tauSurf,tauInterf,pathname,filename,part,time,binary_output)
 
-if nargin<8 || isempty(pathname)
+if nargin<9 || isempty(pathname)
     pathname='.';
 end
-if nargin<9 || isempty(filename)
+if nargin<10 || isempty(filename)
     filename='paraview';
 end
-if nargin<10 || isempty(part)
+if nargin<11 || isempty(part)
     part=1;
 end
-if nargin<11 || isempty(time)
+if nargin<12 || isempty(time)
     time=0;
 end
-if nargin<12 || isempty(binary_output)
+if nargin<13 || isempty(binary_output)
     binary_output=1;
 end
 
@@ -67,6 +67,8 @@ if binary_output
     offset=offset+4+4*numel(u);
     fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="phase" NumberOfComponents="1" format="appended" offset="%u" />\n',offset);
     offset=offset+4+4*numel(C);
+    fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="tau time" NumberOfComponents="3" format="appended" offset="%u" />\n',offset);
+    offset=offset+4+4*numel(tauTime);
     fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="tau conv" NumberOfComponents="3" format="appended" offset="%u" />\n',offset);
     offset=offset+4+4*numel(tauConv);
     fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="tau diff" NumberOfComponents="3" format="appended" offset="%u" />\n',offset);
@@ -111,6 +113,10 @@ if binary_output
     fwrite(fid,4*numel(C),'uint32');
     fwrite(fid,C,'float32');
     
+    % TIME STRESS TAU TIME
+    fwrite(fid,4*numel(tauTime),'uint32');
+    fwrite(fid,tauTime,'float32');
+    
     % CONVECTION STRESS TAU CONV
     fwrite(fid,4*numel(tauConv),'uint32');
     fwrite(fid,tauConv,'float32');
@@ -149,6 +155,9 @@ else
     fprintf(fid,'\t\t\t\t </DataArray>\n');
     fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="phase" NumberOfComponents="1" format="ascii">\n');
     fprintf(fid,'%e \n',C);
+    fprintf(fid,'\t\t\t\t </DataArray>\n');
+    fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="tau time" NumberOfComponents="3" format="ascii">\n');
+    fprintf(fid,'%e \n',tauTime);
     fprintf(fid,'\t\t\t\t </DataArray>\n');
     fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="tau conv" NumberOfComponents="3" format="ascii">\n');
     fprintf(fid,'%e \n',tauConv);

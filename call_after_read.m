@@ -10,9 +10,9 @@ mu_o = 0.1; % dynamic viscosity of oil (Pa.s)
 rho_w = 1e3; % mass density of water (kg/m3)
 rho_o = 900; % mass density of oil (kg/m3)
 
-nn = 10; % number of post-processed variables
+nn = 13; % number of post-processed variables
 
-for g=2.^(4:7)
+for g=2.^(4:8)
 % for g=2^4
     gridname = ['Grid' num2str(g)];
     disp(gridname)
@@ -46,6 +46,7 @@ for g=2.^(4:7)
         load(fullfile(pathnamegrid,'data.mat'),'Y');
         u = Y(:,1:3,:,:);
         C = Y(:,4,:,:);
+        clear Y
         YY = zeros(N,nn,m,p+1);
     end
     
@@ -53,13 +54,26 @@ for g=2.^(4:7)
         time = ['Time ' num2str(t)];
         disp(time)
         
+        ut_old = zeros(N,3,m);
+        Ct_old = zeros(N,1,m);
         if g<2^8
             ut = u(:,:,:,t+1);
             Ct = C(:,:,:,t+1);
+            if t>0
+                ut_old = u(:,:,:,t);
+                Ct_old = C(:,:,:,t);
+            end
         else
             load(fullfile(pathnamegrid,['data_t' num2str(t) '.mat']),'Yt');
             ut = Yt(:,1:3,:);
             Ct = Yt(:,4,:);
+            clear Yt
+            if t>0
+                load(fullfile(pathnamegrid,['data_t' num2str(t-1) '.mat']),'Yt');
+                ut_old = Yt(:,1:3,:);
+                Ct_old = Yt(:,4,:);
+                clear Yt
+            end
             YYt = zeros(N,nn,m);
         end
         
@@ -68,7 +82,15 @@ for g=2.^(4:7)
             % disp(samplename)
             
             ul = reshape(ut(l,:,:),[3,m]);
+            ul_old = reshape(ut_old(l,:,:),[3,m]);
             Cl = Ct(l,:);
+            Cl_old = Ct_old(l,:);
+            rhol = Cl.*rho_o + (1-Cl).*rho_w;
+            rhol_old = Cl_old.*rho_o + (1-Cl_old).*rho_w;
+            rhoul = repmat(rhol,3,1).*ul;
+            rhoul_old = repmat(rhol_old,3,1).*ul_old;
+            tauTime = (rhoul-rhoul_old)/dt;
+            clear ul_old Cl_old rhol rhoul rhoul_old
             
             uijk = zeros(3,g+1,g+1,g+1);
             Cijk = zeros(g+1,g+1,g+1);
@@ -161,7 +183,6 @@ for g=2.^(4:7)
                 end
             end
             
-            tauTime = zeros(3,m);
             tauConv = zeros(3,m);
             tauDiff = zeros(3,m);
             tauSurf = zeros(3,m);
@@ -179,7 +200,7 @@ for g=2.^(4:7)
                         kappa = divnormalijk(i,j,k);
                         
                         tConv = rho*gradu'*uu;
-                        tDiff = mu*divS;
+                        tDiff = 2*mu*divS;
                         tSurf = sigma*kappa*gradC;
                         tInterf = dot(uu,gradC,1);
                         
@@ -193,15 +214,17 @@ for g=2.^(4:7)
             end
             
             if g<2^8
-                YY(l,1:3,:,t+1) = tauConv;
-                YY(l,4:6,:,t+1) = tauDiff;
-                YY(l,7:9,:,t+1) = tauSurf;
-                YY(l,10,:,t+1) = tauInterf;
+                YY(l,1:3,:,t+1) = tauTime;
+                YY(l,4:6,:,t+1) = tauConv;
+                YY(l,7:9,:,t+1) = tauDiff;
+                YY(l,10:12,:,t+1) = tauSurf;
+                YY(l,13,:,t+1) = tauInterf;
             else
-                YYt(l,1:3,:) = tauConv;
-                YYt(l,4:6,:) = tauDiff;
-                YYt(l,7:9,:) = tauSurf;
-                YYt(l,10,:) = tauInterf;
+                YYt(l,1:3,:) = tauTime;
+                YYt(l,4:6,:) = tauConv;
+                YYt(l,7:9,:) = tauDiff;
+                YYt(l,10:12,:) = tauSurf;
+                YYt(l,13,:) = tauInterf;
             end
         end
         if g>=2^8
