@@ -28,7 +28,7 @@ N = 40; % number of samples
 pathname = fileparts(mfilename('fullpath'));
 % pathname = '/mnt/tcm13/SV_FP/';
 
-for g=2^8
+for g=2.^(7:8)
     gridname = ['Grid' num2str(g)];
     disp(gridname)
     

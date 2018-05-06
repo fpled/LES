@@ -40,7 +40,7 @@ for g=2.^(4:8)
     
     if solveProblem
         %% First reduction step
-        if g<2^8
+        if g<2^7
             load(fullfile(pathnamegrid,'data.mat'),'Y');
             load(fullfile(pathnamegrid,'data_post.mat'),'YY');
             Y = cat(2,Y,YY);
@@ -52,7 +52,7 @@ for g=2.^(4:8)
             mY = zeros(1,n,m,p+1);
         end
         Rinit = min(r,N);
-        if g<2^8
+        if g<2^7
             Sig = zeros(Rinit,p+1);
             V = zeros(r,Rinit,p+1);
             R = zeros(p+1,1);
@@ -61,7 +61,7 @@ for g=2.^(4:8)
         
         Rmax = 1;
         for t=0:p
-            if g<2^8
+            if g<2^7
                 Yct = Yc(:,:,:,t+1);
             else
                 load(fullfile(pathnamegrid,['data_t' num2str(t) '.mat']),'Yt');
@@ -86,7 +86,7 @@ for g=2.^(4:8)
             Rt = length(Sigt);
             Rmax = max(Rmax,Rt);
             fprintf('\nTime t = %4.f s : rank R = %d, error = %.3e for Y',t*100,Rt,errYct);
-            if g<2^8
+            if g<2^7
                 Sig(1:Rt,t+1) = Sigt;
                 V(:,1:Rt,t+1) = Vt;
                 R(t+1) = Rt;
@@ -102,7 +102,7 @@ for g=2.^(4:8)
 %             norm(Vt'*Vt-eye(Rt))
         end
         fprintf('\n');
-        if g<2^8
+        if g<2^7
             Sig = Sig(1:Rmax,:);
             V = V(:,1:Rmax,:);
         end
@@ -233,13 +233,13 @@ for g=2.^(4:8)
 %             end
         end
         
-        if g<2^8
+        if g<2^7
             save(fullfile(pathnamegrid,'solution.mat'),'mY','Sig','S','V','W','Rmax','R','Q');
         else
             save(fullfile(pathnamegrid,'solution.mat'),'mY','S','W','Rmax','Q');
         end
     else
-        if g<2^8
+        if g<2^7
             load(fullfile(pathnamegrid,'solution.mat'),'mY','Sig','S','V','W','Rmax','R','Q');
         else
             load(fullfile(pathnamegrid,'solution.mat'),'mY','S','W','Rmax','Q');
@@ -257,7 +257,7 @@ for g=2.^(4:8)
             c = 0;
             for t=time(i):time(i+1)
                 c = c+1;
-                if g<2^8
+                if g<2^7
                     Rt = R(t+1);
                     semilogy(1:Rt,Sig(1:Rt,t+1).^2,'LineStyle','-','Color',getfacecolor(c),'LineWidth',1);
                 else
@@ -330,12 +330,12 @@ for g=2.^(4:8)
             W = reshape(W',[Q,Rmax,p+1]);
             % Z_approx = reshape(Zc_approx',[N,Rmax,p+1]);
     end
-    if g<2^8
+    if g<2^7
         % Yc_approx = zeros(N,n,m,p+1);
         Uc_approx = zeros(Q,n,m,p+1);
     end
     
-    if g<2^8
+    if g<2^7
         load(fullfile(pathnamegrid,'data.mat'),'Y');
         load(fullfile(pathnamegrid,'data_post.mat'),'YY');
         Y = cat(2,Y,YY);
@@ -375,7 +375,7 @@ for g=2.^(4:8)
         mtauSurf(:,t+1) = mtauSurft(:);
         mtauInterf(:,t+1) = mtauInterft(:);
         
-        if g<2^8
+        if g<2^7
             Yct = Yc(:,:,:,t+1);
             Rt = R(t+1);
             Sigt = Sig(1:Rt,t+1);
@@ -397,7 +397,7 @@ for g=2.^(4:8)
         % Yct_approx = Vt*diag(Sigt)*Zt_approx';
         % Yc_approx(:,:,:,t+1) = reshape(Yct_approx',[N,n,m]);
         Uct_approx = Wt*diag(Sigt)*Vt';
-        if g<2^8
+        if g<2^7
             Uc_approx(:,:,:,t+1) = reshape(Uct_approx,[Q,n,m]);
         end
         
@@ -448,7 +448,7 @@ for g=2.^(4:8)
     VtauSurf = TIMEMATRIX(VtauSurf,T);
     VtauInterf = TIMEMATRIX(VtauInterf,T);
     
-    if g<2^8
+    if g<2^7
         % CY_approx = cov(Yc_approx(:,:)); % CY_approx = 1/(N-1)*Yc_approx(:,:)'*Yc_approx(:,:);
         % CY_approx = Uc_approx(:,:)'*diag(S).^2*Uc_approx(:,:);
         % VY_approx = diag(CY_approx);

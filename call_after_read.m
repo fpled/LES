@@ -42,7 +42,7 @@ for g=2.^(4:8)
     %D = (2*diag(ones(g+1,1),0) - diag(ones(g,1),-1) - diag(ones(g,1),1))/(2*dx);
     %D = toeplitz([2 -1 zeros(1,g-2)])/(2*dx);
     
-    if g<2^8
+    if g<2^7
         load(fullfile(pathnamegrid,'data.mat'),'Y');
         u = Y(:,1:3,:,:);
         C = Y(:,4,:,:);
@@ -56,7 +56,7 @@ for g=2.^(4:8)
         
         ut_old = zeros(N,3,m);
         Ct_old = zeros(N,1,m);
-        if g<2^8
+        if g<2^7
             ut = u(:,:,:,t+1);
             Ct = C(:,:,:,t+1);
             if t>0
@@ -213,7 +213,7 @@ for g=2.^(4:8)
                 end
             end
             
-            if g<2^8
+            if g<2^7
                 YY(l,1:3,:,t+1) = tauTime;
                 YY(l,4:6,:,t+1) = tauConv;
                 YY(l,7:9,:,t+1) = tauDiff;
@@ -227,12 +227,12 @@ for g=2.^(4:8)
                 YYt(l,13,:) = tauInterf;
             end
         end
-        if g>=2^8
+        if g>=2^7
             save(fullfile(pathname,gridname,['data_post_t' num2str(t) '.mat']),'YYt');
         end
     end
     fprintf('\n');
-    if g<2^8
+    if g<2^7
         save(fullfile(pathname,gridname,'data_post.mat'),'YY','nn');
     else
         save(fullfile(pathname,gridname,'data_post.mat'),'nn');
