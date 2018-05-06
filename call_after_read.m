@@ -78,8 +78,8 @@ for g=2.^(4:8)
         end
         
         for l=1:N
-            % samplename = ['Sample ' num2str(l)];
-            % disp(samplename)
+            samplename = ['Sample ' num2str(l)];
+            disp(samplename)
             
             ul = reshape(ut(l,:,:),[3,m]);
             ul_old = reshape(ut_old(l,:,:),[3,m]);
