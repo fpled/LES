@@ -1,6 +1,8 @@
 clc
 clearvars
 close all
+% rng('default');
+myparallel('start');
 
 pathname = fileparts(mfilename('fullpath'));
 
@@ -12,8 +14,9 @@ rho_o = 900; % mass density of oil (kg/m3)
 
 nn = 13; % number of post-processed variables
 
-for g=2.^(4:8)
-% for g=2^4
+% for g=2.^(4:8)
+for g=2^4
+    tic
     gridname = ['Grid' num2str(g)];
     disp(gridname)
     pathnamegrid = fullfile(pathname,gridname);
@@ -67,17 +70,16 @@ for g=2.^(4:8)
             load(fullfile(pathnamegrid,['data_t' num2str(t) '.mat']),'Yt');
             ut = Yt(:,1:3,:);
             Ct = Yt(:,4,:);
-            clear Yt
             if t>0
                 load(fullfile(pathnamegrid,['data_t' num2str(t-1) '.mat']),'Yt');
                 ut_old = Yt(:,1:3,:);
                 Ct_old = Yt(:,4,:);
-                clear Yt
             end
-            YYt = zeros(N,nn,m);
+            clear Yt
         end
         
-        for l=1:N
+        YYt = zeros(N,nn,m);
+        parfor l=1:N
             samplename = ['Sample ' num2str(l)];
             disp(samplename)
             
@@ -90,7 +92,6 @@ for g=2.^(4:8)
             rhoul = repmat(rhol,3,1).*ul;
             rhoul_old = repmat(rhol_old,3,1).*ul_old;
             tauTime = (rhoul-rhoul_old)/dt;
-            clear ul_old Cl_old rhol rhoul rhoul_old
             
             uijk = zeros(3,g+1,g+1,g+1);
             Cijk = zeros(g+1,g+1,g+1);
@@ -103,7 +104,6 @@ for g=2.^(4:8)
                     end
                 end
             end
-            clear ul Cl
             
             graduijk = zeros(3,3,g+1,g+1,g+1);
             gradCijk = zeros(3,g+1,g+1,g+1);
@@ -213,22 +213,13 @@ for g=2.^(4:8)
                 end
             end
             
-            if g<2^7
-                YY(l,1:3,:,t+1) = tauTime;
-                YY(l,4:6,:,t+1) = tauConv;
-                YY(l,7:9,:,t+1) = tauDiff;
-                YY(l,10:12,:,t+1) = tauSurf;
-                YY(l,13,:,t+1) = tauInterf;
-            else
-                YYt(l,1:3,:) = tauTime;
-                YYt(l,4:6,:) = tauConv;
-                YYt(l,7:9,:) = tauDiff;
-                YYt(l,10:12,:) = tauSurf;
-                YYt(l,13,:) = tauInterf;
-            end
+            YYl = cat(1,tauTime,tauConv,tauDiff,tauSurf,tauInterf);
+            YYt(l,:,:) = YYl;
         end
         if g>=2^7
             save(fullfile(pathname,gridname,['data_post_t' num2str(t) '.mat']),'YYt');
+        else
+            YY(:,:,:,t+1) = YYt;
         end
     end
     fprintf('\n');
@@ -237,4 +228,7 @@ for g=2.^(4:8)
     else
         save(fullfile(pathname,gridname,'data_post.mat'),'nn');
     end
+    toc
 end
+
+myparallel('stop');

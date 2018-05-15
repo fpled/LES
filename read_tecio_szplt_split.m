@@ -1,6 +1,8 @@
 clc
 clearvars
 close all
+% rng('default');
+myparallel('start');
 
 %%%%%%%%%% TecIO Setup %%%%%%%%%%%%%
 if ismac
@@ -29,6 +31,7 @@ pathname = fileparts(mfilename('fullpath'));
 % pathname = '/mnt/tcm13/SV_FP/';
 
 for g=2.^(7:8)
+    tic
     gridname = ['Grid' num2str(g)];
     disp(gridname)
     
@@ -41,7 +44,7 @@ for g=2.^(7:8)
         
         % Yt = zeros(N,n*m);
         Yt = zeros(N,n,m);
-        for l=1:N
+        parfor l=1:N
             foldername = ['Cas-' num2str(l)];
             disp(foldername)
             
@@ -104,9 +107,11 @@ for g=2.^(7:8)
     end
     fprintf('\n');
     save(fullfile(pathname,gridname,'data.mat'),'N','n','m','p');
+    toc
 end
 
 if libisloaded('tecio')
     unloadlibrary('tecio')
 end
 
+myparallel('stop');

@@ -22,6 +22,7 @@ pathname = fileparts(mfilename('fullpath'));
 
 for g=2.^(4:8)
 % for g=2^4
+    tic
     gridname = ['Grid' num2str(g)];
     disp(gridname)
     pathnamegrid = fullfile(pathname,gridname);
@@ -676,5 +677,6 @@ for g=2.^(4:8)
     end
     make_pvd_file(pathnamegrid,'diphasic_fluids_mean',1,p+1);
     make_pvd_file(pathnamegrid,'diphasic_fluids_variance',1,p+1);
-
+    
+    toc
 end
