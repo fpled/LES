@@ -37,13 +37,12 @@ for g=2^4
     % Time scheme
     dt = 1/(p+1);
     % Explicit backward Euler time scheme (first-order accurate, conditionally stable)
-    Dt = spdiags(repmat([1 -1],p+1,1),[0 -1],p+1,p+1)/dt;
+    % Dt = spdiags(repmat([1 -1],p+1,1),[0 -1],p+1,p+1)/dt;
     % Implicit forward Euler time scheme (first-order accurate, unconditionally stable)
     % Dt = spdiags(repmat([1 -1],p+1,1),[1 0],p+1,p+1)/dt;
-    
-    %D = spdiags(repmat([-1 2 -1],g+1,1),[1 0 -1],g+1,g+1)/(2*dx);
-    %D = (2*diag(ones(g+1,1),0) - diag(ones(g,1),-1) - diag(ones(g,1),1))/(2*dx);
-    %D = toeplitz([2 -1 zeros(1,g-2)])/(2*dx);
+    % Implicit central-difference time scheme (second-order accurate, unconditionally stable)
+    % Dt = spdiags(repmat([-1 2 -1],p+1,1),[1 0 -1],p+1,p+1)/(2*dt);
+    Dt = toeplitz([2 -1 zeros(1,p-1)])/(2*dt);
     
     if g<2^7
         load(fullfile(pathnamegrid,'data.mat'),'Y');
@@ -59,12 +58,18 @@ for g=2^4
         
         ut_old = zeros(N,3,m);
         Ct_old = zeros(N,1,m);
+        ut_new = zeros(N,3,m);
+        Ct_new = zeros(N,1,m);
         if g<2^7
             ut = u(:,:,:,t+1);
             Ct = C(:,:,:,t+1);
             if t>0
                 ut_old = u(:,:,:,t);
                 Ct_old = C(:,:,:,t);
+            end
+            if t<p
+                ut_new = u(:,:,:,t+2);
+                Ct_new = C(:,:,:,t+2);
             end
         else
             load(fullfile(pathnamegrid,['data_t' num2str(t) '.mat']),'Yt');
@@ -74,6 +79,11 @@ for g=2^4
                 load(fullfile(pathnamegrid,['data_t' num2str(t-1) '.mat']),'Yt');
                 ut_old = Yt(:,1:3,:);
                 Ct_old = Yt(:,4,:);
+            end
+            if t<p
+                load(fullfile(pathnamegrid,['data_t' num2str(t+1) '.mat']),'Yt');
+                ut_new = Yt(:,1:3,:);
+                Ct_new = Yt(:,4,:);
             end
             clear Yt
         end
@@ -85,13 +95,17 @@ for g=2^4
             
             ul = reshape(ut(l,:,:),[3,m]);
             ul_old = reshape(ut_old(l,:,:),[3,m]);
+            ul_new = reshape(ut_new(l,:,:),[3,m]);
             Cl = Ct(l,:);
             Cl_old = Ct_old(l,:);
+            Cl_new = Ct_new(l,:);
             rhol = Cl.*rho_o + (1-Cl).*rho_w;
             rhol_old = Cl_old.*rho_o + (1-Cl_old).*rho_w;
+            rhol_new = Cl_new.*rho_o + (1-Cl_new).*rho_w;
             rhoul = repmat(rhol,3,1).*ul;
             rhoul_old = repmat(rhol_old,3,1).*ul_old;
-            tauTime = (rhoul-rhoul_old)/dt;
+            rhoul_new = repmat(rhol_new,3,1).*ul_new;
+            tauTime = (-rhoul_old+2*rhoul-rhoul_new)/(2*dt);
             
             uijk = zeros(3,g+1,g+1,g+1);
             Cijk = zeros(g+1,g+1,g+1);

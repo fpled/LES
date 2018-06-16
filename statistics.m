@@ -4,8 +4,8 @@ close all
 
 solveProblem = true;
 displaySolution = false;
-displayEigenvales = false;
-displayCovariance  = false;
+displayEigenvales = true;
+displayCovariance  = true;
 
 % index = 'time';
 index = 'coord';
@@ -20,8 +20,8 @@ renderer = 'OpenGL';
 
 pathname = fileparts(mfilename('fullpath'));
 
-for g=2.^(4:8)
-% for g=2^4
+% for g=2.^(4:8)
+for g=2^4
     tic
     gridname = ['Grid' num2str(g)];
     disp(gridname)
