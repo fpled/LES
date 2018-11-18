@@ -15,7 +15,7 @@ cmap = 'default';
 framerate = 5;
 fontsize = 16;
 interpreter = 'latex';
-formats = {'fig','epsc2'};
+formats = {'fig','epsc'};
 renderer = 'OpenGL';
 
 pathname = fileparts(mfilename('fullpath'));

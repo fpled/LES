@@ -5,6 +5,7 @@ close all
 myparallel('start');
 
 pathname = fileparts(mfilename('fullpath'));
+% pathname = '/mnt/tcm13/SV_FP/';
 
 sigma = 0.45; % surface tension (N/m)
 mu_w = 0.1; % dynamic viscosity of water (Pa.s)

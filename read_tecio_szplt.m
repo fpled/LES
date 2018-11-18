@@ -6,12 +6,12 @@ myparallel('start');
 
 %%%%%%%%%% TecIO Setup %%%%%%%%%%%%%
 if ismac
-    tecplot_home = '/Applications/Tecplot 360 EX 2017 R2/Tecplot 360 EX 2017 R2.app/Contents/MacOS';
+    tecplot_home = '/Applications/Tecplot 360 EX 2018 R2/Tecplot 360 EX 2018 R2.app/Contents/MacOS';
     tecio_path = strcat(tecplot_home,'/libtecio.dylib');
 elseif isunix
     % tecplot_home = '/usr/local/apps/tecplot360';
     % tecio_path = strcat(tecplot_home,'/lib/libtec.so');
-    tecplot_home = '/home/p/pled/Applications/Tecplot/360ex_2017r3';
+    tecplot_home = '/home/p/pled/Applications/Tecplot/360ex_2018r2';
     tecio_path = strcat(tecplot_home,'/bin/libtecio.so');
 end
 tecio_header_path = 'TECIO.h'; % uses simplified TECIO.h included in package. 
