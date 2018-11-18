@@ -27,8 +27,8 @@ n = length(varnames); % number of variables
 p = 50; % number of time steps
 N = 40; % number of samples
 
-pathname = fileparts(mfilename('fullpath'));
-% pathname = '/mnt/tcm13/SV_FP/';
+% pathname = fileparts(mfilename('fullpath'));
+pathname = '/mnt/tcm13/SV_FP/';
 
 for g=2.^(4:6)
 % for g=2^4
