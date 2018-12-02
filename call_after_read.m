@@ -2,26 +2,31 @@ clc
 clearvars
 close all
 % rng('default');
-myparallel('start');
+% myparallel('start');
 
 pathname = fileparts(mfilename('fullpath'));
 % pathname = '/mnt/tcm13/SV_FP/';
 
+L = 1; % domain size (m)
 sigma = 0.45; % surface tension (N/m)
-mu_w = 0.1; % dynamic viscosity of water (Pa.s)
-mu_o = 0.1; % dynamic viscosity of oil (Pa.s)
-rho_w = 1e3; % mass density of water (kg/m3)
-rho_o = 900; % mass density of oil (kg/m3)
+mu = [0.1,0.1]; % dynamic viscosity of [water,oil] (Pa.s)
+rho = [1000,900]; % mass density of [water,oil] (kg/m3)
+
+% Time scheme
+dt = 5e-3; % time step (s)
+dt = 100*dt; % physical time step stored every 100 time iterations
 
 nn = 13; % number of post-processed variables
+
+order = [3 1 2]; % dimension order
 
 % for g=2.^(4:8)
 for g=2^4
     tic
     gridname = ['Grid' num2str(g)];
     disp(gridname)
-    pathnamegrid = fullfile(pathname,gridname);
-    load(fullfile(pathnamegrid,'data.mat'),'N','n','m','p');
+    gridpathname = fullfile(pathname,gridname);
+    load(fullfile(gridpathname,'data.mat'),'N','n','m','p');
     
     fprintf('\nn = %d variables',n);
     fprintf('\n  = %d post-processed variables',nn);
@@ -30,220 +35,140 @@ for g=2^4
     fprintf('\np+1 = %d time steps',p+1);
     fprintf('\n');
     
+    s = [g+1,g+1,g+1]; % spatial dimensions
+    
     % Spatial scheme
-    dx = 1/(g+1);
+    dx = L/g; % spatial step (m)
     % Implicit central-difference spatial scheme (second-order accurate, unconditionlly stable)
     Dx = spdiags(repmat([1 -1],g+1,1),[1 -1],g+1,g+1)/(2*dx);
     
-    % Time scheme
-    dt = 1/(p+1);
-    % Explicit backward Euler time scheme (first-order accurate, conditionally stable)
+    % Explicit forward Euler time scheme (first-order accurate, conditionally stable)
     % Dt = spdiags(repmat([1 -1],p+1,1),[0 -1],p+1,p+1)/dt;
-    % Implicit forward Euler time scheme (first-order accurate, unconditionally stable)
+    % Implicit backward Euler time scheme (first-order accurate, unconditionally stable)
     % Dt = spdiags(repmat([1 -1],p+1,1),[1 0],p+1,p+1)/dt;
     % Implicit central-difference time scheme (second-order accurate, unconditionally stable)
-    % Dt = spdiags(repmat([-1 2 -1],p+1,1),[1 0 -1],p+1,p+1)/(2*dt);
-    Dt = toeplitz([2 -1 zeros(1,p-1)])/(2*dt);
+    Dt = spdiags(repmat([1 -1],p+1,1),[1 -1],p+1,p+1)/(2*dt);
     
     if g<2^7
-        load(fullfile(pathnamegrid,'data.mat'),'Y');
-        u = Y(:,1:3,:,:);
-        C = Y(:,4,:,:);
-        clear Y
+        load(fullfile(gridpathname,'data.mat'),'Y');
         YY = zeros(N,nn,m,p+1);
     end
     
+    fprintf('\nPost-processing data');
+    fprintf('\n');
     for t=0:p
         time = ['Time ' num2str(t)];
         disp(time)
         
-        ut_old = zeros(N,3,m);
-        Ct_old = zeros(N,1,m);
-        ut_new = zeros(N,3,m);
-        Ct_new = zeros(N,1,m);
+        Yt_old = zeros(N,n,m);
+        Yt_new = zeros(N,n,m);
         if g<2^7
-            ut = u(:,:,:,t+1);
-            Ct = C(:,:,:,t+1);
             if t>0
-                ut_old = u(:,:,:,t);
-                Ct_old = C(:,:,:,t);
+                Yt_old = Y(:,:,:,t);
             end
             if t<p
-                ut_new = u(:,:,:,t+2);
-                Ct_new = C(:,:,:,t+2);
+                Yt_new = Y(:,:,:,t+2);
             end
+            Yt = Y(:,:,:,t+1);
         else
-            load(fullfile(pathnamegrid,['data_t' num2str(t) '.mat']),'Yt');
-            ut = Yt(:,1:3,:);
-            Ct = Yt(:,4,:);
             if t>0
-                load(fullfile(pathnamegrid,['data_t' num2str(t-1) '.mat']),'Yt');
-                ut_old = Yt(:,1:3,:);
-                Ct_old = Yt(:,4,:);
+                load(fullfile(gridpathname,['data_t' num2str(t-1) '.mat']),'Yt');
+                Yt_old = Yt;
             end
             if t<p
-                load(fullfile(pathnamegrid,['data_t' num2str(t+1) '.mat']),'Yt');
-                ut_new = Yt(:,1:3,:);
-                Ct_new = Yt(:,4,:);
+                load(fullfile(gridpathname,['data_t' num2str(t+1) '.mat']),'Yt');
+                Yt_new = Yt;
             end
-            clear Yt
+            load(fullfile(gridpathname,['data_t' num2str(t) '.mat']),'Yt');
         end
         
-        YYt = zeros(N,nn,m);
-        parfor l=1:N
-            samplename = ['Sample ' num2str(l)];
-            disp(samplename)
-            
-            ul = reshape(ut(l,:,:),[3,m]);
-            ul_old = reshape(ut_old(l,:,:),[3,m]);
-            ul_new = reshape(ut_new(l,:,:),[3,m]);
-            Cl = Ct(l,:);
-            Cl_old = Ct_old(l,:);
-            Cl_new = Ct_new(l,:);
-            rhol = Cl.*rho_o + (1-Cl).*rho_w;
-            rhol_old = Cl_old.*rho_o + (1-Cl_old).*rho_w;
-            rhol_new = Cl_new.*rho_o + (1-Cl_new).*rho_w;
-            rhoul = repmat(rhol,3,1).*ul;
-            rhoul_old = repmat(rhol_old,3,1).*ul_old;
-            rhoul_new = repmat(rhol_new,3,1).*ul_new;
-            tauTime = (-rhoul_old+2*rhoul-rhoul_new)/(2*dt);
-            
-            uijk = zeros(3,g+1,g+1,g+1);
-            Cijk = zeros(g+1,g+1,g+1);
-            for i=1:g+1
-                for k=1:g+1
-                    for j=1:g+1
-                        ind = (g+1)^2*(i-1)+(g+1)*(k-1)+j;
-                        uijk(:,i,j,k) = ul(:,ind);
-                        Cijk(i,j,k) = Cl(ind);
-                    end
-                end
-            end
-            
-            graduijk = zeros(3,3,g+1,g+1,g+1);
-            gradCijk = zeros(3,g+1,g+1,g+1);
-            for k=1:g+1
-                for j=1:g+1
-                    for c=1:3
-                        u1 = uijk(c,:,j,k);
-                        graduijk(1,c,:,j,k) = Dx*u1(:);
-                    end
-                    C1 = Cijk(:,j,k);
-                    gradCijk(1,:,j,k) = Dx*C1(:);
-                end
-            end
-            for k=1:g+1
-                for i=1:g+1
-                    for c=1:3
-                        u2 = uijk(c,i,:,k);
-                        graduijk(2,c,i,:,k) = Dx*u2(:);
-                    end
-                    C2 = Cijk(i,:,k);
-                    gradCijk(2,i,:,k) = Dx*C2(:);
-                end
-            end
-            for j=1:g+1
-                for i=1:g+1
-                    for c=1:3
-                        u3 = uijk(c,i,j,:);
-                        graduijk(3,c,i,j,:) = Dx*u3(:);
-                    end
-                    C3 = Cijk(i,j,:);
-                    gradCijk(3,i,j,:) = Dx*C3(:);
-                end
-            end
-            
-            Sijk = (graduijk+permute(graduijk,[2,1,3,4,5]))/2; 
-            
-            normalijk = zeros(3,g+1,g+1,g+1);
-            for k=1:g+1
-                for j=1:g+1
-                    for i=1:g+1
-                        gradC = gradCijk(:,i,j,k);
-                        if all(gradC==0)
-                            normalijk(:,i,j,k) = zeros(3,1);
-                        else
-                            normalijk(:,i,j,k) = gradC./norm(gradC);
-                        end
-                    end
-                end
-            end
-            
-            divSijk = zeros(3,g+1,g+1,g+1);
-            divnormalijk = zeros(g+1,g+1,g+1);
-            for k=1:g+1
-                for j=1:g+1
-                    S1 = sum(Sijk(1,:,:,j,k),2);
-                    n1 = normalijk(1,:,j,k);
-                    divSijk(1,:,j,k) = Dx*S1(:);
-                    divnormalijk(:,j,k) = Dx*n1(:);
-                end
-            end
-            for k=1:g+1
-                for i=1:g+1
-                    S2 = sum(Sijk(2,:,i,:,k),2);
-                    n2 = normalijk(2,i,:,k);
-                    divn2 = divnormalijk(i,:,k);
-                    divSijk(2,i,:,k) = Dx*S2(:);
-                    divnormalijk(i,:,k) = divn2(:) + Dx*n2(:);
-                end
-            end
-            for j=1:g+1
-                for i=1:g+1
-                    S3 = sum(Sijk(3,:,i,j,:),2);
-                    n3 = normalijk(3,i,j,:);
-                    divn3 = divnormalijk(i,j,:);
-                    divSijk(3,i,j,:) = Dx*S3(:);
-                    divnormalijk(i,j,:) = divn3(:)+ Dx*n3(:);
-                end
-            end
-            
-            tauConv = zeros(3,m);
-            tauDiff = zeros(3,m);
-            tauSurf = zeros(3,m);
-            tauInterf = zeros(1,m);
-            for k=1:g+1
-                for j=1:g+1
-                    for i=1:g+1
-                        mu  = Cijk(i,j,k)*mu_o  + (1-Cijk(i,j,k))*mu_w;
-                        rho = Cijk(i,j,k)*rho_o + (1-Cijk(i,j,k))*rho_w;
-                        
-                        uu = uijk(:,i,j,k);
-                        gradu = graduijk(:,:,i,j,k);
-                        gradC = gradCijk(:,i,j,k);
-                        divS  = divSijk(:,i,j,k);
-                        kappa = divnormalijk(i,j,k);
-                        
-                        tConv = rho*gradu'*uu;
-                        tDiff = 2*mu*divS;
-                        tSurf = sigma*kappa*gradC;
-                        tInterf = dot(uu,gradC,1);
-                        
-                        ind = (g+1)^2*(i-1)+(g+1)*(k-1)+j;
-                        tauConv(:,ind) = tConv;
-                        tauDiff(:,ind) = tDiff;
-                        tauSurf(:,ind) = tSurf;
-                        tauInterf(1,ind) = tInterf;
-                    end
-                end
-            end
-            
-            YYl = cat(1,tauTime,tauConv,tauDiff,tauSurf,tauInterf);
-            YYt(l,:,:) = YYl;
-        end
-        if g>=2^7
-            save(fullfile(pathname,gridname,['data_post_t' num2str(t) '.mat']),'YYt');
-        else
+        ut = Yt(:,1:3,:);
+        ut_old = Yt_old(:,1:3,:);
+        ut_new = Yt_new(:,1:3,:);
+        
+        Ct = Yt(:,4,:);
+        Ct_old = Yt_old(:,4,:);
+        Ct_new = Yt_new(:,4,:);
+        
+        % rhot = Ct*rho(2) + (1-Ct)*rho(1);
+        rhot_old = Ct_old*rho(2) + (1-Ct_old)*rho(1);
+        rhot_new = Ct_new*rho(2) + (1-Ct_new)*rho(1);
+        % rhout = rhot.*ut;
+        rhout_old = rhot_old.*ut_old;
+        rhout_new = rhot_new.*ut_new;
+        tauTime = (rhout_new-rhout_old)/(2*dt);
+        
+        ut = permute(reshape(ut,[N,3,s]),[2,order+2,1]);
+        Ct = permute(reshape(Ct,[N,s]),[order+1,1]);
+        rhot = Ct*rho(2) + (1-Ct)*rho(1);
+        mut  = Ct*mu(2) + (1-Ct)*mu(1);
+        gradut = grad(ut,Dx);
+        gradrhout = grad(shiftdim(rhot,-1).*ut,Dx);
+        tauConv = compute_tauConv(ut,gradrhout);
+        tauDiff = compute_tauDiff(2*shiftdim(mut,-2).*gradut,Dx);
+        gradCt = grad(Ct,Dx);
+        ngradCt = normal(gradCt);
+        kappa = div(ngradCt,Dx);
+        tauSurf = sigma*shiftdim(kappa,-1).*gradCt;
+        tauInterf = compute_tauInterf(ut,gradCt);
+        tauConv = ipermute(tauConv,[2,order+2,1]);
+        tauDiff = ipermute(tauDiff,[2,order+2,1]);
+        tauSurf = ipermute(tauSurf,[2,order+2,1]);
+        tauInterf = ipermute(tauInterf,[2,order+2,1]);
+        tauConv = tauConv(:,:,:);
+        tauDiff = tauDiff(:,:,:);
+        tauSurf = tauSurf(:,:,:);
+        tauInterf = tauInterf(:,:,:);
+        YYt = cat(2,tauTime,tauConv,tauDiff,tauSurf,tauInterf);
+        
+%         YYt = zeros(N,nn,m);
+%         parfor l=1:N
+%             % samplename = ['Sample ' num2str(l)];
+%             % disp(samplename)
+%             
+%             ul = permute(reshape(ut(l,:,:),[3,s]),[1,order+1]);
+%             Cl = permute(reshape(Ct(l,:),s),order);
+%             
+%             gradul = grad(ul,Dx);
+%             rhol = Cl*rho(2) + (1-Cl)*rho(1);
+%             mul  = Cl*mu(2) + (1-Cl)*mu(1);
+%             tauConv = shiftdim(rhol,-1).*compute_tauConv(ul,gradul);
+%             tauDiff = 2*shiftdim(mul,-1).*compute_tauDiff(gradul,Dx);
+%             
+%             gradCl = grad(Cl,Dx);
+%             ngradCl = normal(gradCl);
+%             kappa = div(ngradCl,Dx);
+%             tauSurf = sigma*shiftdim(kappa,-1).*gradCl;
+%             tauInterf = compute_tauInterf(ul,gradCl);
+%             
+%             tauConv = ipermute(tauConv,[1,order+1]);
+%             tauDiff = ipermute(tauDiff,[1,order+1]);
+%             tauSurf = ipermute(tauSurf,[1,order+1]);
+%             tauInterf = ipermute(tauInterf,[1,order+1]);
+%             
+%             tauConv = tauConv(:,:);
+%             tauDiff = tauDiff(:,:);
+%             tauSurf = tauSurf(:,:);
+%             tauInterf = tauInterf(:,:);
+%             tauTimel = shiftdim(tauTime(l,:,:));
+%                         
+%             YYl = cat(1,tauTimel,tauConv,tauDiff,tauSurf,tauInterf);
+%             YYt(l,:,:) = YYl;
+%         end
+
+        if g<2^7
             YY(:,:,:,t+1) = YYt;
+        else
+            save(fullfile(gridpathname,['data_post_t' num2str(t) '.mat']),'YYt');
         end
     end
     fprintf('\n');
     if g<2^7
-        save(fullfile(pathname,gridname,'data_post.mat'),'YY','nn');
+        save(fullfile(gridpathname,'data_post.mat'),'YY','nn');
     else
-        save(fullfile(pathname,gridname,'data_post.mat'),'nn');
+        save(fullfile(gridpathname,'data_post.mat'),'nn');
     end
     toc
 end
 
-myparallel('stop');
+% myparallel('stop');
