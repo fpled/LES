@@ -1,19 +1,33 @@
-function []=write_vtk_mesh(M,u,C,tauTime,tauConv,tauDiff,tauSurf,tauInterf,pathname,filename,part,time,binary_output)
+function [] = write_vtk_mesh(M,nodalfields,elemfields,nodalfieldnames,elemfieldnames,pathname,filename,part,time,binary_output)
+% function [] = write_vtk_mesh(M,nodalfields,elemfields,nodalfieldnames,elemfieldnames,pathname,filename,part,time,binary_output)
 
-if nargin<9 || isempty(pathname)
+if nargin<4 || isempty(nodalfieldnames)
+    nodalfieldnames='solution';
+end
+if nargin<5 || isempty(elemfieldnames)
+    elemfieldnames='solution';
+end
+if nargin<6 || isempty(pathname)
     pathname='.';
 end
-if nargin<10 || isempty(filename)
+if nargin<7 || isempty(filename)
     filename='paraview';
 end
-if nargin<11 || isempty(part)
+if nargin<8 || isempty(part)
     part=1;
 end
-if nargin<12 || isempty(time)
+if nargin<9 || isempty(time)
     time=0;
 end
-if nargin<13 || isempty(binary_output)
+if nargin<10 || isempty(binary_output)
     binary_output=1;
+end
+
+if ~iscell(nodalfields)
+    nodalfields={nodalfields};  
+end
+if ~iscell(nodalfieldnames)
+    nodalfieldnames={nodalfieldnames};  
 end
 
 nelem=M.nbelem;
@@ -63,29 +77,29 @@ if binary_output
     
     % POINT DATA
     fprintf(fid,'\t\t\t <PointData scalars="scalar"> \n');
-    fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="velocity" NumberOfComponents="3" format="appended" offset="%u" />\n',offset);
-    offset=offset+4+4*numel(u);
-    fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="phase" NumberOfComponents="1" format="appended" offset="%u" />\n',offset);
-    offset=offset+4+4*numel(C);
-    fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="tau time" NumberOfComponents="3" format="appended" offset="%u" />\n',offset);
-    offset=offset+4+4*numel(tauTime);
-    fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="tau conv" NumberOfComponents="3" format="appended" offset="%u" />\n',offset);
-    offset=offset+4+4*numel(tauConv);
-    fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="tau diff" NumberOfComponents="3" format="appended" offset="%u" />\n',offset);
-    offset=offset+4+4*numel(tauDiff);
-    fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="tau surf" NumberOfComponents="3" format="appended" offset="%u" />\n',offset);
-    offset=offset+4+4*numel(tauSurf);
-    fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="tau interf" NumberOfComponents="1" format="appended" offset="%u" />\n',offset);
-    offset=offset+4+4*numel(tauInterf);
+    if ~isempty(nodalfields)
+        for i=1:length(nodalfields)
+            nbofcomponents = numel(nodalfields{i})/nnode;
+            fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="%s" NumberOfComponents="%u" format="appended" offset="%u" />\n',nodalfieldnames{i},nbofcomponents,offset);
+            offset=offset+4+4*numel(nodalfields{i});
+        end
+    end
     fprintf(fid,'\t\t\t </PointData> \n');
     
     % CELL DATA
     fprintf(fid,'\t\t\t <CellData> \n');
+    if ~isempty(elemfields)
+        for i=1:length(elemfields)
+            nbofcomponents = numel(elemfields{i})/nelem;
+            fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="%s" NumberOfComponents="%u" format="appended" offset="%u" />\n',elemfieldnames{i},nbofcomponents,offset);
+            offset=offset+4+4*numel(elemfields{i});
+        end
+    end
     fprintf(fid,'\t\t\t </CellData> \n');
     
     % POINTS
     fprintf(fid,'\t\t\t <Points>\n');
-    fprintf(fid,'\t\t\t\t <DataArray type="Float32" NumberOfComponents="3" format="appended" offset="%u" />\n',offset);
+    fprintf(fid,'\t\t\t\t <DataArray type="Float32" NumberOfComponents="%u" format="appended" offset="%u" />\n',getindim(M),offset);
     offset=offset+4+4*numel(node);
     fprintf(fid,'\t\t\t </Points>\n');
     
@@ -105,33 +119,21 @@ if binary_output
     % APPENDED DATA
     fprintf(fid,'\t <AppendedData encoding="raw"> \n _');
     
-    % DISPLACEMENT U
-    fwrite(fid,4*numel(u),'uint32');
-    fwrite(fid,u,'float32');
+    % NODAL FIELDS
+    if ~isempty(nodalfields)
+        for i=1:length(nodalfields)
+            fwrite(fid,4*numel(nodalfields{i}),'uint32');
+            fwrite(fid,nodalfields{i},'float32');
+        end
+    end
     
-    % PHASE C
-    fwrite(fid,4*numel(C),'uint32');
-    fwrite(fid,C,'float32');
-    
-    % TIME STRESS TAU TIME
-    fwrite(fid,4*numel(tauTime),'uint32');
-    fwrite(fid,tauTime,'float32');
-    
-    % CONVECTION STRESS TAU CONV
-    fwrite(fid,4*numel(tauConv),'uint32');
-    fwrite(fid,tauConv,'float32');
-    
-    % DIFFUSION (VISCOSITY) STRESS TAU DIFF
-    fwrite(fid,4*numel(tauDiff),'uint32');
-    fwrite(fid,tauDiff,'float32');
-    
-    % SURFACE TENSION (CAPILLARY) STRESS TAU SURF
-    fwrite(fid,4*numel(tauSurf),'uint32');
-    fwrite(fid,tauSurf,'float32');
-    
-    % INTERFACE TRACKING STRESS TAU INTERF
-    fwrite(fid,4*numel(tauInterf),'uint32');
-    fwrite(fid,tauInterf,'float32');
+    % ELEM FIELDS
+    if ~isempty(elemfields)
+        for i=1:length(elemfields)
+            fwrite(fid,4*numel(elemfields{i}),'uint32');
+            fwrite(fid,elemfields{i},'float32');
+        end
+    end
     
     % NODES
     fwrite(fid,4*numel(node),'uint32');
@@ -150,31 +152,26 @@ else
     
     % POINT DATA
     fprintf(fid,'\t\t\t <PointData scalars="scalar"> \n');
-    fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="velocity" NumberOfComponents="3" format="ascii">\n');
-    fprintf(fid,'%e \n',u);
-    fprintf(fid,'\t\t\t\t </DataArray>\n');
-    fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="phase" NumberOfComponents="1" format="ascii">\n');
-    fprintf(fid,'%e \n',C);
-    fprintf(fid,'\t\t\t\t </DataArray>\n');
-    fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="tau time" NumberOfComponents="3" format="ascii">\n');
-    fprintf(fid,'%e \n',tauTime);
-    fprintf(fid,'\t\t\t\t </DataArray>\n');
-    fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="tau conv" NumberOfComponents="3" format="ascii">\n');
-    fprintf(fid,'%e \n',tauConv);
-    fprintf(fid,'\t\t\t\t </DataArray>\n');
-    fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="tau diff" NumberOfComponents="3" format="ascii">\n');
-    fprintf(fid,'%e \n',tauDiff);
-    fprintf(fid,'\t\t\t\t </DataArray>\n');
-    fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="tau surf" NumberOfComponents="3" format="ascii">\n');
-    fprintf(fid,'%e \n',tauSurf);
-    fprintf(fid,'\t\t\t\t </DataArray>\n');
-    fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="tau interf" NumberOfComponents="1" format="ascii">\n');
-    fprintf(fid,'%e \n',tauInterf);
-    fprintf(fid,'\t\t\t\t </DataArray>\n');
+    if ~isempty(nodalfields)
+        for i=1:length(nodalfields)
+            nbofcomponents = numel(nodalfields{i})/nnode;
+            fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="%s" NumberOfComponents="%u" format="ascii">\n',nodalfieldnames{i},nbofcomponents);
+            fprintf(fid,'%e \n',nodalfields{i});
+            fprintf(fid,'\t\t\t\t </DataArray>\n');
+        end
+    end
     fprintf(fid,'\t\t\t </PointData> \n');
     
     % CELL DATA
     fprintf(fid,'\t\t\t <CellData> \n');
+    if ~isempty(elemfields)
+        for i=1:length(elemfields)
+            nbofcomponents = numel(elemfields{i})/nelem;
+            fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="%s" NumberOfComponents="%u" format="ascii">\n',elemfieldnames{i},nbofcomponents);
+            fprintf(fid,'%e \n',elemfields{i});
+            fprintf(fid,'\t\t\t\t </DataArray>\n');
+        end
+    end
     fprintf(fid,'\t\t\t </CellData> \n');
     
     % POINTS

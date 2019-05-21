@@ -70,7 +70,7 @@ for g=2^4
     
     if solveProblem
         %% First reduction step
-        fprintf('\n1st PCA');
+        fprintf('\nFirst PCA');
         Rinit = min(r,N);
         if g<2^7
             load(fullfile(gridpathname,'data.mat'),'Y');
@@ -150,17 +150,18 @@ for g=2^4
         Z = Z(:,1:Rmax,:);
         
         %% Second reduction step for each coordinate
-%         fprintf('\n2nd PCA');
+%         fprintf('\nSecond PCA');
 %         Q = min(p+1,N);
 %         S = zeros(Q,Rmax);
 %         W = zeros(p+1,Q,Rmax);
 %         X = zeros(N,Q,Rmax);
+%         errsvdZc = zeros(Q,Rmax);
 %         Q = zeros(1,Rmax);
 %         Qmax = 1;
 %         for a=1:Rmax
 %             Zca = Z(:,a,:);
 %             Zca = Zca(:,:)';
-%             [Wa,Sa,Xa,erra] = svdtruncate(Zca,tolsvdZc);
+%             [Wa,Sa,Xa,errsvdZca] = svdtruncate(Zca,tolsvdZc);
 %             Sa = Sa/sqrt(N-1);
 %             Xa = Xa*sqrt(N-1);
 %             Zca_approx = Wa*(Sa.*Xa'); % Zca_approx = Wa*diag(Sa)*Xa';
@@ -172,6 +173,7 @@ for g=2^4
 %             W(:,1:Qa,a) = Wa;
 %             X(:,1:Qa,a) = Xa;
 %             Q(a) = Qa;
+%             errsvdZc(1:Qa,a) = errsvdZca;
 %             
 %             CZa_approx = Wa*(Sa.^2.*Wa'); % CZa_approx = Wa*diag(Sa).^2*Wa';
 %             CZa = cov(Zca'); % CZa = 1/(N-1)*Zca*Zca';
@@ -202,9 +204,11 @@ for g=2^4
 %         S = S(1:Qmax,:);
 %         W = W(:,1:Qmax,:);
 %         X = X(:,1:Qmax,:);
+%         errsvdZc = errsvdZc(1:Qmax,:);
+%         Q = Qmax;
         
         %% Second reduction step
-        fprintf('\n2nd PCA');
+        fprintf('\nSecond PCA');
         q = (p+1)*Rmax;
         switch index
             case 'time'
@@ -954,8 +958,12 @@ for g=2^4
         vtauDifft = getmatrixatstep(vtauDiff,t+1);
         vtauSurft = getmatrixatstep(vtauSurf,t+1);
         vtauInterft = getmatrixatstep(vtauInterf,t+1);
-        write_vtk_mesh(M,mut,mCt,mtauTimet,mtauConvt,mtauDifft,mtauSurft,mtauInterft,gridpathname,'diphasic_fluids_mean',1,t);
-        write_vtk_mesh(M,vut,vCt,vtauTimet,vtauConvt,vtauDifft,vtauSurft,vtauInterft,gridpathname,'diphasic_fluids_variance',1,t);
+        write_vtk_mesh(M,{mut,mCt,mtauTimet,mtauConvt,mtauDifft,mtauSurft,mtauInterft},[],...
+            {'velocity','phase','tau time','tau conv','tau diff','tau surf','tau interf'},[],...
+            gridpathname,'diphasic_fluids_mean',1,t);
+        write_vtk_mesh(M,{vut,vCt,vtauTimet,vtauConvt,vtauDifft,vtauSurft,vtauInterft},[],...
+            {'velocity','phase','tau time','tau conv','tau diff','tau surf','tau interf'},[],...
+            gridpathname,'diphasic_fluids_variance',1,t);
     end
     make_pvd_file(gridpathname,'diphasic_fluids_mean',1,p+1);
     make_pvd_file(gridpathname,'diphasic_fluids_variance',1,p+1);
