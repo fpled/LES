@@ -52,7 +52,15 @@ for i=1:M.nbgroupelem
     types=[types repmat(type,1,getnbelem(elem))];
 end
 
-x = getcoord(M.node)';
+indim = getindim(M);
+x = getcoord(M.node);
+if indim==1
+    x = [x,zeros(nnode,2)]';
+elseif indim==2
+    x = [x,zeros(nnode,1)]';
+else
+    x = x';
+end
 node = x(:);
 
 [~,~,endian]=computer;
@@ -99,7 +107,7 @@ if binary_output
     
     % POINTS
     fprintf(fid,'\t\t\t <Points>\n');
-    fprintf(fid,'\t\t\t\t <DataArray type="Float32" NumberOfComponents="%u" format="appended" offset="%u" />\n',getindim(M),offset);
+    fprintf(fid,'\t\t\t\t <DataArray type="Float32" NumberOfComponents="3" format="appended" offset="%u" />\n',offset);
     offset=offset+4+4*numel(node);
     fprintf(fid,'\t\t\t </Points>\n');
     
