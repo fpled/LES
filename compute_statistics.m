@@ -109,7 +109,7 @@ for g=2^4
             end
             Yct = Yct(:,:)';
             % if t==0
-            %     [Vt,Sigt,Zt,errt] = svdtruncate(Yct,Rinit-1);
+            %     [Vt,Sigt,Zt,errsvdYct] = svdtruncate(Yct,Rinit-1);
             % else
                 [Vt,Sigt,Zt,errsvdYct] = svdtruncate(Yct,tolsvdYc);
             % end
