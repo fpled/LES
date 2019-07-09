@@ -16,7 +16,7 @@ rho = [1000,900]; % mass density of [water,oil] (kg/m3)
 dt = 5e-3; % time step (s)
 dt = 100*dt; % physical time step stored every 100 time iterations
 
-nn = 13; % number of post-processed variables
+npost = 13; % number of post-processed variables
 
 order = [3 1 2]; % dimension order
 
@@ -29,13 +29,13 @@ for g=2^4
     load(fullfile(gridpathname,'data.mat'),'N','n','m','p');
     
     fprintf('\nn = %d variables',n);
-    fprintf('\n  = %d post-processed variables',nn);
+    fprintf('\n  = %d post-processed variables',npost);
     fprintf('\nN = %d samples',N);
     fprintf('\nm = %d spatial points',m);
     fprintf('\np+1 = %d time steps',p+1);
     fprintf('\n');
     
-    s = [g+1,g+1,g+1]; % spatial dimensions
+    sx = [g+1,g+1,g+1]; % spatial dimensions
     
     % Spatial scheme
     dx = L/g; % spatial step (m)
@@ -51,7 +51,7 @@ for g=2^4
     
     if g<2^7
         load(fullfile(gridpathname,'data.mat'),'Y');
-        YY = zeros(N,nn,m,p+1);
+        YY = zeros(N,npost,m,p+1);
     end
     
     fprintf('\nPost-processing data');
@@ -98,8 +98,8 @@ for g=2^4
         rhout_new = rhot_new.*ut_new;
         tauTime = (rhout_new-rhout_old)/(2*dt);
         
-        ut = permute(reshape(ut,[N,3,s]),[2,order+2,1]);
-        Ct = permute(reshape(Ct,[N,s]),[order+1,1]);
+        ut = permute(reshape(ut,[N,3,sx]),[2,order+2,1]);
+        Ct = permute(reshape(Ct,[N,sx]),[order+1,1]);
         rhot = Ct*rho(2) + (1-Ct)*rho(1);
         mut  = Ct*mu(2) + (1-Ct)*mu(1);
         gradut = grad(ut,Dx);
@@ -121,13 +121,13 @@ for g=2^4
         tauInterf = tauInterf(:,:,:);
         YYt = cat(2,tauTime,tauConv,tauDiff,tauSurf,tauInterf);
         
-%         YYt = zeros(N,nn,m);
+%         YYt = zeros(N,npost,m);
 %         parfor l=1:N
 %             % samplename = ['Sample ' num2str(l)];
 %             % disp(samplename)
 %             
-%             ul = permute(reshape(ut(l,:,:),[3,s]),[1,order+1]);
-%             Cl = permute(reshape(Ct(l,:),s),order);
+%             ul = permute(reshape(ut(l,:,:),[3,sx]),[1,order+1]);
+%             Cl = permute(reshape(Ct(l,:),sx),order);
 %             
 %             gradul = grad(ul,Dx);
 %             rhol = Cl*rho(2) + (1-Cl)*rho(1);
@@ -164,9 +164,9 @@ for g=2^4
     end
     fprintf('\n');
     if g<2^7
-        save(fullfile(gridpathname,'data_post.mat'),'YY','nn');
+        save(fullfile(gridpathname,'data_post.mat'),'YY','npost');
     else
-        save(fullfile(gridpathname,'data_post.mat'),'nn');
+        save(fullfile(gridpathname,'data_post.mat'),'npost');
     end
     toc
 end

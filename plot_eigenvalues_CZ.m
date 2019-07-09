@@ -1,7 +1,7 @@
 function plot_eigenvalues_CZ(times,dt,g,gridpathname,fontsize)
 
 if g<2^7
-    load(fullfile(gridpathname,'solution.mat'),'Sig','R');
+    load(fullfile(gridpathname,'solution.mat'),'sig','R');
 end
 
 figure('Name','Evolution of eigenvalues')
@@ -12,10 +12,10 @@ for t=times
     c = c+1;
     if g<2^7
         Rt = R(t+1);
-        semilogy(1:Rt,Sig(1:Rt,t+1).^2,'LineStyle','-','Color',getfacecolor(c),'LineWidth',1);
+        semilogy(1:Rt,sig(1:Rt,t+1).^2,'LineStyle','-','Color',getfacecolor(c),'LineWidth',1);
     else
-        load(fullfile(gridpathname,['PCA_t' num2str(t) '.mat']),'Sigt','Rt');
-        semilogy(1:Rt,Sigt(:).^2,'LineStyle','-','Color',getfacecolor(c),'LineWidth',1);
+        load(fullfile(gridpathname,['PCA_t' num2str(t) '.mat']),'sigt','Rt');
+        semilogy(1:Rt,sigt(:).^2,'LineStyle','-','Color',getfacecolor(c),'LineWidth',1);
     end
     leg{c} = ['t = ' num2str(t*100*dt) ' s'];
     hold on
