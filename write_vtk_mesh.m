@@ -49,7 +49,7 @@ for i=1:M.nbgroupelem
     end
     offsets = [offsets coeffs+nbnode*(1:nbelem)];
     type = vtkelemtype(elem);
-    types=[types repmat(type,1,getnbelem(elem))];
+    types = [types repmat(type,1,getnbelem(elem))];
 end
 
 indim = getindim(M);
@@ -88,6 +88,11 @@ if binary_output
     if ~isempty(nodalfields)
         for i=1:length(nodalfields)
             nbofcomponents = numel(nodalfields{i})/nnode;
+            if nbofcomponents==2
+                nodalfields{i} = reshape(nodalfields{i},nbofcomponents,nnode);
+                nodalfields{i} = [nodalfields{i};zeros(1,nnode)];
+                nbofcomponents = 3;
+            end
             fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="%s" NumberOfComponents="%u" format="appended" offset="%u" />\n',nodalfieldnames{i},nbofcomponents,offset);
             offset=offset+4+4*numel(nodalfields{i});
         end
@@ -163,6 +168,11 @@ else
     if ~isempty(nodalfields)
         for i=1:length(nodalfields)
             nbofcomponents = numel(nodalfields{i})/nnode;
+            if nbofcomponents==2
+                nodalfields{i} = reshape(nodalfields{i},nbofcomponents,nnode);
+                nodalfields{i} = [nodalfields{i};zeros(1,nnode)];
+                nbofcomponents = 3;
+            end
             fprintf(fid,'\t\t\t\t <DataArray type="Float32" Name="%s" NumberOfComponents="%u" format="ascii">\n',nodalfieldnames{i},nbofcomponents);
             fprintf(fid,'%e \n',nodalfields{i});
             fprintf(fid,'\t\t\t\t </DataArray>\n');
