@@ -3,10 +3,9 @@ clearvars
 close all
 
 solveProblem = true;
-postProcess = true;
 displaySolution = false;
 displayEigenvales = true;
-displayCovariance  = false;
+displayCovariance = false;
 
 % index = 'time';
 index = 'coord';
@@ -25,6 +24,7 @@ L = 1; % domain size (m)
 sigma = 0.45; % surface tension (N/m)
 mu = [0.1,0.1]; % dynamic viscosity of [water,oil] (Pa.s)
 rho = [1000,900]; % mass density of [water,oil] (kg/m3)
+gravity = 9.81; % gravity (m/s2)
 
 % Time scheme
 dt = 5e-3; % time step (s)
@@ -42,10 +42,6 @@ for g=2^4
     disp(gridname)
     gridpathname = fullfile(pathname,gridname);
     load(fullfile(gridpathname,'data.mat'),'N','n','m','p');
-    if ~postProcess
-        load(fullfile(gridpathname,'data_post.mat'),'npost');
-        n = n+npost;
-    end
     r = n*m;
     
     fprintf('\nn = %d variables',n);
@@ -58,6 +54,7 @@ for g=2^4
     
     % Spatial scheme
     dx = L/g; % spatial step (m)
+    x = linspace(0,L,g+1); % spatial discretization in each spatial dimension
     % Implicit central-difference spatial scheme (second-order accurate, unconditionlly stable)
     Dx = spdiags(repmat([1 -1],g+1,1),[1 -1],g+1,g+1)/(2*dx);
     
@@ -70,38 +67,29 @@ for g=2^4
     
     if solveProblem
         %% First reduction step
-        fprintf('\nFirst PCA');
+        fprintf('\nPCA in space');
         Rinit = min(r,N);
         if g<2^7
             load(fullfile(gridpathname,'data.mat'),'Y');
-            if ~postProcess
-                load(fullfile(gridpathname,'data_post.mat'),'YY');
-                Y = cat(2,Y,YY);
-                clear YY
-            end
             mY = mean(Y,1);
             Yc = Y - repmat(mY,N,1,1,1); % Yc = Y - mY.*ones(N,1,1,1);
             clear Y
-            sig = zeros(Rinit,p+1);
             V = zeros(r,Rinit,p+1);
-            R = zeros(p+1,1);
-            errsvdYc = zeros(Rinit,p+1);
         else
             mY = zeros(1,n,m,p+1);
         end
+        sig = zeros(Rinit,p+1);
         Z = zeros(N,Rinit,p+1);
-        
+        errsvdYc = zeros(Rinit,p+1);
+        err2Yc = zeros(1,p+1);
+        norm2Yc = zeros(1,p+1);
+        R = zeros(1,p+1);
         Rmax = 1;
         for t=0:p
             if g<2^7
                 Yct = Yc(:,:,:,t+1);
             else
                 load(fullfile(gridpathname,['data_t' num2str(t) '.mat']),'Yt');
-                if ~postProcess
-                    load(fullfile(gridpathname,['data_post_t' num2str(t) '.mat']),'YYt');
-                    Yt = cat(2,Yt,YYt);
-                    clear YYt
-                end
                 mYt = mean(Yt,1);
                 mY(1,:,:,t+1) = mYt;
                 Yct = Yt - repmat(mYt,N,1,1); % Yct = Yt - mYt.*ones(N,1,1);
@@ -117,24 +105,36 @@ for g=2^4
             sigt = diag(Sigt);
             Zt = Zt*sqrt(N-1);
             Yct_approx = Vt*(sigt.*Zt'); % Yct_approx = Vt*Sigt*Zt';
-            errYct = norm(Yct_approx-Yct)/norm(Yct);
+            % errYct = norm(Yct_approx-Yct)/norm(Yct);
+            errYct = errsvdYct(end);
             Rt = length(sigt);
             Rmax = max(Rmax,Rt);
-            fprintf('\nTime %2d, t = %4g s : rank R = %d, error = %.3e for Y',t,t*100*dt,Rt,errYct);
-            %CYt_approx = Vt*(sigt.^2.*Vt'); %CYt_approx = Vt*Sigt.^2*Vt';
+            fprintf('\nTime %2d, t = %4g s : rank R = %d, error = %.3e for Y',t,t*dt,Rt,errYct);
+            
+            norm2Yct = sum(var(Yct,0,2));
+            % norm2Yct_approx = sum(var(Yct_approx,0,2));
+            err2Yct = errYct^2*norm2Yct;
+            % err2Yct = norm2Yct-norm2Yct_approx;
+            % sigtf = svdtruncate(Yct,eps);
+            % sigtf = sigtf/sqrt(N-1);
+            % err2Yct = sum(sigtf.^2)-sum(sigt.^2);
+            
+            sig(1:Rt,t+1) = sigt;
+            if g<2^7
+                V(:,1:Rt,t+1) = Vt;
+            else
+                save(fullfile(gridpathname,['PCA_space_t' num2str(t) '.mat']),'Vt');
+            end
+            Z(:,1:Rt,t+1) = Zt;
+            R(t+1) = Rt;
+            errsvdYc(1:Rt,t+1) = errsvdYct;
+            err2Yc(t+1) = err2Yct;
+            norm2Yc(t+1) = norm2Yct;
+            
+            %CYt_approx = Vt*(sigt.^2.*Vt'); % CYt_approx = Vt*Sigt.^2*Vt';
             %CYt = cov(Yct'); % CYt = 1/(N-1)*Yct*Yct';
             %errCYt = norm(CYt_approx-CYt)/norm(CYt);
             %fprintf('\n                                                  error = %.3e for CY',errCYt);
-            
-            if g<2^7
-                sig(1:Rt,t+1) = sigt;
-                V(:,1:Rt,t+1) = Vt;
-                R(t+1) = Rt;
-                errsvdYc(1:Rt,t+1) = errsvdYct;
-            else
-                save(fullfile(gridpathname,['PCA_t' num2str(t) '.mat']),'sigt','Vt','Rt','errsvdYct');
-            end
-            Z(:,1:Rt,t+1) = Zt;
             
             % mZt = mean(Zt,1)';
             % CZt = cov(Zt); % CZt = 1/(N-1)*Zt'*Zt;
@@ -143,20 +143,29 @@ for g=2^4
             % norm(Vt'*Vt-eye(Rt))
         end
         fprintf('\n');
-        if g<2^7
-            sig = sig(1:Rmax,:);
-            V = V(:,1:Rmax,:);
-            errsvdYc = errsvdYc(1:Rmax,:);
-        end
+        
+        t = (0:p)*dt;
+        errL2 = trapz(t,err2Yc,2)/trapz(t,norm2Yc,2);
+        fprintf('\nerror = %.3e for Y',errL2);
+        fprintf('\n');
+        
+        sig = sig(1:Rmax,:);
         Z = Z(:,1:Rmax,:);
+        errsvdYc = errsvdYc(1:Rmax,:);
+        save(fullfile(gridpathname,'PCA_space.mat'),'mY','sig','Z','errsvdYc','R','Rmax');
+        if g<2^7
+            V = V(:,1:Rmax,:);
+            save(fullfile(gridpathname,'PCA_space.mat'),'V','-append');
+        end
         
         %% Second reduction step for each coordinate
-%         fprintf('\nSecond PCA');
+%         fprintf('\nPCA in time');
 %         Q = min(p+1,N);
 %         s = zeros(Q,Rmax);
 %         W = zeros(p+1,Q,Rmax);
 %         X = zeros(N,Q,Rmax);
 %         errsvdZc = zeros(Q,Rmax);
+%         err2Zc = zeros(Rmax,1);
 %         Q = zeros(1,Rmax);
 %         Qmax = 1;
 %         for a=1:Rmax
@@ -167,10 +176,20 @@ for g=2^4
 %             sa = diag(Sa);
 %             Xa = Xa*sqrt(N-1);
 %             Zca_approx = Wa*(sa.*Xa'); % Zca_approx = Wa*Sa*Xa';
-%             errZa = norm(Zca_approx-Zca)/norm(Zca);
+%             % errZca = norm(Zca_approx-Zca)/norm(Zca);
+%             errZca = errsvdZca(end);
 %             Qa = length(sa);
 %             Qmax = max(Qmax,Qa);
-%             fprintf('\nCoordinate alpha = %2.f : rank Q = %d, error = %.3e for Z',a,Qa,errZa);
+%             fprintf('\nCoordinate alpha = %2.f : rank Q = %d, error = %.3e for Z',a,Qa,errZca);
+%             
+%             % norm2Zca = sum(var(Zca,0,2));
+%             % norm2Zca_approx = sum(var(Zca_approx,0,2));
+%             % err2Zca = errZca^2*norm2Zca;
+%             % err2Zca = norm2Zca-norm2Zca_approx;
+%             % saf = svdtruncate(Zca,eps);
+%             % saf = saf/sqrt(N-1);
+%             % err2Zca = sum(saf.^2)-sum(sa.^2);
+%             
 %             s(1:Qa,a) = sa;
 %             W(:,1:Qa,a) = Wa;
 %             X(:,1:Qa,a) = Xa;
@@ -181,12 +200,6 @@ for g=2^4
 %             CZa = cov(Zca'); % CZa = 1/(N-1)*Zca*Zca';
 %             errCZa = norm(CZa_approx-CZa)/norm(CZa);
 %             fprintf('\n                                     error = %.3e for CZ',errCZa);
-%             
-%             % mXa = mean(Xa,1)';
-%             % CXa = cov(Xa); % CXa = 1/(N-1)*Xa'*Xa;
-%             % norm(mXa)
-%             % norm(CXa-eye(Qa))
-%             % norm(Wa'*Wa-eye(Qa))
 %             
 %             if displayCovariance
 %                 figure('Name','Covariance matrix')
@@ -201,6 +214,12 @@ for g=2^4
 %                 mysaveas(gridpathname,['covariance_CZ_a' num2str(a)],formats,renderer);
 %                 mymatlab2tikz(gridpathname,['covariance_CZ_a' num2str(a) '.tex']);
 %             end
+%             
+%             % mXa = mean(Xa,1)';
+%             % CXa = cov(Xa); % CXa = 1/(N-1)*Xa'*Xa;
+%             % norm(mXa)
+%             % norm(CXa-eye(Qa))
+%             % norm(Wa'*Wa-eye(Qa))
 %         end
 %         fprintf('\n');
 %         s = s(1:Qmax,:);
@@ -210,7 +229,7 @@ for g=2^4
 %         Q = Qmax;
         
         %% Second reduction step
-        fprintf('\nSecond PCA');
+        fprintf('\nPCA in time');
         q = (p+1)*Rmax;
         switch index
             case 'time'
@@ -224,15 +243,26 @@ for g=2^4
         s = diag(S);
         X = X*sqrt(N-1);
         Zc_approx = W*(s.*X'); % Zc_approx = W*S*X';
-        errZ = norm(Zc_approx-Zc)/norm(Zc);
+        % errZc = norm(Zc_approx-Zc)/norm(Zc);
+        errZc = errsvdZc(end);
         Q = length(s);
-        fprintf('\nrank R = %d, rank Q = %d, error = %.3e for Z',Rmax,Q,errZ);
+        fprintf('\nrank R = %d, rank Q = %d, error = %.3e for Z',Rmax,Q,errZc);
+        
+        % norm2Zc = sum(var(Zc,0,2));
+        % norm2Zc_approx = sum(var(Zc_approx,0,2));
+        % err2Zc = errZc^2*norm2Zc;
+        % err2Zc = norm2Zc-norm2Zc_approx;
+        % sf = svdtruncate(Zc,eps);
+        % sf = sf/sqrt(N-1);
+        % err2Zc = sum(sf.^2)-sum(s.^2);
         
         CZ_approx = W*(s.^2.*W'); % CZ_approx = W*S.^2*W';
         CZ = cov(Zc'); % CZ = 1/(N-1)*Zc*Zc';
         errCZ = norm(CZ_approx-CZ)/norm(CZ);
         fprintf('\n                          error = %.3e for CZ',errCZ);
         fprintf('\n');
+        
+        save(fullfile(gridpathname,'PCA_time.mat'),'s','W','errsvdZc','Q');
         
         % mX = mean(X,1)';
         % CX = cov(X); % CX = 1/(N-1)*X'*X;
@@ -286,87 +316,70 @@ for g=2^4
 %             end
         end
         
-        if g<2^7
-            save(fullfile(gridpathname,'solution.mat'),'mY','sig','s','V','W','Z','Rmax','R','Q','errsvdYc','errsvdZc');
-        else
-            save(fullfile(gridpathname,'solution.mat'),'mY','s','W','Z','Rmax','Q','errsvdYc','errsvdZc');
-        end
-    else
-        if g<2^7
-            load(fullfile(gridpathname,'solution.mat'),'mY','sig','s','V','W','Z','Rmax','R','Q','errsvdYc','errsvdZc');
-        else
-            load(fullfile(gridpathname,'solution.mat'),'mY','s','W','Z','Rmax','Q','errsvdYc','errsvdZc');
-        end
-    end
-    
-    %% Post-processing
-    if postProcess
         %% Post-processing data
         fprintf('\nPost-processing data');
-        npost = 13; % number of post-processed variables
-        fprintf('\nn = %d post-processed variables',npost);
+        nt = 13; % number of post-processed variables
+        ne = 9; % number of energy variables
+        nvar = n+nt+ne;
+        fprintf('\nn = %d post-processed variables',nt);
+        fprintf('\n  = %d energy variables',ne);
         fprintf('\n');
         
         if g<2^7
-            YY = zeros(N,npost,m,p+1);
+            Tau = zeros(N,nt,m,p+1);
+            E = zeros(N,ne,m,p+1);
         end
+        I = zeros(N,nt+ne,2,p+1);
         
         for t=0:p
             time = ['Time ' num2str(t)];
             disp(time)
             
-            mYt = mY(1,:,:,t+1);
-            mYt_old = zeros(1,n,m);
-            mYt_new = zeros(1,n,m);
-            Rt_old = Rmax;
-            Rt_new = Rmax;
-            sigt_old = zeros(Rmax,1);
-            sigt_new = zeros(Rmax,1);
-            Vt_old = zeros(n*m,Rmax);
-            Vt_new = zeros(n*m,Rmax);
-            Zt_old = zeros(N,Rmax,1);
-            Zt_new = zeros(N,Rmax,1);
-            if t>0
-                mYt_old = mY(1,:,:,t);
-            end
-            if t<p
-                mYt_new = mY(1,:,:,t+2);
-            end
-            if g<2^7
-                Rt = R(t+1);
-                sigt = sig(1:Rt,t+1);
-                Vt = V(:,1:Rt,t+1);
-                if t>0
-                    Rt_old = R(t);
-                    sigt_old = sig(1:Rt_old,t);
-                    Vt_old = V(:,1:Rt_old,t);
-                end
-                if t<p
-                    Rt_new = R(t+2);
-                    sigt_new = sig(1:Rt_new,t+2);
-                    Vt_new = V(:,1:Rt_new,t+2);
-                end
+            if t==0
+                mYt_old = zeros(1,n,m);
+                Rt_old = Rmax;
+                sigt_old = zeros(Rmax,1);
+                Zt_old = zeros(N,Rmax,1);
+                Vt_old = zeros(n*m,Rmax);
             else
-                if t>0
-                    load(fullfile(gridpathname,['PCA_t' num2str(t-1) '.mat']),'sigt','Vt','Rt');
-                    Rt_old = Rt;
-                    sigt_old = sigt;
+                mYt_old = mY(1,:,:,t);
+                Rt_old = R(t);
+                sigt_old = sig(1:Rt_old,t);
+                Zt_old = Z(:,1:Rt_old,t);
+                if g<2^7
+                    Vt_old = V(:,1:Rt_old,t);
+                else
+                    load(fullfile(gridpathname,['PCAspace_t' num2str(t-1) '.mat']),'Vt');
                     Vt_old = Vt;
                 end
-                if t<p
-                    load(fullfile(gridpathname,['PCA_t' num2str(t+1) '.mat']),'sigt','Vt','Rt');
-                    Rt_new = Rt;
-                    sigt_new = sigt;
+            end
+            if t==p
+                mYt_new = zeros(1,n,m);
+                Rt_new = Rmax;
+                sigt_new = zeros(Rmax,1);
+                Zt_new = zeros(N,Rmax,1);
+                Vt_new = zeros(n*m,Rmax);
+            else
+                mYt_new = mY(1,:,:,t+2);
+                Rt_new = R(t+2);
+                sigt_new = sig(1:Rt_new,t+2);
+                Zt_new = Z(:,1:Rt_new,t+2);
+                if g<2^7
+                    Vt_new = V(:,1:Rt_new,t+2);
+                else
+                    load(fullfile(gridpathname,['PCAspace_t' num2str(t+1) '.mat']),'Vt');
                     Vt_new = Vt;
                 end
-                load(fullfile(gridpathname,['PCA_t' num2str(t) '.mat']),'sigt','Vt','Rt');
             end
+            
+            mYt = mY(1,:,:,t+1);
+            Rt = R(t+1);
+            sigt = sig(1:Rt,t+1);
             Zt = Z(:,1:Rt,t+1);
-            if t>0
-                Zt_old = Z(:,1:Rt_old,t);
-            end
-            if t<p
-                Zt_new = Z(:,1:Rt_new,t+2);
+            if g<2^7
+                Vt = V(:,1:Rt,t+1);
+            else
+                load(fullfile(gridpathname,['PCAspace_t' num2str(t) '.mat']),'Vt');
             end
             
             Yct = Vt*(sigt.*Zt');
@@ -380,128 +393,188 @@ for g=2^4
             ut = Yt(:,1:3,:);
             ut_old = Yt_old(:,1:3,:);
             ut_new = Yt_new(:,1:3,:);
+            
             Ct = Yt(:,4,:);
             Ct_old = Yt_old(:,4,:);
             Ct_new = Yt_new(:,4,:);
-            rhot = Ct*rho(2) + (1-Ct)*rho(1);
+            
+            % rhot = Ct*rho(2) + (1-Ct)*rho(1);
             rhot_old = Ct_old*rho(2) + (1-Ct_old)*rho(1);
             rhot_new = Ct_new*rho(2) + (1-Ct_new)*rho(1);
-            rhout = rhot.*ut;
+            % rhout = rhot.*ut;
             rhout_old = rhot_old.*ut_old;
             rhout_new = rhot_new.*ut_new;
             tauTime = (rhout_new-rhout_old)/(2*dt);
+            % Ek = 1/2*rhot.*dot(ut,ut,2);
+            Ek_old = 1/2*rhot_old.*dot(ut_old,ut_old,2);
+            Ek_new = 1/2*rhot_new.*dot(ut_new,ut_new,2);
+            energyKinTime = (Ek_new-Ek_old)/(2*dt);
             
             ut = permute(reshape(ut,[N,3,sx]),[2,order+2,1]);
             Ct = permute(reshape(Ct,[N,sx]),[order+1,1]);
+            
             rhot = Ct*rho(2) + (1-Ct)*rho(1);
-            mut  = Ct*mu(2) + (1-Ct)*mu(1);
+            mut = Ct*mu(2) + (1-Ct)*mu(1);
             gradut = grad(ut,Dx);
-            gradrhout = grad(shiftdim(rhot,-1).*ut,Dx);
-            tauConv = compute_tauConv(ut,gradrhout);
-            tauDiff = compute_tauDiff(2*shiftdim(mut,-2).*gradut,Dx);
+            rhout = shiftdim(rhot,-1).*ut;
+            gradrhout = grad(rhout,Dx);
+            St = (gradut+permute(gradut,[2,1,3:ndims(gradut)]))/2;
+            muSt = shiftdim(mut,-2).*St;
             gradCt = grad(Ct,Dx);
             ngradCt = normal(gradCt);
             kappa = div(ngradCt,Dx);
+            u2t = dot(ut,ut,1);
+            rhou2t = shiftdim(rhot,-1).*u2t;
+            
+            tauTime = permute(reshape(tauTime,[N,3,sx]),[2,order+2,1]);
+            tauConv = squeeze(sum(gradrhout.*shiftdim(ut,-1),2));
+            tauDiff = div(2*muSt,Dx);
             tauSurf = sigma*shiftdim(kappa,-1).*gradCt;
-            tauInterf = compute_tauInterf(ut,gradCt);
-            tauConv = ipermute(tauConv,[2,order+2,1]);
-            tauDiff = ipermute(tauDiff,[2,order+2,1]);
-            tauSurf = ipermute(tauSurf,[2,order+2,1]);
-            tauInterf = ipermute(tauInterf,[2,order+2,1]);
-            tauConv = tauConv(:,:,:);
-            tauDiff = tauDiff(:,:,:);
-            tauSurf = tauSurf(:,:,:);
-            tauInterf = tauInterf(:,:,:);
+            tauInterf = dot(ut,gradCt,1);
+            energyKinTime = permute(reshape(energyKinTime,[N,1,sx]),[2,order+2,1]);
+            energyConv = shiftdim(div(rhou2t.*ut,Dx),-1);
+            energyGrav = gravity.*rhout(3,:,:,:,:);
+            energyPres = zeros(1,g+1,g+1,g+1,N);
+            energyPresDil = zeros(1,g+1,g+1,g+1,N);
+            energyKinSpace = dot(rhout,grad(shiftdim(u2t/2),Dx),1);
+            energyDiff = shiftdim(div(squeeze(dot(2*muSt,repmat(shiftdim(ut,-1),[3,1]),2)),Dx),-1);
+            energyVisc = shiftdim(sum(sum(2*muSt.*gradut,1),2),1);
+            energySurf = dot(tauSurf,ut,1);
             
-            YYt = cat(2,tauTime,tauConv,tauDiff,tauSurf,tauInterf);
+            Taut = cat(1,tauTime,tauConv,tauDiff,tauSurf,tauInterf);
+            Et = cat(1,energyKinTime,energyConv,energyGrav,energyPres,energyPresDil,energyKinSpace,energyDiff,energyVisc,energySurf);
             
-%             mYt = mean(YYt,1);
-%             
-%             mut = mYt(1,1:3,:);
-%             mut_old = mYt_old(1,1:3,:);
-%             mut_new = mYt_new(1,1:3,:);
-%             mCt = mYt(1,4,:);
-%             mCt_old = mYt_old(1,4,:);
-%             mCt_new = mYt_new(1,4,:);
-%             
-%             Vt = reshape(Vt',[Rt,n,m]);
-%             Vt_old = reshape(Vt_old',[Rt_old,n,m]);
-%             Vt_new = reshape(Vt_new',[Rt_new,n,m]);
-%             Vut = Vt(:,1:3,:);
-%             Vut_old = Vt_old(:,1:3,:);
-%             Vut_new = Vt_new(:,1:3,:);
-%             VCt = Vt(:,4,:);
-%             VCt_old = Vt_old(:,4,:);
-%             VCt_new = Vt_new(:,4,:);
-%             mrhot = (mCt*rho(2) + (1-mCt)*rho(1));
-%             mrhot_old = (mCt_old*rho(2) + (1-mCt_old)*rho(1));
-%             mrhot_new = (mCt_new*rho(2) + (1-mCt_new)*rho(1));
-%             mrhout  = mrhot.*mut + (rho(2)-rho(1))*Vut.*reshape(sigt.^2.*VCt(:,:),[Rt,1,m]);
-%             mrhout_old  = mrhot_old.*mut_old + (rho(2)-rho(1))*Vut_old.*reshape(sigt_old.^2.*VCt_old(:,:),[Rt,1,m]);
-%             mrhout_new  = mrhot_new.*mut_new + (rho(2)-rho(1))*Vut_new.*reshape(sigt_new.^2.*VCt_new(:,:),[Rt,1,m]);
-%             mtauTime = (mrhout_new-mrhout_old)/(2*dt);
-%             
-%             mut = permute(reshape(mut,[1,3,sx]),[2,order+2,1]);
-%             mCt = permute(reshape(mCt,[1,sx]),[order+1,1]);
-%             gradmut = grad(mut,Dx);
-%             mrhot = (mCt*rho(2) + (1-mCt)*rho(1));
-%             mmut = (mCt*mu(2) + (1-mCt)*mu(1));
-%             
-%             Vut = permute(reshape(Vut,[Rt,3,sx]),[2,order+2,1]);
-%             VCt = permute(reshape(VCt,[Rt,1,sx]),[2,order+2,1]);
-%             gradVCVut = grad(VCt.*Vut,Dx);
-%             gradVCmut = grad(VCt.*mut,Dx);
-%             gradmrhoVut = grad(shiftdim(mrhot,-1).*Vut,Dx);
-%             gradVCVumut = reshape(compute_tauConv(mut,gradVCVut),[3*m,Rt])';
-%             gradVCmuVut = reshape(compute_tauConv(Vut,gradVCmut),[3*m,Rt])';
-%             gradmrhoVuVut = reshape(compute_tauConv(Vut,gradmrhoVut),[3*m,Rt])';
-%             mtauConv = shiftdim(mrhot,-1).*compute_tauConv(mut,gradmut) + (rho(2)-rho(1))*reshape(sum(sigt.*(gradVCVumut+gradVCVumut),1),[3,s])...
-%                 + reshape(sum(sigt.*gradmrhoVuVut,1),[3,sx]);
+            It = cat(1,Taut,Et);
+            It = cat(2,reshape(trapz(x,trapz(x,trapz(x,shiftdim(1-Ct,-1).*It,2),3),4),[nt+ne,1,N]),...
+                reshape(trapz(x,trapz(x,trapz(x,shiftdim(Ct,-1).*It,2),3),4),[nt+ne,1,N]));
+            It = shiftdim(It,2);
             
-%             tTime = yy(:,1:3,:,t+1);
-%             tConv = yy(:,4:6,:,t+1);
-%             tDiff = yy(:,7:9,:,t+1);
-%             tSurf = yy(:,10:12,:,t+1);
-%             tInterf = yy(:,13,:,t+1);
-            
-%             yyt = yy(:,:,:,t+1);
-%             dY = YYt(:,:)-yyt(:,:);
-%             dTime = tTime(:,:)-tauTime(:,:);
-%             dConv = tConv(:,:)-tauConv(:,:);
-%             dDiff = tDiff(:,:)-tauDiff(:,:);
-%             dSurf = tSurf(:,:)-tauSurf(:,:);
-%             dInterf = tInterf(:,:)-tauInterf(:,:);
-            
-%             norm(dY)/norm(yyt(:,:))
-%             norm(dTime)/norm(tTime(:,:))
-%             norm(dConv)/norm(tConv(:,:))
-%             norm(dDiff)/norm(tDiff(:,:))
-%             norm(dSurf)/norm(tSurf(:,:))
-%             norm(dInterf)/norm(tInterf(:,:))
+            Taut = ipermute(Taut,[2,order+2,1]);
+            Et = ipermute(Et,[2,order+2,1]);
+            Taut = Taut(:,:,:);
+            Et = Et(:,:,:);
             
             if g<2^7
-                YY(:,:,:,t+1) = YYt;
+                Tau(:,:,:,t+1) = Taut;
+                E(:,:,:,t+1) = Et;
             else
-                save(fullfile(gridpathname,['data_post_t' num2str(t) '.mat']),'YYt');
+                save(fullfile(gridpathname,['PP_t' num2str(t) '.mat']),'Taut','Et');
             end
+            I(:,:,:,t+1) = It;
         end
         fprintf('\n');
         if g<2^7
-            save(fullfile(gridpathname,'data_post.mat'),'YY','npost');
-        else
-            save(fullfile(gridpathname,'data_post.mat'),'npost');
+            save(fullfile(gridpathname,'PP.mat'),'Tau','E');
         end
+        save(fullfile(gridpathname,'PP.mat'),'I','nt','ne','-append');
+    else
+        if g<2^7
+            load(fullfile(gridpathname,'PCA_space.mat'),'V');
+            load(fullfile(gridpathname,'PP.mat'),'Tau','E'); 
+        end
+        load(fullfile(gridpathname,'PCA_space.mat'),'mY','sig','Z','errsvdYc','R','Rmax');
+        load(fullfile(gridpathname,'PCA_time.mat'),'s','W','Q','errsvdZc');
+        load(fullfile(gridpathname,'PP.mat'),'I','nt','ne');
     end
+    
+    
+    %% Post-processing PCA
+%     for t=0:p
+%         if g<2^7
+%             Yct = Yc(:,:,:,t+1);
+%         else
+%             load(fullfile(gridpathname,['data_t' num2str(t) '.mat']),'Yt');
+%             mYt = mean(Yt,1);
+%             Yct = Yt - repmat(mYt,N,1,1); % Yct = Yt - mYt.*ones(N,1,1);
+%             clear Yt
+%         end
+%         Yct = Yct(:,:)';
+%         % if t==0
+%         %     [Vt,Sigt,Zt,errsvdYct] = svdtruncate(Yct,Rinit-1);
+%         % else
+%         [Vt,Sigt,Zt,errsvdYct] = svdtruncate(Yct,tolsvdYc);
+%         % end
+%         Sigt = Sigt/sqrt(N-1);
+%         sigt = diag(Sigt);
+%         Zt = Zt*sqrt(N-1);
+%         Yct_approx = Vt*(sigt.*Zt'); % Yct_approx = Vt*Sigt*Zt';
+%     end
     
     %% Outputs
     % Display eigenvalues
     if displayEigenvales
-        times = [1,10:10:p];
-        plot_eigenvalues_CY(times,dt,5,g,gridpathname,9)
-        mysaveas(gridpathname,'eigenvalues_CY',formats,renderer);
-        mymatlab2tikz(gridpathname,'eigenvalues_CY.tex');
+        figure('Name','Evolution of eigenvalues w.r.t order at each time')
+        clf
+        nCols = 5;
+        leg = cell(1,p+1);
+        hdl = zeros(1,p+1);
+        color = distinguishable_colors(p+1);
+        c = 0;
+        for t=0:p
+            c = c+1;
+            Rt = R(t+1);
+            hdl(c) = semilogy(1:Rt,sig(1:Rt,t+1).^2,'LineStyle','-','Color',color(c,:),'LineWidth',1);
+            leg{c} = ['$t = ' num2str(t*dt) '$ s'];
+            hold on
+        end
+        hold off
+        grid on
+        box on
+        set(gca,'FontSize',10)
+        xlabel('$\alpha$','Interpreter','latex')
+        ylabel('$\lambda_{\alpha}(t)$','Interpreter','latex')
+        gridLegend(hdl,nCols,leg,'Location','BestOutside','Interpreter','latex');
+        % legend(leg{:},'Location','NorthEastOutside')
+        mysaveas(gridpathname,'eigenvalues_CY_order',formats,renderer);
+        mymatlab2tikz(gridpathname,'eigenvalues_CY_order.tex');
         
-        plot_error_svdYc(times,dt,5,g,gridpathname,9)
+        figure('Name','Evolution of eigenvalues w.r.t time for each order')
+        clf
+        nCols = 5;
+        leg = cell(1,Rmax);
+        hdl = zeros(1,Rmax);
+        color = distinguishable_colors(Rmax);
+        c = 0;
+        t = 0:p;
+        for r=1:Rmax
+            c = c+1;
+            hdl(c) = semilogy(t*dt,sig(r,t+1).^2,'LineStyle','-','Color',color(c,:),'LineWidth',1);
+            leg{c} = ['$\alpha = ' num2str(r) '$'];
+            hold on
+        end
+        hold off
+        grid on
+        box on
+        set(gca,'FontSize',10)
+        xlabel('$t$ (s)','Interpreter','latex')
+        ylabel('$\lambda_{\alpha}(t)$','Interpreter','latex')
+        gridLegend(hdl,nCols,leg,'Location','BestOutside','Interpreter','latex');
+        % legend(leg{:},'Location','NorthEastOutside')
+        mysaveas(gridpathname,'eigenvalues_CY_time',formats,renderer);
+        mymatlab2tikz(gridpathname,'eigenvalues_CY_time.tex');
+
+        figure('Name','Evolution of errors')
+        clf
+        nCols = 5;
+        leg = cell(1,p+1);
+        hdl = zeros(1,p+1);
+        color = distinguishable_colors(p+1);
+        c = 0;
+        for t=0:p
+            c = c+1;
+            Rt = R(t+1);
+            hdl(c) = semilogy(1:Rt,errsvdYc(1:Rt,t+1).^2,'LineStyle','-','Color',color(c,:),'LineWidth',1);
+            leg{c} = ['$t = ' num2str(t*dt) '$ s'];
+            hold on
+        end
+        hold off
+        grid on
+        box on
+        set(gca,'FontSize',10)
+        xlabel('$R$','Interpreter','latex')
+        ylabel('$\varepsilon_{Y}(R;t)$','Interpreter','latex')
+        gridLegend(hdl,nCols,leg,'Location','BestOutside','Interpreter','latex');
+        % legend(leg{:},'Location','NorthEastOutside')
         mysaveas(gridpathname,'error_svdYc',formats,renderer);
         mymatlab2tikz(gridpathname,'error_svdYc.tex');
         
@@ -537,7 +610,7 @@ for g=2^4
     coord = getcoord(getnode(M));
     M = setnode(M,NODE(fliplr(coord)));
     M = final(M,DDL(DDLVECT('U',M.syscoord)));
-    tf = p*100*dt;
+    tf = p*dt;
     T = TIMEMODEL(0,tf,p);
     
     % Solution
@@ -556,35 +629,33 @@ for g=2^4
     
     if g<2^7
         load(fullfile(gridpathname,'data.mat'),'Y');
-        load(fullfile(gridpathname,'data_post.mat'),'YY');
-        Y = cat(2,Y,YY);
-        clear YY
+        load(fullfile(gridpathname,'PP.mat'),'Tau','E');
+        Y = cat(2,Y,Tau,E);
+        clear Tau E
         mY = mean(Y,1);
         Yc = Y - repmat(mY,N,1,1,1); % Yc = Y - mY.*ones(N,1,1,1);
         clear Y
     end
     
     mu = zeros(3*m,p+1);
-    vu = zeros(3*m,p+1);
     mC = zeros(m,p+1);
-    vC = zeros(m,p+1);
     mtauTime = zeros(3*m,p+1);
-    vtauTime = zeros(3*m,p+1);
     mtauConv = zeros(3*m,p+1);
-    vtauConv = zeros(3*m,p+1);
     mtauDiff = zeros(3*m,p+1);
-    vtauDiff = zeros(3*m,p+1);
     mtauSurf = zeros(3*m,p+1);
-    vtauSurf = zeros(3*m,p+1);
     mtauInterf = zeros(m,p+1);
-    vtauInterf = zeros(m,p+1);
+    menergyKinTime = zeros(m,p+1);
+    menergyConv = zeros(m,p+1);
+    menergyGrav = zeros(m,p+1);
+    menergyPres = zeros(m,p+1);
+    menergyPresDil = zeros(m,p+1);
+    menergyKinSpace = zeros(m,p+1);
+    menergyDiff = zeros(m,p+1);
+    menergyVisc = zeros(m,p+1);
+    menergySurf = zeros(m,p+1);
     for t=0:p
         mYt = mY(1,:,:,t+1);
-        if ~postProcess
-            mYt = reshape(mYt,[n,m]);
-        else
-            mYt = reshape(mYt,[n+npost,m]);
-        end
+        mYt = reshape(mYt,[nvar,m]);
         mut = mYt(1:3,:);
         mCt = mYt(4,:);
         mtauTimet = mYt(5:7,:);
@@ -592,6 +663,15 @@ for g=2^4
         mtauDifft = mYt(11:13,:);
         mtauSurft = mYt(14:16,:);
         mtauInterft = mYt(17,:);
+        menergyKinTimet = mYt(18,:);
+        menergyConvt = mYt(19,:);
+        menergyGravt = mYt(20,:);
+        menergyPrest = mYt(21,:);
+        menergyPresDilt = mYt(22,:);
+        menergyKinSpacet = mYt(23,:);
+        menergyDifft = mYt(24,:);
+        menergyVisct = mYt(25,:);
+        menergySurft = mYt(26,:);
         mu(:,t+1) = mut(:);
         mC(:,t+1) = mCt(:);
         mtauTime(:,t+1) = mtauTimet(:);
@@ -599,22 +679,49 @@ for g=2^4
         mtauDiff(:,t+1) = mtauDifft(:);
         mtauSurf(:,t+1) = mtauSurft(:);
         mtauInterf(:,t+1) = mtauInterft(:);
-        
+        menergyKinTime(:,t+1) = menergyKinTimet(:);
+        menergyConv(:,t+1) = menergyConvt(:);
+        menergyGrav(:,t+1) = menergyGravt(:);
+        menergyPres(:,t+1) = menergyPrest(:);
+        menergyPresDil(:,t+1) = menergyPresDilt(:);
+        menergyKinSpace(:,t+1) = menergyKinSpacet(:);
+        menergyDiff(:,t+1) = menergyDifft(:);
+        menergyVisc(:,t+1) = menergyVisct(:);
+        menergySurf(:,t+1) = menergySurft(:);
+    end
+    
+    vu = zeros(3*m,p+1);
+    vC = zeros(m,p+1);
+    vtauTime = zeros(3*m,p+1);
+    vtauConv = zeros(3*m,p+1);
+    vtauDiff = zeros(3*m,p+1);
+    vtauSurf = zeros(3*m,p+1);
+    vtauInterf = zeros(m,p+1);
+    venergyKinTime = zeros(m,p+1);
+    venergyConv = zeros(m,p+1);
+    venergyGrav = zeros(m,p+1);
+    venergyPres = zeros(m,p+1);
+    venergyPresDil = zeros(m,p+1);
+    venergyKinSpace = zeros(m,p+1);
+    venergyDiff = zeros(m,p+1);
+    venergyVisc = zeros(m,p+1);
+    venergySurf = zeros(m,p+1);
+    for t=0:p
         if g<2^7
             Yct = Yc(:,:,:,t+1);
-            Rt = R(t+1);
-            sigt = sig(1:Rt,t+1);
             Vt = V(:,1:Rt,t+1);
         else
             load(fullfile(gridpathname,['data_t' num2str(t) '.mat']),'Yt');
-            load(fullfile(gridpathname,['data_post_t' num2str(t) '.mat']),'YYt');
-            Yt = cat(2,Yt,YYt);
-            clear YYt
+            load(fullfile(gridpathname,['PP_t' num2str(t) '.mat']),'Taut','Et');
+            Yt = cat(2,Yt,Taut,Et);
+            clear Taut Et
             mYt = mean(Yt,1);
             Yct = Yt - repmat(mYt,N,1,1); % Yct = Yt - mYt.*ones(N,1,1);
             clear Yt
-            load(fullfile(gridpathname,['PCA_t' num2str(t) '.mat']),'sigt','Vt','Rt');
+            load(fullfile(gridpathname,['PCA_space_t' num2str(t) '.mat']),'Vt');
         end
+        Rt = R(t+1);
+        sigt = sig(1:Rt,t+1);
         Wt = W(1:Rt,:,t+1);
         % Zct_approx = Wt*(s.*X'); % Zct_approx = Wt*diag(s)*X'; % Zct_approx = Z_approx(:,1:Rt,t+1)';
         % Yct_approx = Vt*(sigt.*Zct_approx'); % Yct_approx = Vt*diag(sigt)*Zct_approx';
@@ -629,48 +736,78 @@ for g=2^4
         % vYt_approx = diag(CYt_approx);
         vYt_approx = sum((s.*Uct_approx').^2)'; % vYt_approx = sum((diag(s)*Uct_approx').^2)';
         
-        nvar = n;
-        if postProcess
-            nvar = nvar+npost;
-        end
         indut = (0:m-1)*nvar+(1:3)';
-        indCt = 4:nvar:(nvar*m); % indCt = (0:m-1)*nvar+4;
+        indCt = (0:m-1)*nvar+4;
         indtauTimet = (0:m-1)*nvar+(5:7)';
         indtauConvt = (0:m-1)*nvar+(8:10)';
         indtauDifft = (0:m-1)*nvar+(11:13)';
         indtauSurft = (0:m-1)*nvar+(14:16)';
-        indtauInterft = 17:nvar:(nvar*m); % indtauInterft = (0:m-1)*nvar+17;
+        indtauInterft = (0:m-1)*nvar+17;
+        indenergyKinTimet = (0:m-1)*nvar+18;
+        indenergyConvt = (0:m-1)*nvar+19;
+        indenergyGravt = (0:m-1)*nvar+20;
+        indenergyPrest = (0:m-1)*nvar+21;
+        indenergyPresDilt = (0:m-1)*nvar+22;
+        indenergyKinSpacet = (0:m-1)*nvar+23;
+        indenergyDifft = (0:m-1)*nvar+24;
+        indenergyVisct = (0:m-1)*nvar+25;
+        indenergySurft = (0:m-1)*nvar+26;
         
-        if postProcess
-            tauTimet = Yct(:,5:7,:);
-            tauConvt = Yct(:,8:10,:);
-            tauDifft = Yct(:,11:13,:);
-            tauSurft = Yct(:,14:16,:);
-            tauInterft = Yct(:,17,:);
-            indut_ = (0:m-1)*n+(1:3)';
-            indCt_ = 4:n:n*m;
-            vut = vYt_approx(indut_(:));
-            vCt = vYt_approx(indCt_(:));
-            vtauTimet = 1/(N-1)*sum(tauTimet(:,:).^2)';
-            vtauConvt = 1/(N-1)*sum(tauConvt(:,:).^2)';
-            vtauDifft = 1/(N-1)*sum(tauDifft(:,:).^2)';
-            vtauSurft = 1/(N-1)*sum(tauSurft(:,:).^2)';
-            vtauInterft = 1/(N-1)*sum(tauInterft(:,:).^2)';
-            vYt_approx = zeros((n+npost)*m,1);
-            vYt_approx(indut(:)) = vut;
-            vYt_approx(indCt(:)) = vCt;
-            vYt_approx(indtauTimet(:)) = vtauTimet;
-            vYt_approx(indtauConvt(:)) = vtauConvt;
-            vYt_approx(indtauDifft(:)) = vtauDifft;
-            vYt_approx(indtauSurft(:)) = vtauSurft;
-            vYt_approx(indtauInterft(:))  = vtauInterft;
-        end
+        tauTimet = Yct(:,5:7,:);
+        tauConvt = Yct(:,8:10,:);
+        tauDifft = Yct(:,11:13,:);
+        tauSurft = Yct(:,14:16,:);
+        tauInterft = Yct(:,17,:);
+        energyKinTimet = Yct(:,18,:);
+        energyConvt = Yct(:,19,:);
+        energyGravt = Yct(:,20,:);
+        energyPrest = Yct(:,21,:);
+        energyPresDilt = Yct(:,22,:);
+        energyKinSpacet = Yct(:,23,:);
+        energyDifft = Yct(:,24,:);
+        energyVisct = Yct(:,25,:);
+        energySurft = Yct(:,26,:);
+        indut_ = (0:m-1)*n+(1:3)';
+        indCt_ = (0:m-1)*n+4;
+        vut = vYt_approx(indut_(:));
+        vCt = vYt_approx(indCt_(:));
+        vtauTimet = 1/(N-1)*sum(tauTimet(:,:).^2)';
+        vtauConvt = 1/(N-1)*sum(tauConvt(:,:).^2)';
+        vtauDifft = 1/(N-1)*sum(tauDifft(:,:).^2)';
+        vtauSurft = 1/(N-1)*sum(tauSurft(:,:).^2)';
+        vtauInterft = 1/(N-1)*sum(tauInterft(:,:).^2)';
+        venergyKinTimet = 1/(N-1)*sum(energyKinTimet(:,:).^2)';
+        venergyConvt = 1/(N-1)*sum(energyConvt(:,:).^2)';
+        venergyGravt = 1/(N-1)*sum(energyGravt(:,:).^2)';
+        venergyPrest = 1/(N-1)*sum(energyPrest(:,:).^2)';
+        venergyPresDilt = 1/(N-1)*sum(energyPresDilt(:,:).^2)';
+        venergyKinSpacet = 1/(N-1)*sum(energyKinSpacet(:,:).^2)';
+        venergyDifft = 1/(N-1)*sum(energyDifft(:,:).^2)';
+        venergyVisct = 1/(N-1)*sum(energyVisct(:,:).^2)';
+        venergySurft = 1/(N-1)*sum(energySurft(:,:).^2)';
+        vYt_approx = zeros(nvar*m,1);
+        vYt_approx(indut(:)) = vut;
+        vYt_approx(indCt(:)) = vCt;
+        vYt_approx(indtauTimet(:)) = vtauTimet;
+        vYt_approx(indtauConvt(:)) = vtauConvt;
+        vYt_approx(indtauDifft(:)) = vtauDifft;
+        vYt_approx(indtauSurft(:)) = vtauSurft;
+        vYt_approx(indtauInterft(:)) = vtauInterft;
+        vYt_approx(indenergyKinTimet(:)) = venergyKinTimet;
+        vYt_approx(indenergyConvt(:)) = venergyConvt;
+        vYt_approx(indenergyGravt(:)) = venergyGravt;
+        vYt_approx(indenergyPrest(:)) = venergyPrest;
+        vYt_approx(indenergyPresDilt(:)) = venergyPresDilt;
+        vYt_approx(indenergyKinSpacet(:)) = venergyKinSpacet;
+        vYt_approx(indenergyDifft(:)) = venergyDifft;
+        vYt_approx(indenergyVisct(:)) = venergyVisct;
+        vYt_approx(indenergySurft(:)) = venergySurft;
         
         % CYt = cov(Yct(:,:)); % CYt = 1/(N-1)*Yct(:,:)'*Yct(:,:);
         % vYt = diag(CYt);
         vYt = 1/(N-1)*sum(Yct(:,:).^2)';
         errvYt = norm(vYt_approx-vYt)/norm(vYt);
-        fprintf('\nTime %2d, t = %4g s : error = %.3e for VY',t,t*100*dt,errvYt);
+        fprintf('\nTime %2d, t = %4g s : error = %.3e for VY',t,t*dt,errvYt);
         
         vu(:,t+1) = vYt_approx(indut(:));
         vC(:,t+1) = vYt_approx(indCt(:));
@@ -679,7 +816,18 @@ for g=2^4
         vtauDiff(:,t+1) = vYt_approx(indtauDifft(:));
         vtauSurf(:,t+1) = vYt_approx(indtauSurft(:));
         vtauInterf(:,t+1) = vYt_approx(indtauInterft(:));
+        venergyKinTimet(:,t+1) = vYt_approx(indenergyKinTimet(:));
+        venergyConvt(:,t+1) = vYt_approx(indenergyConvt(:));
+        venergyGravt(:,t+1) = vYt_approx(indenergyGravt(:));
+        venergyPrest(:,t+1) = vYt_approx(indenergyPrest(:));
+        venergyPresDilt(:,t+1) = vYt_approx(indenergyPresDilt(:));
+        venergyKinSpacet(:,t+1) = vYt_approx(indenergyKinSpacet(:));
+        venergyDifft(:,t+1) = vYt_approx(indenergyDifft(:));
+        venergyVisct(:,t+1) = vYt_approx(indenergyVisct(:));
+        venergySurft(:,t+1) = vYt_approx(indenergySurft(:));
     end
+    
+    
     fprintf('\n');
     mu = TIMEMATRIX(mu,T);
     mC = TIMEMATRIX(mC,T);
@@ -688,6 +836,15 @@ for g=2^4
     mtauDiff = TIMEMATRIX(mtauDiff,T);
     mtauSurf = TIMEMATRIX(mtauSurf,T);
     mtauInterf = TIMEMATRIX(mtauInterf,T);
+    menergyKinTime = TIMEMATRIX(menergyKinTime,T);
+    menergyConv = TIMEMATRIX(menergyConv,T);
+    menergyGrav = TIMEMATRIX(menergyGrav,T);
+    menergyPres = TIMEMATRIX(menergyPres,T);
+    menergyPresDil = TIMEMATRIX(menergyPresDil,T);
+    menergyKinSpace = TIMEMATRIX(menergyKinSpace,T);
+    menergyDiff = TIMEMATRIX(menergyDiff,T);
+    menergyVisc = TIMEMATRIX(menergyVisc,T);
+    menergySurf = TIMEMATRIX(menergySurf,T);
     vu = TIMEMATRIX(vu,T);
     vC = TIMEMATRIX(vC,T);
     vtauTime = TIMEMATRIX(vtauTime,T);
@@ -695,54 +852,106 @@ for g=2^4
     vtauDiff = TIMEMATRIX(vtauDiff,T);
     vtauSurf = TIMEMATRIX(vtauSurf,T);
     vtauInterf = TIMEMATRIX(vtauInterf,T);
+    venergyKinTime = TIMEMATRIX(venergyKinTime,T);
+    venergyConv = TIMEMATRIX(venergyConv,T);
+    venergyGrav = TIMEMATRIX(venergyGrav,T);
+    venergyPres = TIMEMATRIX(venergyPres,T);
+    venergyPresDil = TIMEMATRIX(venergyPresDil,T);
+    venergyKinSpace = TIMEMATRIX(venergyKinSpace,T);
+    venergyDiff = TIMEMATRIX(venergyDiff,T);
+    venergyVisc = TIMEMATRIX(venergyVisc,T);
+    venergySurf = TIMEMATRIX(venergySurf,T);
     
     if g<2^7
         % CY_approx = cov(Yc_approx(:,:)); % CY_approx = 1/(N-1)*Yc_approx(:,:)'*Yc_approx(:,:);
         % CY_approx = Uc_approx(:,:)'*(s.^2.*Uc_approx(:,:)); % CY_approx = Uc_approx(:,:)'*diag(s).^2*Uc_approx(:,:);
         % vY_approx = diag(CY_approx);
         vY_approx = sum((s.*Uc_approx(:,:)).^2)'; % vY_approx = sum((diag(s)*Uc_approx(:,:)).^2)';
-        if postProcess
-            tauTime = permute(Yc(:,5:7,:,:),[1,4,2,3]);
-            tauConv = permute(Yc(:,8:10,:,:),[1,4,2,3]);
-            tauDiff = permute(Yc(:,11:13,:,:),[1,4,2,3]);
-            tauSurf = permute(Yc(:,14:16,:,:),[1,4,2,3]);
-            tauInterf = permute(Yc(:,17,:,:),[1,4,2,3]);
-            indu_ = (0:m-1)*n+(1:3)';
-            indC_ = 4:n:n*m;
-            indu_ = indu_(:)'+n*m*(0:p)';
-            indC_ = indC_(:)'+n*m*(0:p)';
-            varu = vY_approx(indu_(:));
-            varC = vY_approx(indC_(:));
-            vartauTime = 1/(N-1)*sum(tauTime(:,:).^2)';
-            vartauConv = 1/(N-1)*sum(tauConv(:,:).^2)';
-            vartauDiff = 1/(N-1)*sum(tauDiff(:,:).^2)';
-            vartauSurf = 1/(N-1)*sum(tauSurf(:,:).^2)';
-            vartauInterf = 1/(N-1)*sum(tauInterf(:,:).^2)';
-            vY_approx = zeros((n+npost)*m*(p+1),1);
-            nvar = n+npost;
-            indu = (0:m-1)*nvar+(1:3)';
-            indC = 4:nvar:(nvar*m); % indC = (0:m-1)*nvar+4;
-            indtauTime = (0:m-1)*nvar+(5:7)';
-            indtauConv = (0:m-1)*nvar+(8:10)';
-            indtauDiff = (0:m-1)*nvar+(11:13)';
-            indtauSurf = (0:m-1)*nvar+(14:16)';
-            indtauInterf = 17:nvar:(nvar*m); % indtauInterf = (0:m-1)*nvar+17;
-            indu = indu(:)'+nvar*m*(0:p)';
-            indC = indC(:)'+nvar*m*(0:p)';
-            indtauTime = indtauTime(:)'+nvar*m*(0:p)';
-            indtauConv = indtauConv(:)'+nvar*m*(0:p)';
-            indtauDiff = indtauDiff(:)'+nvar*m*(0:p)';
-            indtauSurf = indtauSurf(:)'+nvar*m*(0:p)';
-            indtauInterf = indtauInterf(:)'+nvar*m*(0:p)';
-            
-            vY_approx(indu(:)) = varu;
-            vY_approx(indC(:)) = varC;
-            vY_approx(indtauTime(:)) = vartauTime;
-            vY_approx(indtauConv(:)) = vartauConv;
-            vY_approx(indtauDiff(:)) = vartauDiff;
-            vY_approx(indtauSurf(:)) = vartauSurf;
-            vY_approx(indtauInterf(:))  = vartauInterf;
-        end
+        tauTime = permute(Yc(:,5:7,:,:),[1,4,2,3]);
+        tauConv = permute(Yc(:,8:10,:,:),[1,4,2,3]);
+        tauDiff = permute(Yc(:,11:13,:,:),[1,4,2,3]);
+        tauSurf = permute(Yc(:,14:16,:,:),[1,4,2,3]);
+        tauInterf = permute(Yc(:,17,:,:),[1,4,2,3]);
+        energyKinTime = permute(Yc(:,18,:,:),[1,4,2,3]);
+        energyConv = permute(Yc(:,19,:,:),[1,4,2,3]);
+        energyGrav = permute(Yc(:,20,:,:),[1,4,2,3]);
+        energyPres = permute(Yc(:,21,:,:),[1,4,2,3]);
+        energyPresDil = permute(Yc(:,22,:,:),[1,4,2,3]);
+        energyKinSpace = permute(Yc(:,23,:,:),[1,4,2,3]);
+        energyDiff = permute(Yc(:,24,:,:),[1,4,2,3]);
+        energyVisc = permute(Yc(:,25,:,:),[1,4,2,3]);
+        energySurf = permute(Yc(:,26,:,:),[1,4,2,3]);
+        indu_ = (0:m-1)*n+(1:3)';
+        indC_ = (0:m-1)*n+4;
+        indu_ = indu_(:)'+n*m*(0:p)';
+        indC_ = indC_(:)'+n*m*(0:p)';
+        varu = vY_approx(indu_(:));
+        varC = vY_approx(indC_(:));
+        vartauTime = 1/(N-1)*sum(tauTime(:,:).^2)';
+        vartauConv = 1/(N-1)*sum(tauConv(:,:).^2)';
+        vartauDiff = 1/(N-1)*sum(tauDiff(:,:).^2)';
+        vartauSurf = 1/(N-1)*sum(tauSurf(:,:).^2)';
+        vartauInterf = 1/(N-1)*sum(tauInterf(:,:).^2)';
+        varenergyKinTime = 1/(N-1)*sum(energyKinTime(:,:).^2)';
+        varenergyConv = 1/(N-1)*sum(energyConv(:,:).^2)';
+        varenergyGrav = 1/(N-1)*sum(energyGrav(:,:).^2)';
+        varenergyPres = 1/(N-1)*sum(energyPres(:,:).^2)';
+        varenergyPresDil = 1/(N-1)*sum(energyPresDil(:,:).^2)';
+        varenergyKinSpace = 1/(N-1)*sum(energyKinSpace(:,:).^2)';
+        varenergyDiff = 1/(N-1)*sum(energyDiff(:,:).^2)';
+        varenergyVisc = 1/(N-1)*sum(energyVisc(:,:).^2)';
+        varenergySurf = 1/(N-1)*sum(energySurf(:,:).^2)';
+        vY_approx = zeros(nvar*m*(p+1),1);
+        indu = (0:m-1)*nvar+(1:3)';
+        indC = (0:m-1)*nvar+4;
+        indtauTime = (0:m-1)*nvar+(5:7)';
+        indtauConv = (0:m-1)*nvar+(8:10)';
+        indtauDiff = (0:m-1)*nvar+(11:13)';
+        indtauSurf = (0:m-1)*nvar+(14:16)';
+        indtauInterf = (0:m-1)*nvar+17;
+        indenergyKinTime = (0:m-1)*nvar+18;
+        indenergyConv = (0:m-1)*nvar+19;
+        indenergyGrav = (0:m-1)*nvar+20;
+        indenergyPres = (0:m-1)*nvar+21;
+        indenergyPresDil = (0:m-1)*nvar+22;
+        indenergyKinSpace = (0:m-1)*nvar+23;
+        indenergyDiff = (0:m-1)*nvar+24;
+        indenergyVisc = (0:m-1)*nvar+25;
+        indenergySurf = (0:m-1)*nvar+26;
+        
+        indu = indu(:)'+nvar*m*(0:p)';
+        indC = indC(:)'+nvar*m*(0:p)';
+        indtauTime = indtauTime(:)'+nvar*m*(0:p)';
+        indtauConv = indtauConv(:)'+nvar*m*(0:p)';
+        indtauDiff = indtauDiff(:)'+nvar*m*(0:p)';
+        indtauSurf = indtauSurf(:)'+nvar*m*(0:p)';
+        indtauInterf = indtauInterf(:)'+nvar*m*(0:p)';
+        indenergyKinTime = indenergyKinTime(:)'+nvar*m*(0:p)';
+        indenergyConv = indenergyConv(:)'+nvar*m*(0:p)';
+        indenergyGrav = indenergyGrav(:)'+nvar*m*(0:p)';
+        indenergyPres = indenergyPres(:)'+nvar*m*(0:p)';
+        indenergyPresDil = indenergyPresDil(:)'+nvar*m*(0:p)';
+        indenergyKinSpace = indenergyKinSpace(:)'+nvar*m*(0:p)';
+        indenergyDiff = indenergyDiff(:)'+nvar*m*(0:p)';
+        indenergyVisc = indenergyVisc(:)'+nvar*m*(0:p)';
+        indenergySurf = indenergySurf(:)'+nvar*m*(0:p)';
+        
+        vY_approx(indu(:)) = varu;
+        vY_approx(indC(:)) = varC;
+        vY_approx(indtauTime(:)) = vartauTime;
+        vY_approx(indtauConv(:)) = vartauConv;
+        vY_approx(indtauDiff(:)) = vartauDiff;
+        vY_approx(indtauSurf(:)) = vartauSurf;
+        vY_approx(indtauInterf(:)) = vartauInterf;
+        vY_approx(indenergyKinTime(:)) = varenergyKinTime;
+        vY_approx(indenergyConv(:)) = varenergyConv;
+        vY_approx(indenergyGrav(:)) = varenergyGrav;
+        vY_approx(indenergyPres(:)) = varenergyPres;
+        vY_approx(indenergyPresDil(:)) = varenergyPresDil;
+        vY_approx(indenergyKinSpace(:)) = varenergyKinSpace;
+        vY_approx(indenergyDiff(:)) = varenergyDiff;
+        vY_approx(indenergyVisc(:)) = varenergyVisc;
+        vY_approx(indenergySurf(:)) = varenergySurf;
         
         % CY = cov(Yc(:,:)); % CY = 1/(N-1)*Yc(:,:)'*Yc(:,:);
         % vY = diag(CY);
@@ -751,6 +960,120 @@ for g=2^4
         fprintf('\nerror = %.3e for VY',errvY);
         fprintf('\n');
     end
+    
+    mI = shiftdim(mean(I,1),1);
+    mItauTime = mI(1:3,:,:);
+    mItauConv = mI(4:6,:,:);
+    mItauDiff = mI(7:9,:,:);
+    mItauSurf = mI(10:12,:,:);
+    mItauInterf = mI(13,:,:);
+    mIenergyKinTime = mI(14,:,:);
+    mIenergyConv = mI(15,:,:);
+    mIenergyGrav = mI(16,:,:);
+    mIenergyPres = mI(17,:,:);
+    mIenergyPresDil = mI(18,:,:);
+    mIenergyKinSpace = mI(19,:,:);
+    mIenergyDiff = mI(20,:,:);
+    mIenergyVisc = mI(21,:,:);
+    mIenergySurf = mI(22,:,:);
+    
+    t = (0:p)*dt;
+    
+    figure('Name','Mean of spatial average of tau time')
+    clf
+    hdl(1) = plot(t,squeeze(mItauTime(1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
+    hold on
+    hdl(2) = plot(t,squeeze(mItauTime(1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
+    hdl(3) = plot(t,squeeze(mItauTime(2,1,:)),'LineStyle','-','Color','r','LineWidth',1);
+    hdl(4) = plot(t,squeeze(mItauTime(2,2,:)),'LineStyle','--','Color','r','LineWidth',1);
+    hdl(5) = plot(t,squeeze(mItauTime(3,1,:)),'LineStyle','-','Color','g','LineWidth',1);
+    hdl(6) = plot(t,squeeze(mItauTime(3,2,:)),'LineStyle','--','Color','g','LineWidth',1);
+    hold off
+    grid on
+    box on
+    set(gca,'FontSize',10)
+    xlabel('$t$ (s)','Interpreter','latex')
+    ylabel('$\tau_{\mathrm{time}}$','Interpreter','latex')
+    leg = {'component 1 in phase 1','component 1 in phase 2','component 2 in phase 1','component 2 in phase 2','component 3 in phase 1','component 3 in phase 2'};
+    legend(leg{:},'Location','NorthEast')
+    mysaveas(gridpathname,'mean_tau_time',formats,renderer);
+    mymatlab2tikz(gridpathname,'mean_tau_time.tex');
+    
+    figure('Name','Mean of spatial average of tau conv')
+    clf
+    hdl(1) = plot(t,squeeze(mItauConv(1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
+    hold on
+    hdl(2) = plot(t,squeeze(mItauConv(1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
+    hdl(3) = plot(t,squeeze(mItauConv(2,1,:)),'LineStyle','-','Color','r','LineWidth',1);
+    hdl(4) = plot(t,squeeze(mItauConv(2,2,:)),'LineStyle','--','Color','r','LineWidth',1);
+    hdl(5) = plot(t,squeeze(mItauConv(3,1,:)),'LineStyle','-','Color','g','LineWidth',1);
+    hdl(6) = plot(t,squeeze(mItauConv(3,2,:)),'LineStyle','--','Color','g','LineWidth',1);
+    hold off
+    grid on
+    box on
+    set(gca,'FontSize',10)
+    xlabel('$t$ (s)','Interpreter','latex')
+    ylabel('$\tau_{\mathrm{conv}}$','Interpreter','latex')
+    leg = {'component 1 in phase 1','component 1 in phase 2','component 2 in phase 1','component 2 in phase 2','component 3 in phase 1','component 3 in phase 2'};
+    legend(leg{:},'Location','NorthEast')
+    mysaveas(gridpathname,'mean_tau_conv',formats,renderer);
+    mymatlab2tikz(gridpathname,'mean_tau_conv.tex');
+    
+    figure('Name','Mean of spatial average of tau diff')
+    clf
+    hdl(1) = plot(t,squeeze(mItauDiff(1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
+    hold on
+    hdl(2) = plot(t,squeeze(mItauDiff(1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
+    hdl(3) = plot(t,squeeze(mItauDiff(2,1,:)),'LineStyle','-','Color','r','LineWidth',1);
+    hdl(4) = plot(t,squeeze(mItauDiff(2,2,:)),'LineStyle','--','Color','r','LineWidth',1);
+    hdl(5) = plot(t,squeeze(mItauDiff(3,1,:)),'LineStyle','-','Color','g','LineWidth',1);
+    hdl(6) = plot(t,squeeze(mItauDiff(3,2,:)),'LineStyle','--','Color','g','LineWidth',1);
+    hold off
+    grid on
+    box on
+    set(gca,'FontSize',10)
+    xlabel('$t$ (s)','Interpreter','latex')
+    ylabel('$\tau_{\mathrm{diff}}$','Interpreter','latex')
+    leg = {'component 1 in phase 1','component 1 in phase 2','component 2 in phase 1','component 2 in phase 2','component 3 in phase 1','component 3 in phase 2'};
+    legend(leg{:},'Location','NorthEast')
+    mysaveas(gridpathname,'mean_tau_diff',formats,renderer);
+    mymatlab2tikz(gridpathname,'mean_tau_diff.tex');
+    
+    figure('Name','Mean of spatial average of tau surf')
+    clf
+    hdl(1) = plot(t,squeeze(mItauSurf(1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
+    hold on
+    hdl(2) = plot(t,squeeze(mItauSurf(1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
+    hdl(3) = plot(t,squeeze(mItauSurf(2,1,:)),'LineStyle','-','Color','r','LineWidth',1);
+    hdl(4) = plot(t,squeeze(mItauSurf(2,2,:)),'LineStyle','--','Color','r','LineWidth',1);
+    hdl(5) = plot(t,squeeze(mItauSurf(3,1,:)),'LineStyle','-','Color','g','LineWidth',1);
+    hdl(6) = plot(t,squeeze(mItauSurf(3,2,:)),'LineStyle','--','Color','g','LineWidth',1);
+    hold off
+    grid on
+    box on
+    set(gca,'FontSize',10)
+    xlabel('$t$ (s)','Interpreter','latex')
+    ylabel('$\tau_{\mathrm{surf}}$','Interpreter','latex')
+    leg = {'component 1 in phase 1','component 1 in phase 2','component 2 in phase 1','component 2 in phase 2','component 3 in phase 1','component 3 in phase 2'};
+    legend(leg{:},'Location','NorthEast')
+    mysaveas(gridpathname,'mean_tau_surf',formats,renderer);
+    mymatlab2tikz(gridpathname,'mean_tau_surf.tex');
+    
+    figure('Name','Mean of spatial average of tau interf')
+    clf
+    hdl(1) = plot(t,squeeze(mItauInterf(1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
+    hold on
+    hdl(2) = plot(t,squeeze(mItauInterf(1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
+    hold off
+    grid on
+    box on
+    set(gca,'FontSize',10)
+    xlabel('$t$ (s)','Interpreter','latex')
+    ylabel('$\tau_{\mathrm{interf}}$','Interpreter','latex')
+    leg = {'phase 1','phase 2'};
+    legend(leg{:},'Location','NorthEast')
+    mysaveas(gridpathname,'mean_tau_interf',formats,renderer);
+    mymatlab2tikz(gridpathname,'mean_tau_interf.tex');
     
     % Display solution
     if displaySolution
@@ -783,7 +1106,7 @@ for g=2^4
             figure('Name',['Mean of velocity u' num2str(i)])
             clf
             plot_sol(M,getmatrixatstep(mu,t+1),'displ',i,'ampl',ampl);
-            title(['time ' num2str(t*100*dt,'%f') ' s'],'FontSize',fontsize)
+            title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
             colormap(cmap)
             colorbar
             axis on
@@ -794,7 +1117,7 @@ for g=2^4
             figure('Name',['Mean of tau time ' num2str(i)])
             clf
             plot_sol(M,getmatrixatstep(mtauTime,t+1),'displ',i,'ampl',ampl);
-            title(['time ' num2str(t*100*dt,'%f') ' s'],'FontSize',fontsize)
+            title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
             colormap(cmap)
             colorbar
             axis on
@@ -805,7 +1128,7 @@ for g=2^4
             figure('Name',['Mean of tau conv ' num2str(i)])
             clf
             plot_sol(M,getmatrixatstep(mtauConv,t+1),'displ',i,'ampl',ampl);
-            title(['time ' num2str(t*100*dt,'%f') ' s'],'FontSize',fontsize)
+            title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
             colormap(cmap)
             colorbar
             axis on
@@ -816,7 +1139,7 @@ for g=2^4
             figure('Name',['Mean of tau diff ' num2str(i)])
             clf
             plot_sol(M,getmatrixatstep(mtauDiff,t+1),'displ',i,'ampl',ampl);
-            title(['time ' num2str(t*100*dt,'%f') ' s'],'FontSize',fontsize)
+            title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
             colormap(cmap)
             colorbar
             axis on
@@ -827,7 +1150,7 @@ for g=2^4
             figure('Name',['Mean of tau surf ' num2str(i)])
             clf
             plot_sol(M,getmatrixatstep(mtauSurf,t+1),'displ',i,'ampl',ampl);
-            title(['time ' num2str(t*100*dt,'%f') ' s'],'FontSize',fontsize)
+            title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
             colormap(cmap)
             colorbar
             axis on
@@ -838,7 +1161,7 @@ for g=2^4
 %             figure('Name',['Variance of velocity u' num2str(i)])
 %             clf
 %             plot_sol(M,getmatrixatstep(vu,t+1),'displ',i,'ampl',ampl);
-%             title(['time ' num2str(t*100*dt,'%f') ' s'],'FontSize',fontsize)
+%             title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
 %             colormap(cmap)
 %             colorbar
 %             axis on
@@ -849,7 +1172,7 @@ for g=2^4
 %             figure('Name',['Variance of tau time ' num2str(i)])
 %             clf
 %             plot_sol(M,getmatrixatstep(vtauTime,t+1),'displ',i,'ampl',ampl);
-%             title(['time ' num2str(t*100*dt,'%f') ' s'],'FontSize',fontsize)
+%             title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
 %             colormap(cmap)
 %             colorbar
 %             axis on
@@ -860,7 +1183,7 @@ for g=2^4
 %             figure('Name',['Variance of tau conv ' num2str(i)])
 %             clf
 %             plot_sol(M,getmatrixatstep(vtauConv,t+1),'displ',i,'ampl',ampl);
-%             title(['time ' num2str(t*100*dt,'%f') ' s'],'FontSize',fontsize)
+%             title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
 %             colormap(cmap)
 %             colorbar
 %             axis on
@@ -871,7 +1194,7 @@ for g=2^4
 %             figure('Name',['Variance of tau diff ' num2str(i)])
 %             clf
 %             plot_sol(M,getmatrixatstep(vtauDiff,t+1),'displ',i,'ampl',ampl);
-%             title(['time ' num2str(t*100*dt,'%f') ' s'],'FontSize',fontsize)
+%             title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
 %             colormap(cmap)
 %             colorbar
 %             axis on
@@ -882,7 +1205,7 @@ for g=2^4
 %             figure('Name',['Variance of tau surf ' num2str(i)])
 %             clf
 %             plot_sol(M,getmatrixatstep(vtauSurf,t+1),'displ',i,'ampl',ampl);
-%             title(['time ' num2str(t*100*dt,'%f') ' s'],'FontSize',fontsize)
+%             title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
 %             colormap(cmap)
 %             colorbar
 %             axis on
@@ -906,7 +1229,7 @@ for g=2^4
         figure('Name','Mean of indicator function C')
         clf
         plot_sol(Mscal,getmatrixatstep(mC,t+1));
-        title(['time ' num2str(t*100*dt,'%f') ' s'],'FontSize',fontsize)
+        title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
         colormap(cmap)
         colorbar
         axis on
@@ -917,7 +1240,7 @@ for g=2^4
         figure('Name','Mean of tau interf')
         clf
         plot_sol(Mscal,getmatrixatstep(mtauInterf,t+1));
-        title(['time ' num2str(t*100*dt,'%f') ' s'],'FontSize',fontsize)
+        title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
         colormap(cmap)
         colorbar
         axis on
@@ -928,7 +1251,7 @@ for g=2^4
 %         figure('Name','Variance of indicator function C')
 %         clf
 %         plot_sol(Mscal,getmatrixatstep(vC,t+1));
-%         title(['time ' num2str(t*100*dt,'%f') ' s'],'FontSize',fontsize)
+%         title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
 %         colormap(cmap)
 %         colorbar
 %         box on
@@ -938,7 +1261,7 @@ for g=2^4
 %         figure('Name','Variance of tau interf')
 %         clf
 %         plot_sol(Mscal,getmatrixatstep(vtauInterf,t+1));
-%         title(['time ' num2str(t*100*dt,'%f') ' s'],'FontSize',fontsize)
+%         title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
 %         colormap(cmap)
 %         colorbar
 %         box on
@@ -954,6 +1277,15 @@ for g=2^4
         mtauDifft = getmatrixatstep(mtauDiff,t+1);
         mtauSurft = getmatrixatstep(mtauSurf,t+1);
         mtauInterft = getmatrixatstep(mtauInterf,t+1);
+        menergyKinTimet = getmatrixatstep(menergyKinTime,t+1);
+        menergyConvt = getmatrixatstep(menergyConv,t+1);
+        menergyGravt = getmatrixatstep(menergyGrav,t+1);
+        menergyPrest = getmatrixatstep(menergyPres,t+1);
+        menergyPresDilt = getmatrixatstep(menergyPresDil,t+1);
+        menergyKinSpacet = getmatrixatstep(menergyKinSpace,t+1);
+        menergyDifft = getmatrixatstep(menergyDiff,t+1);
+        menergyVisct = getmatrixatstep(menergyVisc,t+1);
+        menergySurft = getmatrixatstep(menergySurf,t+1);
         vut = getmatrixatstep(vu,t+1);
         vCt = getmatrixatstep(vC,t+1);
         vtauTimet = getmatrixatstep(vtauTime,t+1);
@@ -961,11 +1293,28 @@ for g=2^4
         vtauDifft = getmatrixatstep(vtauDiff,t+1);
         vtauSurft = getmatrixatstep(vtauSurf,t+1);
         vtauInterft = getmatrixatstep(vtauInterf,t+1);
-        write_vtk_mesh(M,{mut,mCt,mtauTimet,mtauConvt,mtauDifft,mtauSurft,mtauInterft},[],...
-            {'velocity','phase','tau time','tau conv','tau diff','tau surf','tau interf'},[],...
+        venergyKinTimet = getmatrixatstep(venergyKinTime,t+1);
+        venergyConvt = getmatrixatstep(venergyConv,t+1);
+        venergyGravt = getmatrixatstep(venergyGrav,t+1);
+        venergyPrest = getmatrixatstep(venergyPres,t+1);
+        venergyPresDilt = getmatrixatstep(venergyPresDil,t+1);
+        venergyKinSpacet = getmatrixatstep(venergyKinSpace,t+1);
+        venergyDifft = getmatrixatstep(venergyDiff,t+1);
+        venergyVisct = getmatrixatstep(venergyVisc,t+1);
+        venergySurft = getmatrixatstep(venergySurf,t+1);
+        write_vtk_mesh(M,{mut,mCt,mtauTimet,mtauConvt,mtauDifft,mtauSurft,mtauInterft,...
+            menergyKinTimet,menergyConvt,menergyGravt,menergyPrest,menergyPresDilt,...
+            menergyKinSpacet,menergyDifft,menergyVisct,menergySurft},[],...
+            {'velocity','phase','tau time','tau conv','tau diff','tau surf','tau interf',...
+            'kinetic energy','convection energy','gravity energy','power of external pressure forces','pressure-dilatation energy transfer',...
+            'transport of gradient of kinetic energy','energy exchange with kinetic energy','power of external viscous stresses','capillary kinetic energy'},[],...
             gridpathname,'diphasic_fluids_mean',1,t);
-        write_vtk_mesh(M,{vut,vCt,vtauTimet,vtauConvt,vtauDifft,vtauSurft,vtauInterft},[],...
-            {'velocity','phase','tau time','tau conv','tau diff','tau surf','tau interf'},[],...
+        write_vtk_mesh(M,{vut,vCt,vtauTimet,vtauConvt,vtauDifft,vtauSurft,vtauInterft,...
+            venergyKinTimet,venergyConvt,venergyGravt,venergyPrest,venergyPresDilt,...
+            venergyKinSpacet,venergyDifft,venergyVisct,venergySurft},[],...
+            {'velocity','phase','tau time','tau conv','tau diff','tau surf','tau interf',...
+            'kinetic energy','convection energy','gravity energy','power of external pressure forces','pressure-dilatation energy transfer',...
+            'transport of gradient of kinetic energy','energy exchange with kinetic energy','power of external viscous stresses','capillary kinetic energy'},[],...
             gridpathname,'diphasic_fluids_variance',1,t);
     end
     make_pvd_file(gridpathname,'diphasic_fluids_mean',1,p+1);
