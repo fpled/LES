@@ -495,8 +495,9 @@ for g=2^4
                     Wt = W(Rmax*t+(1:Rt),:);
             end
             
-            Zct_approx = Wt*(s.*X'); % Zct_approx = Wt*diag(s)*X'; % Zct_approx = Z_approx(:,1:Rt,t+1)';
-            Yct_approx = Vt*(sigt.*Zct_approx'); % Yct_approx = Vt*diag(sigt)*Zct_approx';
+            % Zct_approx = Wt*(s.*X'); % Zct_approx = Wt*diag(s)*X'; % Zct_approx = Z_approx(:,1:Rt,t+1)';
+            % Yct_approx = Vt*(sigt.*Zct_approx); % Yct_approx = Vt*diag(sigt)*Zct_approx;
+            Yct_approx = Vt*(sigt.*Wt*(s.*X')); % Yct_approx = Vt*diag(sigt)*Wt*diag(s)*X';
         end
     
     else
@@ -733,7 +734,7 @@ for g=2^4
         sigt = sig(1:Rt,t+1);
         Wt = W(1:Rt,:,t+1);
         % Zct_approx = Wt*(s.*X'); % Zct_approx = Wt*diag(s)*X'; % Zct_approx = Z_approx(:,1:Rt,t+1)';
-        % Yct_approx = Vt*(sigt.*Zct_approx'); % Yct_approx = Vt*diag(sigt)*Zct_approx';
+        % Yct_approx = Vt*(sigt.*Zct_approx); % Yct_approx = Vt*diag(sigt)*Zct_approx;
         Uct_approx = Vt*(sigt.*Wt); % Uct_approx = Vt*diag(sigt)*Wt;
         if g<2^7
             % Yc_approx(:,:,:,t+1) = reshape(Yct_approx',[N,n,m]);
