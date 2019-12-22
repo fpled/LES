@@ -467,6 +467,38 @@ for g=2^4
             save(fullfile(gridpathname,'PP.mat'),'Tau','E');
         end
         save(fullfile(gridpathname,'PP.mat'),'I','nt','ne','-append');
+        
+        %% Post processing PCA
+        for t=0:p
+            time = ['Time ' num2str(t)];
+            disp(time)
+            
+            mYt = mY(1,:,:,t+1);
+            Rt = R(t+1);
+            sigt = sig(1:Rt,t+1);
+            Zt = Z(:,1:Rt,t+1);
+            if g<2^7
+                Vt = V(:,1:Rt,t+1);
+            else
+                load(fullfile(gridpathname,['PCAspace_t' num2str(t) '.mat']),'Vt');
+            end
+            Yct = Vt*(sigt.*Zt');
+            % Yct = permute(reshape(Yct,[n,sx,N]),[1,order+1,1]);
+            
+            % Vt = permute(reshape(Vt,[n,sx,Rt]),[1,order+1,1]);
+            
+            switch index
+                case 'time'
+                    Wt = W((t+1):(p+1):end,:);
+                    Wt = Wt(1:Rt,:);
+                case 'coord'
+                    Wt = W(Rmax*t+(1:Rt),:);
+            end
+            
+            Zct_approx = Wt*(s.*X'); % Zct_approx = Wt*diag(s)*X'; % Zct_approx = Z_approx(:,1:Rt,t+1)';
+            Yct_approx = Vt*(sigt.*Zct_approx'); % Yct_approx = Vt*diag(sigt)*Zct_approx';
+        end
+    
     else
         if g<2^7
             load(fullfile(gridpathname,'PCA_space.mat'),'V');
@@ -476,29 +508,6 @@ for g=2^4
         load(fullfile(gridpathname,'PCA_time.mat'),'s','W','Q','errsvdZc');
         load(fullfile(gridpathname,'PP.mat'),'I','nt','ne');
     end
-    
-    
-    %% Post-processing PCA
-%     for t=0:p
-%         if g<2^7
-%             Yct = Yc(:,:,:,t+1);
-%         else
-%             load(fullfile(gridpathname,['data_t' num2str(t) '.mat']),'Yt');
-%             mYt = mean(Yt,1);
-%             Yct = Yt - repmat(mYt,N,1,1); % Yct = Yt - mYt.*ones(N,1,1);
-%             clear Yt
-%         end
-%         Yct = Yct(:,:)';
-%         % if t==0
-%         %     [Vt,Sigt,Zt,errsvdYct] = svdtruncate(Yct,Rinit-1);
-%         % else
-%         [Vt,Sigt,Zt,errsvdYct] = svdtruncate(Yct,tolsvdYc);
-%         % end
-%         Sigt = Sigt/sqrt(N-1);
-%         sigt = diag(Sigt);
-%         Zt = Zt*sqrt(N-1);
-%         Yct_approx = Vt*(sigt.*Zt'); % Yct_approx = Vt*Sigt*Zt';
-%     end
     
     %% Outputs
     % Display eigenvalues
