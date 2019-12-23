@@ -556,7 +556,7 @@ for g=2^4
         grid on
         box on
         set(gca,'FontSize',10)
-        xlabel('$t$ (s)','Interpreter','latex')
+        xlabel('$t$ [s]','Interpreter','latex')
         ylabel('$\lambda_{\alpha}(t)$','Interpreter','latex')
         gridLegend(hdl,nCols,leg,'Location','BestOutside','Interpreter','latex');
         % legend(leg{:},'Location','NorthEastOutside')
@@ -1002,7 +1002,7 @@ for g=2^4
     grid on
     box on
     set(gca,'FontSize',10)
-    xlabel('$t$ (s)','Interpreter','latex')
+    xlabel('$t$ [s]','Interpreter','latex')
     ylabel('$\tau_{\mathrm{time}}$','Interpreter','latex')
     leg = {'component 1 in phase 1','component 1 in phase 2','component 2 in phase 1','component 2 in phase 2','component 3 in phase 1','component 3 in phase 2'};
     legend(leg{:},'Location','NorthEast')
@@ -1022,7 +1022,7 @@ for g=2^4
     grid on
     box on
     set(gca,'FontSize',10)
-    xlabel('$t$ (s)','Interpreter','latex')
+    xlabel('$t$ [s]','Interpreter','latex')
     ylabel('$\tau_{\mathrm{conv}}$','Interpreter','latex')
     leg = {'component 1 in phase 1','component 1 in phase 2','component 2 in phase 1','component 2 in phase 2','component 3 in phase 1','component 3 in phase 2'};
     legend(leg{:},'Location','NorthEast')
@@ -1042,7 +1042,7 @@ for g=2^4
     grid on
     box on
     set(gca,'FontSize',10)
-    xlabel('$t$ (s)','Interpreter','latex')
+    xlabel('$t$ [s]','Interpreter','latex')
     ylabel('$\tau_{\mathrm{diff}}$','Interpreter','latex')
     leg = {'component 1 in phase 1','component 1 in phase 2','component 2 in phase 1','component 2 in phase 2','component 3 in phase 1','component 3 in phase 2'};
     legend(leg{:},'Location','NorthEast')
@@ -1062,7 +1062,7 @@ for g=2^4
     grid on
     box on
     set(gca,'FontSize',10)
-    xlabel('$t$ (s)','Interpreter','latex')
+    xlabel('$t$ [s]','Interpreter','latex')
     ylabel('$\tau_{\mathrm{surf}}$','Interpreter','latex')
     leg = {'component 1 in phase 1','component 1 in phase 2','component 2 in phase 1','component 2 in phase 2','component 3 in phase 1','component 3 in phase 2'};
     legend(leg{:},'Location','NorthEast')
@@ -1078,7 +1078,7 @@ for g=2^4
     grid on
     box on
     set(gca,'FontSize',10)
-    xlabel('$t$ (s)','Interpreter','latex')
+    xlabel('$t$ [s]','Interpreter','latex')
     ylabel('$\tau_{\mathrm{interf}}$','Interpreter','latex')
     leg = {'phase 1','phase 2'};
     legend(leg{:},'Location','NorthEast')
