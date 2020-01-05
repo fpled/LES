@@ -104,7 +104,11 @@ for g=2^4
             Sigt = Sigt/sqrt(N-1);
             sigt = diag(Sigt);
             Zt = Zt*sqrt(N-1);
-            Yct_approx = Vt*(sigt.*Zt'); % Yct_approx = Vt*Sigt*Zt';
+            if verLessThan('matlab','9.1') % compatibility (<R2016b)
+                Yct_approx = Vt*Sigt*Zt';
+            else
+                Yct_approx = Vt*(sigt.*Zt');
+            end
             % errYct = norm(Yct_approx-Yct)/norm(Yct);
             errYct = errsvdYct(end);
             Rt = length(sigt);
@@ -131,7 +135,11 @@ for g=2^4
             err2Yc(t+1) = err2Yct;
             norm2Yc(t+1) = norm2Yct;
             
-            %CYt_approx = Vt*(sigt.^2.*Vt'); % CYt_approx = Vt*Sigt.^2*Vt';
+            %if verLessThan('matlab','9.1') % compatibility (<R2016b)
+            %    CYt_approx = Vt*Sigt.^2*Vt';
+            %else
+            %    CYt_approx = Vt*(sigt.^2.*Vt');
+            %end 
             %CYt = cov(Yct'); % CYt = 1/(N-1)*Yct*Yct';
             %errCYt = norm(CYt_approx-CYt)/norm(CYt);
             %fprintf('\n                                                  error = %.3e for CY',errCYt);
@@ -175,7 +183,11 @@ for g=2^4
 %             Sa = Sa/sqrt(N-1);
 %             sa = diag(Sa);
 %             Xa = Xa*sqrt(N-1);
-%             Zca_approx = Wa*(sa.*Xa'); % Zca_approx = Wa*Sa*Xa';
+%             if verLessThan('matlab','9.1') % compatibility (<R2016b)
+%                 Zca_approx = Wa*Sa*Xa';
+%             else
+%                 Zca_approx = Wa*(sa.*Xa');                
+%             end
 %             % errZca = norm(Zca_approx-Zca)/norm(Zca);
 %             errZca = errsvdZca(end);
 %             Qa = length(sa);
@@ -196,7 +208,11 @@ for g=2^4
 %             Q(a) = Qa;
 %             errsvdZc(1:Qa,a) = errsvdZca;
 %             
-%             CZa_approx = Wa*(sa.^2.*Wa'); % CZa_approx = Wa*Sa.^2*Wa';
+%             if verLessThan('matlab','9.1') % compatibility (<R2016b)
+%                 CZa_approx = Wa*Sa.^2*Wa';
+%             else
+%                 CZa_approx = Wa*(sa.^2.*Wa');                
+%             end
 %             CZa = cov(Zca'); % CZa = 1/(N-1)*Zca*Zca';
 %             errCZa = norm(CZa_approx-CZa)/norm(CZa);
 %             fprintf('\n                                     error = %.3e for CZ',errCZa);
@@ -242,7 +258,11 @@ for g=2^4
         S = S/sqrt(N-1);
         s = diag(S);
         X = X*sqrt(N-1);
-        Zc_approx = W*(s.*X'); % Zc_approx = W*S*X';
+        if verLessThan('matlab','9.1') % compatibility (<R2016b)
+            Zc_approx = W*S*X';
+        else
+            Zc_approx = W*(s.*X');
+        end
         % errZc = norm(Zc_approx-Zc)/norm(Zc);
         errZc = errsvdZc(end);
         Q = length(s);
@@ -256,7 +276,11 @@ for g=2^4
         % sf = sf/sqrt(N-1);
         % err2Zc = sum(sf.^2)-sum(s.^2);
         
-        CZ_approx = W*(s.^2.*W'); % CZ_approx = W*S.^2*W';
+        if verLessThan('matlab','9.1') % compatibility (<R2016b)
+            CZ_approx = W*S.^2*W';
+        else
+            CZ_approx = W*(s.^2.*W');
+        end
         CZ = cov(Zc'); % CZ = 1/(N-1)*Zc*Zc';
         errCZ = norm(CZ_approx-CZ)/norm(CZ);
         fprintf('\n                          error = %.3e for CZ',errCZ);
@@ -382,9 +406,15 @@ for g=2^4
                 load(fullfile(gridpathname,['PCAspace_t' num2str(t) '.mat']),'Vt');
             end
             
-            Yct = Vt*(sigt.*Zt');
-            Yct_old = Vt_old*(sigt_old.*Zt_old');
-            Yct_new = Vt*(sigt_new.*Zt_new');
+            if verLessThan('matlab','9.1') % compatibility (<R2016b)
+                Yct = Vt*diag(sigt)*Zt';
+                Yct_old = Vt_old*diag(sigt_old)*Zt_old';
+                Yct_new = Vt*diag(sigt_new)*Zt_new';
+            else
+                Yct = Vt*(sigt.*Zt');
+                Yct_old = Vt_old*(sigt_old.*Zt_old');
+                Yct_new = Vt*(sigt_new.*Zt_new');
+            end
             
             Yt = reshape(mYt(:)' + Yct',[N,n,m]);
             Yt_old = reshape(mYt_old(:)' + Yct_old',[N,n,m]);
@@ -482,7 +512,11 @@ for g=2^4
             else
                 load(fullfile(gridpathname,['PCAspace_t' num2str(t) '.mat']),'Vt');
             end
-            Yct = Vt*(sigt.*Zt');
+            if verLessThan('matlab','9.1') % compatibility (<R2016b)
+                Yct = Vt*(sigt.*Zt');
+            else
+                Yct = Vt*diag(sigt)*Zt';
+            end
             % Yct = permute(reshape(Yct,[n,sx,N]),[1,order+1,1]);
             
             % Vt = permute(reshape(Vt,[n,sx,Rt]),[1,order+1,1]);
@@ -495,9 +529,15 @@ for g=2^4
                     Wt = W(Rmax*t+(1:Rt),:);
             end
             
-            % Zct_approx = Wt*(s.*X'); % Zct_approx = Wt*diag(s)*X'; % Zct_approx = Z_approx(:,1:Rt,t+1)';
-            % Yct_approx = Vt*(sigt.*Zct_approx); % Yct_approx = Vt*diag(sigt)*Zct_approx;
-            Yct_approx = Vt*(sigt.*Wt*(s.*X')); % Yct_approx = Vt*diag(sigt)*Wt*diag(s)*X';
+            if verLessThan('matlab','9.1') % compatibility (<R2016b)
+                % Zct_approx = Wt*diag(s)*X'; % Zct_approx = Z_approx(:,1:Rt,t+1)';
+                % Yct_approx = Vt*diag(sigt)*Zct_approx;
+                Yct_approx = Vt*diag(sigt)*Wt*diag(s)*X';
+            else
+                % Zct_approx = Wt*(s.*X'); % Zct_approx = Z_approx(:,1:Rt,t+1)';
+                % Yct_approx = Vt*(sigt.*Zct_approx);
+                Yct_approx = Vt*(sigt.*Wt*(s.*X'));
+            end
         end
     
     else
@@ -733,18 +773,32 @@ for g=2^4
         Rt = R(t+1);
         sigt = sig(1:Rt,t+1);
         Wt = W(1:Rt,:,t+1);
-        % Zct_approx = Wt*(s.*X'); % Zct_approx = Wt*diag(s)*X'; % Zct_approx = Z_approx(:,1:Rt,t+1)';
-        % Yct_approx = Vt*(sigt.*Zct_approx); % Yct_approx = Vt*diag(sigt)*Zct_approx;
-        Uct_approx = Vt*(sigt.*Wt); % Uct_approx = Vt*diag(sigt)*Wt;
+        if verLessThan('matlab','9.1') % compatibility (<R2016b)
+            % Zct_approx = Wt*diag(s)*X'; % Zct_approx = Z_approx(:,1:Rt,t+1)';
+            % Yct_approx = Vt*diag(sigt)*Zct_approx;
+            Uct_approx = Vt*diag(sigt)*Wt;
+        else
+            % Zct_approx = Wt*(s.*X'); % Zct_approx = Z_approx(:,1:Rt,t+1)';
+            % Yct_approx = Vt*(sigt.*Zct_approx);
+            Uct_approx = Vt*(sigt.*Wt);
+        end
         if g<2^7
             % Yc_approx(:,:,:,t+1) = reshape(Yct_approx',[N,n,m]);
             Uc_approx(:,:,:,t+1) = reshape(Uct_approx',[Q,n,m]);
         end
         
         % CYt_approx = cov(Yct_approx'); % CYt_approx = 1/(N-1)*Yct_approx*Yct_approx';
-        % CYt_approx = Uct_approx*(s.^2.*Uct_approx'); % CYt_approx = Uct_approx*diag(s).^2*Uct_approx';
+        % if verLessThan('matlab','9.1') % compatibility (<R2016b)
+        %     CYt_approx = Uct_approx*diag(s).^2*Uct_approx';
+        % else
+        %     CYt_approx = Uct_approx*(s.^2.*Uct_approx');
+        % end
         % vYt_approx = diag(CYt_approx);
-        vYt_approx = sum((s.*Uct_approx').^2)'; % vYt_approx = sum((diag(s)*Uct_approx').^2)';
+        if verLessThan('matlab','9.1') % compatibility (<R2016b)
+            vYt_approx = sum((diag(s)*Uct_approx').^2)';
+        else
+            vYt_approx = sum((s.*Uct_approx').^2)';
+        end
         
         indut = (0:m-1)*nvar+(1:3)';
         indCt = (0:m-1)*nvar+4;
@@ -874,9 +928,17 @@ for g=2^4
     
     if g<2^7
         % CY_approx = cov(Yc_approx(:,:)); % CY_approx = 1/(N-1)*Yc_approx(:,:)'*Yc_approx(:,:);
-        % CY_approx = Uc_approx(:,:)'*(s.^2.*Uc_approx(:,:)); % CY_approx = Uc_approx(:,:)'*diag(s).^2*Uc_approx(:,:);
+        % if verLessThan('matlab','9.1') % compatibility (<R2016b)
+        %     CY_approx = Uc_approx(:,:)'*diag(s).^2*Uc_approx(:,:);
+        % else
+        %     CY_approx = Uc_approx(:,:)'*(s.^2.*Uc_approx(:,:));
+        % end
         % vY_approx = diag(CY_approx);
-        vY_approx = sum((s.*Uc_approx(:,:)).^2)'; % vY_approx = sum((diag(s)*Uc_approx(:,:)).^2)';
+        if verLessThan('matlab','9.1') % compatibility (<R2016b)
+            vY_approx = sum((diag(s)*Uc_approx(:,:)).^2)';
+        else
+            vY_approx = sum((s.*Uc_approx(:,:)).^2)';
+        end
         tauTime = permute(Yc(:,5:7,:,:),[1,4,2,3]);
         tauConv = permute(Yc(:,8:10,:,:),[1,4,2,3]);
         tauDiff = permute(Yc(:,11:13,:,:),[1,4,2,3]);
