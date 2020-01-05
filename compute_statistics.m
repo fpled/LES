@@ -417,11 +417,11 @@ for g=2^4
             end
             
             if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                Yt = reshape(repmat(mYt(:)',[N,1]) + Yctc,[N,n,m]);
+                Yt = reshape(repmat(mYt(:)',[N,1]) + Yct',[N,n,m]);
                 Yt_old = reshape(repmat(mYt_old(:)',[N,1]) + Yct_old',[N,n,m]);
                 Yt_new = reshape(repmat(mYt_new(:)',[N,1]) + Yct_new',[N,n,m]);
             else
-                Yt = reshape(mYt(:)' + Yctc,[N,n,m]);
+                Yt = reshape(mYt(:)' + Yct',[N,n,m]);
                 Yt_old = reshape(mYt_old(:)' + Yct_old',[N,n,m]);
                 Yt_new = reshape(mYt_new(:)' + Yct_new',[N,n,m]);
             end
@@ -437,9 +437,15 @@ for g=2^4
             % rhot = Ct*rho(2) + (1-Ct)*rho(1);
             rhot_old = Ct_old*rho(2) + (1-Ct_old)*rho(1);
             rhot_new = Ct_new*rho(2) + (1-Ct_new)*rho(1);
-            % rhout = rhot.*ut;
-            rhout_old = rhot_old.*ut_old;
-            rhout_new = rhot_new.*ut_new;
+            if verLessThan('matlab','9.1') % compatibility (<R2016b)
+                % rhout = repmat(rhot,[1,3,1]).*ut;
+                rhout_old = repmat(rhot_old,[1,3,1]).*ut_old;
+                rhout_new = repmat(rhot_new,[1,3,1]).*ut_new;
+            else
+                % rhout = rhot.*ut;
+                rhout_old = rhot_old.*ut_old;
+                rhout_new = rhot_new.*ut_new;
+            end
             tauTime = (rhout_new-rhout_old)/(2*dt);
             % Ek = 1/2*rhot.*dot(ut,ut,2);
             Ek_old = 1/2*rhot_old.*dot(ut_old,ut_old,2);
