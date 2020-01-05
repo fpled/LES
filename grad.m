@@ -3,7 +3,7 @@ function gradu = grad(u,Dx)
 s = size(u);
 gradu = zeros([3,s]);
 for i=1:3
-    dims = circshift([1 2 3],1-i);
+    dims = circshift([1 2 3],1-i,2);
     if ndims(u)==4
         if s(1)==3
             dims = [dims+1,1];

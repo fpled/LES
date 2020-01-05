@@ -4,7 +4,7 @@ s = size(S);
 s = s(2:end);
 divS = zeros(s);
 for i=1:3
-    dims = circshift([1 2 3],1-i);
+    dims = circshift([1 2 3],1-i,2);
     if ndims(S)==4 || (ndims(S)==5 && s(1)~=3)
         Si = reshape(S(i,:),s);
         if ndims(S)==5
