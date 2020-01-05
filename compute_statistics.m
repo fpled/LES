@@ -416,9 +416,15 @@ for g=2^4
                 Yct_new = Vt*(sigt_new.*Zt_new');
             end
             
-            Yt = reshape(mYt(:)' + Yct',[N,n,m]);
-            Yt_old = reshape(mYt_old(:)' + Yct_old',[N,n,m]);
-            Yt_new = reshape(mYt_new(:)' + Yct_new',[N,n,m]);
+            if verLessThan('matlab','9.1') % compatibility (<R2016b)
+                Yt = reshape(repmat(mYt(:)',[N,1]) + Yctc,[N,n,m]);
+                Yt_old = reshape(repmat(mYt_old(:)',[N,1]) + Yct_old',[N,n,m]);
+                Yt_new = reshape(repmat(mYt_new(:)',[N,1]) + Yct_new',[N,n,m]);
+            else
+                Yt = reshape(mYt(:)' + Yctc,[N,n,m]);
+                Yt_old = reshape(mYt_old(:)' + Yct_old',[N,n,m]);
+                Yt_new = reshape(mYt_new(:)' + Yct_new',[N,n,m]);
+            end
             
             ut = Yt(:,1:3,:);
             ut_old = Yt_old(:,1:3,:);
