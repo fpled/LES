@@ -92,7 +92,7 @@ for g=2^4
                 load(fullfile(gridpathname,['data_t' num2str(t) '.mat']),'Yt');
                 mYt = mean(Yt,1);
                 mY(1,:,:,t+1) = mYt;
-                Yct = Yt - repmat(mYt,N,1,1); % Yct = Yt - mYt.*ones(N,1,1);
+                Yct = Yt - repmat(mYt,[N,1,1]); % Yct = Yt - mYt.*ones(N,1,1);
                 clear Yt
             end
             Yct = Yct(:,:)';
@@ -417,14 +417,13 @@ for g=2^4
             end
             
             if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                Yt = reshape(repmat(mYt(:)',[N,1]) + Yct',[N,n,m]);
-                Yt_old = reshape(repmat(mYt_old(:)',[N,1]) + Yct_old',[N,n,m]);
-                Yt_new = reshape(repmat(mYt_new(:)',[N,1]) + Yct_new',[N,n,m]);
-            else
-                Yt = reshape(mYt(:)' + Yct',[N,n,m]);
-                Yt_old = reshape(mYt_old(:)' + Yct_old',[N,n,m]);
-                Yt_new = reshape(mYt_new(:)' + Yct_new',[N,n,m]);
+                mYt = repmat(mYt,[N,1,1]);
+                mYt_old = repmat(mYt_old,[N,1,1]);
+                mYt_new = repmat(mYt_new,[N,1,1]);
             end
+            Yt = reshape(mYt(:,:) + Yct',[N,n,m]);
+            Yt_old = reshape(mYt_old(:,:) + Yct_old',[N,n,m]);
+            Yt_new = reshape(mYt_new(:,:) + Yct_new',[N,n,m]);
             
             ut = Yt(:,1:3,:);
             ut_old = Yt_old(:,1:3,:);
@@ -438,14 +437,13 @@ for g=2^4
             rhot_old = Ct_old*rho(2) + (1-Ct_old)*rho(1);
             rhot_new = Ct_new*rho(2) + (1-Ct_new)*rho(1);
             if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                % rhout = repmat(rhot,[1,3,1]).*ut;
-                rhout_old = repmat(rhot_old,[1,3,1]).*ut_old;
-                rhout_new = repmat(rhot_new,[1,3,1]).*ut_new;
-            else
-                % rhout = rhot.*ut;
-                rhout_old = rhot_old.*ut_old;
-                rhout_new = rhot_new.*ut_new;
+                % rhot = repmat(rhot,[1,3,1]);
+                rhot_old = repmat(rhot_old,[1,3,1]);
+                rhot_new = repmat(rhot_new,[1,3,1]);
             end
+            % rhout = rhot.*ut;
+            rhout_old = rhot_old.*ut_old;
+            rhout_new = rhot_new.*ut_new;
             tauTime = (rhout_new-rhout_old)/(2*dt);
             % Ek = 1/2*rhot.*dot(ut,ut,2);
             Ek_old = 1/2*rhot_old.*dot(ut_old,ut_old,2);
@@ -778,7 +776,7 @@ for g=2^4
             Yt = cat(2,Yt,Taut,Et);
             clear Taut Et
             mYt = mean(Yt,1);
-            Yct = Yt - repmat(mYt,N,1,1); % Yct = Yt - mYt.*ones(N,1,1);
+            Yct = Yt - repmat(mYt,[N,1,1]); % Yct = Yt - mYt.*ones(N,1,1);
             clear Yt
             load(fullfile(gridpathname,['PCA_space_t' num2str(t) '.mat']),'Vt');
         end
