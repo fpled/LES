@@ -4,7 +4,7 @@ close all
 
 solveProblem = true;
 displaySolution = false;
-displayEigenvales = true;
+displayEigenvales = false;
 displayCovariance = false;
 
 % index = 'time';
@@ -445,9 +445,17 @@ for g=2^4
             rhout_old = rhot_old.*ut_old;
             rhout_new = rhot_new.*ut_new;
             tauTime = (rhout_new-rhout_old)/(2*dt);
-            % Ek = 1/2*rhot.*dot(ut,ut,2);
-            Ek_old = 1/2*rhot_old.*dot(ut_old,ut_old,2);
-            Ek_new = 1/2*rhot_new.*dot(ut_new,ut_new,2);
+            % u2t = dot(ut,ut,2);
+            u2t_old = dot(ut_old,ut_old,2);
+            u2t_new = dot(ut_new,ut_new,2);
+            if verLessThan('matlab','9.1') % compatibility (<R2016b)
+                % u2t = repmat(u2t,[1,3,1]);
+                u2t_old = repmat(u2t_old,[1,3,1]);
+                u2t_new = repmat(u2t_new,[1,3,1]);
+            end
+            % Ek = 1/2*rhot.*u2t;
+            Ek_old = 1/2*rhot_old.*u2t_old;
+            Ek_new = 1/2*rhot_new.*u2t_new;
             energyKinTime = (Ek_new-Ek_old)/(2*dt);
             
             ut = permute(reshape(ut,[N,3,sx]),[2,order+2,1]);
@@ -456,15 +464,23 @@ for g=2^4
             rhot = Ct*rho(2) + (1-Ct)*rho(1);
             mut = Ct*mu(2) + (1-Ct)*mu(1);
             gradut = grad(ut,Dx);
-            rhout = shiftdim(rhot,-1).*ut;
+            rhot = shiftdim(rhot,-1);
+            if verLessThan('matlab','9.1') % compatibility (<R2016b)
+                rhot = repmat(rhot,[3,1,1,1,1]);
+            end
+            rhout = rhot.*ut;
             gradrhout = grad(rhout,Dx);
             St = (gradut+permute(gradut,[2,1,3:ndims(gradut)]))/2;
-            muSt = shiftdim(mut,-2).*St;
+            mut = shiftdim(mut,-2);
+            if verLessThan('matlab','9.1') % compatibility (<R2016b)
+                mut = repmat(mut,[3,3,1,1,1,1]);
+            end
+            muSt = mut.*St;
             gradCt = grad(Ct,Dx);
             ngradCt = normal(gradCt);
             kappa = div(ngradCt,Dx);
             u2t = dot(ut,ut,1);
-            rhou2t = shiftdim(rhot,-1).*u2t;
+            rhou2t = rhot.*u2t;
             
             tauTime = permute(reshape(tauTime,[N,3,sx]),[2,order+2,1]);
             tauConv = squeeze(sum(gradrhout.*shiftdim(ut,-1),2));
