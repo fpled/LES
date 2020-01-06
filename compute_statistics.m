@@ -416,14 +416,9 @@ for g=2^4
                 Yct_new = Vt*(sigt_new.*Zt_new');
             end
             
-            if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                mYt = repmat(mYt,[N,1,1]);
-                mYt_old = repmat(mYt_old,[N,1,1]);
-                mYt_new = repmat(mYt_new,[N,1,1]);
-            end
-            Yt = reshape(mYt(:,:) + Yct',[N,n,m]);
-            Yt_old = reshape(mYt_old(:,:) + Yct_old',[N,n,m]);
-            Yt_new = reshape(mYt_new(:,:) + Yct_new',[N,n,m]);
+            Yt = reshape(repmat(mYt(:,:),[N,1]) + Yct',[N,n,m]);
+            Yt_old = reshape(repmat(mYt_old(:,:),[N,1]) + Yct_old',[N,n,m]);
+            Yt_new = reshape(repmat(mYt_new(:,:),[N,1]) + Yct_new',[N,n,m]);
             
             ut = Yt(:,1:3,:);
             ut_old = Yt_old(:,1:3,:);
@@ -436,23 +431,13 @@ for g=2^4
             % rhot = Ct*rho(2) + (1-Ct)*rho(1);
             rhot_old = Ct_old*rho(2) + (1-Ct_old)*rho(1);
             rhot_new = Ct_new*rho(2) + (1-Ct_new)*rho(1);
-            if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                % rhot = repmat(rhot,[1,3,1]);
-                rhot_old = repmat(rhot_old,[1,3,1]);
-                rhot_new = repmat(rhot_new,[1,3,1]);
-            end
-            % rhout = rhot.*ut;
-            rhout_old = rhot_old.*ut_old;
-            rhout_new = rhot_new.*ut_new;
+            % rhout = repmat(rhot,[1,3,1]).*ut;
+            rhout_old = repmat(rhot_old,[1,3,1]).*ut_old;
+            rhout_new = repmat(rhot_new,[1,3,1]).*ut_new;
             tauTime = (rhout_new-rhout_old)/(2*dt);
             % u2t = dot(ut,ut,2);
             u2t_old = dot(ut_old,ut_old,2);
             u2t_new = dot(ut_new,ut_new,2);
-            if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                % u2t = repmat(u2t,[1,3,1]);
-                u2t_old = repmat(u2t_old,[1,3,1]);
-                u2t_new = repmat(u2t_new,[1,3,1]);
-            end
             % Ek = 1/2*rhot.*u2t;
             Ek_old = 1/2*rhot_old.*u2t_old;
             Ek_new = 1/2*rhot_new.*u2t_new;
@@ -464,36 +449,28 @@ for g=2^4
             rhot = Ct*rho(2) + (1-Ct)*rho(1);
             mut = Ct*mu(2) + (1-Ct)*mu(1);
             gradut = grad(ut,Dx);
-            rhot = shiftdim(rhot,-1);
-            if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                rhot = repmat(rhot,[3,1,1,1,1]);
-            end
-            rhout = rhot.*ut;
+            rhout = repmat(shiftdim(rhot,-1),[3,1,1,1,1]).*ut;
             gradrhout = grad(rhout,Dx);
             St = (gradut+permute(gradut,[2,1,3:ndims(gradut)]))/2;
-            mut = shiftdim(mut,-2);
-            if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                mut = repmat(mut,[3,3,1,1,1,1]);
-            end
-            muSt = mut.*St;
+            muSt = repmat(shiftdim(mut,-2),[3,3,1,1,1,1]).*St;
             gradCt = grad(Ct,Dx);
             ngradCt = normal(gradCt);
             kappa = div(ngradCt,Dx);
             u2t = dot(ut,ut,1);
-            rhou2t = rhot.*u2t;
+            rhou2t = shiftdim(rhot,-1).*u2t;
             
             tauTime = permute(reshape(tauTime,[N,3,sx]),[2,order+2,1]);
-            tauConv = squeeze(sum(gradrhout.*shiftdim(ut,-1),2));
+            tauConv = squeeze(sum(gradrhout.*repmat(shiftdim(ut,-1),[3,1,1,1,1,1]),2));
             tauDiff = div(2*muSt,Dx);
-            tauSurf = sigma*shiftdim(kappa,-1).*gradCt;
+            tauSurf = sigma*repmat(shiftdim(kappa,-1),[3,1,1,1,1]).*gradCt;
             tauInterf = dot(ut,gradCt,1);
             energyKinTime = permute(reshape(energyKinTime,[N,1,sx]),[2,order+2,1]);
-            energyConv = shiftdim(div(rhou2t.*ut,Dx),-1);
+            energyConv = shiftdim(div(repmat(rhou2t,[3,1,1,1,1]).*ut,Dx),-1);
             energyGrav = gravity.*rhout(3,:,:,:,:);
             energyPres = zeros(1,g+1,g+1,g+1,N);
             energyPresDil = zeros(1,g+1,g+1,g+1,N);
             energyKinSpace = dot(rhout,grad(shiftdim(u2t/2),Dx),1);
-            energyDiff = shiftdim(div(squeeze(dot(2*muSt,repmat(shiftdim(ut,-1),[3,1]),2)),Dx),-1);
+            energyDiff = shiftdim(div(squeeze(dot(2*muSt,repmat(shiftdim(ut,-1),[3,1,1,1,1,1]),2)),Dx),-1);
             energyVisc = shiftdim(sum(sum(2*muSt.*gradut,1),2),1);
             energySurf = dot(tauSurf,ut,1);
             
