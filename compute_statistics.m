@@ -4,7 +4,7 @@ close all
 
 solveProblem = true;
 displaySolution = false;
-displayEigenvales = false;
+displayEigenvales = true;
 displayCovariance = false;
 
 % index = 'time';
@@ -31,6 +31,8 @@ dt = 5e-3; % time step (s)
 dt = 100*dt; % physical time step stored every 100 time iterations
 
 order = [3 1 2]; % dimension order
+perm = @(u) permute(u,[2,order+2,1]);
+iperm = @(u) ipermute(u,[2,order+2,1]);
 
 tolsvdYc = eps; % relative precision for truncated SVD of Yc
 tolsvdZc = 1e-6; % relative precision for truncated SVD of Zc
@@ -363,127 +365,281 @@ for g=2^4
                 mYt_old = zeros(1,n,m);
                 Rt_old = Rmax;
                 sigt_old = zeros(Rmax,1);
-                Zt_old = zeros(N,Rmax,1);
+                % Zt_old = zeros(N,Rmax);
                 Vt_old = zeros(n*m,Rmax);
+                Wt_old = zeros(Rmax,Q);
             else
                 mYt_old = mY(1,:,:,t);
                 Rt_old = R(t);
                 sigt_old = sig(1:Rt_old,t);
-                Zt_old = Z(:,1:Rt_old,t);
+                % Zt_old = Z(:,1:Rt_old,t);
                 if g<2^7
                     Vt_old = V(:,1:Rt_old,t);
                 else
                     load(fullfile(gridpathname,['PCAspace_t' num2str(t-1) '.mat']),'Vt');
                     Vt_old = Vt;
                 end
+                switch index
+                    case 'time'
+                        Wt_old = W(t:(p+1):end,:);
+                        Wt_old = Wt_old(1:Rt_old,:);
+                    case 'coord'
+                        Wt_old = W(Rmax*(t-1)+(1:Rt_old),:);
+                end
             end
+            
             if t==p
                 mYt_new = zeros(1,n,m);
                 Rt_new = Rmax;
                 sigt_new = zeros(Rmax,1);
-                Zt_new = zeros(N,Rmax,1);
+                % Zt_new = zeros(N,Rmax);
                 Vt_new = zeros(n*m,Rmax);
+                Wt_new = zeros(Rmax,Q);
             else
                 mYt_new = mY(1,:,:,t+2);
                 Rt_new = R(t+2);
                 sigt_new = sig(1:Rt_new,t+2);
-                Zt_new = Z(:,1:Rt_new,t+2);
+                % Zt_new = Z(:,1:Rt_new,t+2);
                 if g<2^7
                     Vt_new = V(:,1:Rt_new,t+2);
                 else
                     load(fullfile(gridpathname,['PCAspace_t' num2str(t+1) '.mat']),'Vt');
                     Vt_new = Vt;
                 end
+                switch index
+                    case 'time'
+                        Wt_new = W((t+2):(p+1):end,:);
+                        Wt_new = Wt_new(1:Rt_new,:);
+                    case 'coord'
+                        Wt_new = W(Rmax*(t+1)+(1:Rt_new),:);
+                end
             end
             
             mYt = mY(1,:,:,t+1);
             Rt = R(t+1);
             sigt = sig(1:Rt,t+1);
-            Zt = Z(:,1:Rt,t+1);
+            % Zt = Z(:,1:Rt,t+1);
             if g<2^7
                 Vt = V(:,1:Rt,t+1);
             else
                 load(fullfile(gridpathname,['PCAspace_t' num2str(t) '.mat']),'Vt');
             end
-            
-            if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                Yct = Vt*diag(sigt)*Zt';
-                Yct_old = Vt_old*diag(sigt_old)*Zt_old';
-                Yct_new = Vt*diag(sigt_new)*Zt_new';
-            else
-                Yct = Vt*(sigt.*Zt');
-                Yct_old = Vt_old*(sigt_old.*Zt_old');
-                Yct_new = Vt*(sigt_new.*Zt_new');
+            switch index
+                case 'time'
+                    Wt = W((t+1):(p+1):end,:);
+                    Wt = Wt(1:Rt,:);
+                case 'coord'
+                    Wt = W(Rmax*t+(1:Rt),:);
             end
             
-            Yt = reshape(repmat(mYt(:,:),[N,1]) + Yct',[N,n,m]);
-            Yt_old = reshape(repmat(mYt_old(:,:),[N,1]) + Yct_old',[N,n,m]);
-            Yt_new = reshape(repmat(mYt_new(:,:),[N,1]) + Yct_new',[N,n,m]);
+            if verLessThan('matlab','9.1') % compatibility (<R2016b)
+                Zct = Wt*diag(s)*X'; % Zct = Zt';
+                Zct_old = Wt_old*diag(s)*X'; % Zct_old = Zt_old';
+                Zct_new = Wt_new*diag(s)*X'; % Zct_new = Zt_new';
+                Yct = Vt*diag(sigt)*Zct;
+                Yct_old = Vt_old*diag(sigt_old)*Zct_old;
+                Yct_new = Vt*diag(sigt_new)*Zct_new;
+            else
+                Zct = Wt*(s.*X'); % Zct = Zt';
+                Zct_old = Wt_old*(s.*X'); % Zct_old = Zt_old';
+                Zct_new = Wt_new*(s.*X'); % Zct_new = Zt_new';
+                Yct = Vt*(sigt.*Zct);
+                Yct_old = Vt_old*(sigt_old.*Zct_old);
+                Yct_new = Vt*(sigt_new.*Zct_new);
+            end
             
-            ut = Yt(:,1:3,:);
-            ut_old = Yt_old(:,1:3,:);
-            ut_new = Yt_new(:,1:3,:);
+            mYt = perm(reshape(mYt,[1,n,sx]));
+            mYt_old = perm(reshape(mYt_old,[1,n,sx]));
+            mYt_new = perm(reshape(mYt_new,[1,n,sx]));
             
-            Ct = Yt(:,4,:);
-            Ct_old = Yt_old(:,4,:);
-            Ct_new = Yt_new(:,4,:);
+            Yt = repmat(mYt,[ones(1,4),N]) + perm(reshape(Yct',[N,n,sx]));
+            Yt_old = repmat(mYt_old,[ones(1,4),N]) + perm(reshape(Yct_old',[N,n,sx]));
+            Yt_new = repmat(mYt_new,[ones(1,4),N]) + perm(reshape(Yct_new',[N,n,sx]));
+            
+%             vt = perm(reshape(Vt',[Rt,n,sx]));
+%             vt_old = perm(reshape(Vt_old',[Rt_old,n,sx]));
+%             vt_new = perm(reshape(Vt_new',[Rt_new,n,sx]));
+            
+%             rep = @(Yt) [3,ones(1,ndims(Yt))];
+%             get_ut = @(Yt) Yt(1:3,:,:,:,:);
+%             get_uti = @(Yt,i) Yt(i,:,:,:,:);
+%             get_Ct = @(Yt) Yt(4,:,:,:,:);
+%             get_rhot = @(Yt) rho(1) + (rho(2)-rho(1))*get_Ct(Yt);
+%             get_mut = @(Yt) mu(1) + (mu(2)-mu(1))*get_Ct(Yt);
+%             get_rhout = @(Yt) repmat(get_rhot(Yt),[3,ones(1,ndims(Yt)-1)]).*get_ut(Yt);
+%             get_rhouti = @(Yt,i) get_rhot(Yt).*get_uti(Yt,i);
+%             get_tauTime = @(Yt_new,Yt_old) (get_rhout(Yt_new)-get_rhout(Yt_old))/(2*dt);
+%             get_u2t = @(Yt) dot(get_ut(Yt),get_ut(Yt),1);
+%             get_Ek = @(Yt) 1/2*get_rhot(Yt).*get_u2t(Yt);
+%             get_energyKinTime = @(Yt_new,Yt_old) (get_Ek(Yt_new)-get_Ek(Yt_old))/(2*dt);
+%             
+%             get_divut = @(Yt) div(get_ut(Yt),Dx);
+%             get_gradut = @(Yt) grad(get_ut(Yt),Dx);
+%             get_gradrhout = @(Yt) grad(repmat(get_rhot(Yt),rep(Yt)).*get_ut(Yt),Dx);
+%             get_St = @(Yt) (get_gradut(Yt)+permute(get_gradut(Yt),[2,1,3:ndims(Yt)+1]))/2;
+%             get_muSt = @(Yt) repmat(shiftdim(get_mut(Yt),-1),[3,3,ones(1,ndims(Yt)-1)]).*get_St(Yt);
+%             get_gradCt = @(Yt) grad(get_Ct(Yt),Dx);
+%             get_rhou2t = @(Yt) get_rhot(Yt).*get_u2t(Yt);
+%             
+%             ut = get_ut(Yt); 
+%             ut_old = get_ut(Yt_old);
+%             ut_new = get_ut(Yt_new);
+%             
+%             Ct = get_Ct(Yt);
+%             Ct_old = get_Ct(Yt_old);
+%             Ct_new = get_Ct(Yt_new);
+%             
+%             % rhot = get_rhot(Yt);
+%             rhot_old = get_rhot(Yt_old);
+%             rhot_new = get_rhot(Yt_new);
+%             % rhout = get_rhout(Yt);
+%             rhout_old = get_rhout(Yt_old);
+%             rhout_new = get_rhout(Yt_new);
+%             tauTimet = get_tauTime(Yt_new,Yt_old) ;
+%             % u2t = get_u2t(Yt);
+%             u2t_old = get_u2t(Yt_old);
+%             u2t_new = get_u2t(Yt_new);
+%             % Ek = get_Ek(Yt);
+%             Ek_old = get_Ek(Yt_old);
+%             Ek_new = get_Ek(Yt_new);
+%             energyKinTimet = get_energyKinTime(Yt_new,Yt_old);
+%             
+%             rhot = get_rhot(Yt);
+%             % mut =  get_mut(Yt);
+%             gradut = get_gradut(Yt);
+%             rhout = get_rhout(Yt);
+%             gradrhout = get_gradrhout(Yt);
+%             % St = get_St(Yt);
+%             muSt = get_muSt(Yt);
+%             gradCt = get_gradCt(Yt);
+%             ngradCt = normal(get_gradCt(Yt));
+%             kappa = div(normal(get_gradCt(Yt)),Dx);
+%             u2t = get_u2t(Yt);
+%             rhou2t = get_rhou2t(Yt);
+            
+%             get_tauConv = @(Yt) squeeze(sum(get_gradrhout(Yt).*repmat(shiftdim(get_ut(Yt),-1),rep(Yt)),2));
+%             % get_tauConv = @(Yt) div(permute(repmat(shiftdim(get_rhout(Yt),-1),rep(Yt)),[2,1,3:ndims(Yt)+1]).*repmat(shiftdim(get_ut(Yt),-1),rep(Yt)),Dx);
+%             get_tauDiff = @(Yt) div(2*get_muSt(Yt),Dx);
+%             get_tauSurf = @(Yt) sigma*repmat(shiftdim(kappa,-1),[3,ones(1,ndims(Yt)-1)]).*get_gradCt(Yt);
+%             get_tauInterf = @(Yt) dot(get_ut(Yt),get_gradCt(Yt),1);
+%             get_energyConv = @(Yt) shiftdim(div(repmat(get_rhou2t(Yt),[3,ones(1,ndims(Yt)-1)]).*get_ut(Yt),Dx),-1);
+%             get_energyGrav = @(Yt) gravity.*get_rhouti(Yt,3);
+%             get_energyKinSpace = @(Yt) dot(get_rhout(Yt),grad(get_u2t(Yt)/2,Dx),1);
+%             get_energyDiff = @(Yt) shiftdim(div(squeeze(dot(2*get_muSt(Yt),repmat(shiftdim(get_ut(Yt),-1),rep(Yt)),2)),Dx),-1);
+%             get_energyVisc = @(Yt) shiftdim(sum(sum(2*get_muSt(Yt).*get_gradut(Yt),1),2),1);
+%             get_energySurf = @(Yt) dot(get_tauSurf(Yt),get_ut(Yt),1);
+            
+%             tauConvt = get_tauConv(Yt);
+%             tauDifft = get_tauDiff(Yt);
+%             tauSurft = get_tauSurf(Yt);
+%             tauInterft = get_tauInterf(Yt);
+%             energyConvt = get_energyConv(Yt);
+%             energyGravt = get_energyGrav(Yt);
+%             energyPrest = zeros(1,g+1,g+1,g+1,N);
+%             energyPresDilt = zeros(1,g+1,g+1,g+1,N);
+%             energyKinSpacet = get_energyKinSpace(Yt);
+%             energyDifft = get_energyDiff(Yt);
+%             energyVisct = get_energyVisc(Yt);
+%             energySurft = get_energySurf(Yt);
+
+            ut = Yt(1:3,:,:,:,:); 
+            ut_old = Yt_old(1:3,:,:,:,:);
+            ut_new = Yt_new(1:3,:,:,:,:);
+            
+            Ct = Yt(4,:,:,:,:);
+            Ct_old = Yt_old(4,:,:,:,:);
+            Ct_new = Yt_new(4,:,:,:,:);
             
             % rhot = Ct*rho(2) + (1-Ct)*rho(1);
             rhot_old = Ct_old*rho(2) + (1-Ct_old)*rho(1);
             rhot_new = Ct_new*rho(2) + (1-Ct_new)*rho(1);
-            % rhout = repmat(rhot,[1,3,1]).*ut;
-            rhout_old = repmat(rhot_old,[1,3,1]).*ut_old;
-            rhout_new = repmat(rhot_new,[1,3,1]).*ut_new;
-            tauTime = (rhout_new-rhout_old)/(2*dt);
-            % u2t = dot(ut,ut,2);
-            u2t_old = dot(ut_old,ut_old,2);
-            u2t_new = dot(ut_new,ut_new,2);
+            % rhout = repmat(rhot,[3,ones(1,4)]).*ut;
+            rhout_old = repmat(rhot_old,[3,ones(1,4)]).*ut_old;
+            rhout_new = repmat(rhot_new,[3,ones(1,4)]).*ut_new;
+            tauTimet = (rhout_new-rhout_old)/(2*dt);
+            % u2t = dot(ut,ut,1);
+            u2t_old = dot(ut_old,ut_old,1);
+            u2t_new = dot(ut_new,ut_new,1);
             % Ek = 1/2*rhot.*u2t;
             Ek_old = 1/2*rhot_old.*u2t_old;
             Ek_new = 1/2*rhot_new.*u2t_new;
-            energyKinTime = (Ek_new-Ek_old)/(2*dt);
-            
-            ut = permute(reshape(ut,[N,3,sx]),[2,order+2,1]);
-            Ct = permute(reshape(Ct,[N,sx]),[order+1,1]);
+            energyKinTimet = (Ek_new-Ek_old)/(2*dt);
             
             rhot = Ct*rho(2) + (1-Ct)*rho(1);
             mut = Ct*mu(2) + (1-Ct)*mu(1);
             gradut = grad(ut,Dx);
-            rhout = repmat(shiftdim(rhot,-1),[3,1,1,1,1]).*ut;
+            rhout = repmat(rhot,[3,ones(1,4)]).*ut;
             gradrhout = grad(rhout,Dx);
-            St = (gradut+permute(gradut,[2,1,3:ndims(gradut)]))/2;
-            muSt = repmat(shiftdim(mut,-2),[3,3,1,1,1,1]).*St;
+            St = (gradut+permute(gradut,[2,1,3:6]))/2;
+            muSt = repmat(shiftdim(mut,-1),[3,3,ones(1,4)]).*St;
             gradCt = grad(Ct,Dx);
             ngradCt = normal(gradCt);
             kappa = div(ngradCt,Dx);
             u2t = dot(ut,ut,1);
-            rhou2t = shiftdim(rhot,-1).*u2t;
+            rhou2t = rhot.*u2t;
             
-            tauTime = permute(reshape(tauTime,[N,3,sx]),[2,order+2,1]);
-            tauConv = squeeze(sum(gradrhout.*repmat(shiftdim(ut,-1),[3,1,1,1,1,1]),2));
-            tauDiff = div(2*muSt,Dx);
-            tauSurf = sigma*repmat(shiftdim(kappa,-1),[3,1,1,1,1]).*gradCt;
-            tauInterf = dot(ut,gradCt,1);
-            energyKinTime = permute(reshape(energyKinTime,[N,1,sx]),[2,order+2,1]);
-            energyConv = shiftdim(div(repmat(rhou2t,[3,1,1,1,1]).*ut,Dx),-1);
-            energyGrav = gravity.*rhout(3,:,:,:,:);
-            energyPres = zeros(1,g+1,g+1,g+1,N);
-            energyPresDil = zeros(1,g+1,g+1,g+1,N);
-            energyKinSpace = dot(rhout,grad(shiftdim(u2t/2),Dx),1);
-            energyDiff = shiftdim(div(squeeze(dot(2*muSt,repmat(shiftdim(ut,-1),[3,1,1,1,1,1]),2)),Dx),-1);
-            energyVisc = shiftdim(sum(sum(2*muSt.*gradut,1),2),1);
-            energySurf = dot(tauSurf,ut,1);
+            tauConvt = squeeze(sum(gradrhout.*repmat(shiftdim(ut,-1),[3,ones(1,5)]),2));
+            % tauConvt = div(permute(repmat(shiftdim(rhout,-1),[3,ones(1,5)]),[2,1,3:6]).*repmat(shiftdim(ut,-1),[3,ones(1,5)]),Dx);
+            tauDifft = div(2*muSt,Dx);
+            tauSurft = sigma*repmat(shiftdim(kappa,-1),[3,ones(1,4)]).*gradCt;
+            tauInterft = dot(ut,gradCt,1);
+            energyConvt = shiftdim(div(repmat(rhou2t,[3,ones(1,4)]).*ut,Dx),-1);
+            energyGravt = gravity.*rhout(3,:,:,:,:);
+            energyPrest = zeros(1,g+1,g+1,g+1,N);
+            energyPresDilt = zeros(1,g+1,g+1,g+1,N);
+            energyKinSpacet = dot(rhout,grad(u2t/2,Dx),1);
+            energyDifft = shiftdim(div(squeeze(dot(2*muSt,repmat(shiftdim(ut,-1),[3,ones(1,5)]),2)),Dx),-1);
+            energyVisct = shiftdim(sum(sum(2*muSt.*gradut,1),2),1);
+            energySurft = dot(tauSurft,ut,1);
             
-            Taut = cat(1,tauTime,tauConv,tauDiff,tauSurf,tauInterf);
-            Et = cat(1,energyKinTime,energyConv,energyGrav,energyPres,energyPresDil,energyKinSpace,energyDiff,energyVisc,energySurf);
+%             mut = get_ut(mYt);
+%             mut_old = get_ut(mYt_old);
+%             mut_new = get_ut(mYt_new);
+%             
+%             mCt = get_Ct(mYt);
+%             mCt_old = get_Ct(mYt_old);
+%             mCt_new = get_Ct(mYt_new);
+%             
+%             % mrhot = get_rhot(mYt); % mrhot = mCt*rho(2) + (1-mCt)*rho(1);
+%             mrhot_old = get_rhot(mYt_old); % rhot_old = mCt_old*rho(2) + (1-mCt_old)*rho(1);
+%             mrhot_new = get_rhot(mYt_new); % rhot_new = mCt_new*rho(2) + (1-mCt_new)*rho(1);
+%             % rhout = get_rhout(Yt); % rhout = repmat(rhot,[3,ones(1,4)]).*ut;
+%             rhout_old = get_rhout(Yt_old); % rhout_old = repmat(rhot_old,[3,ones(1,4)]).*ut_old;
+%             rhout_new = get_rhout(Yt_new); % rhout_new = repmat(rhot_new,[3,ones(1,4)]).*ut_new;
+%             tauTime = get_tauTime(Yt_new,Yt_old) ; % tauTime = (rhout_new-rhout_old)/(2*dt);
+%             % u2t = get_u2t(Yt); % u2t = dot(ut,ut,1);
+%             u2t_old = get_u2t(Yt_old); % u2t_old = dot(ut_old,ut_old,1);
+%             u2t_new = get_u2t(Yt_new); % u2t_new = dot(ut_new,ut_new,1);
+%             % Ek = get_Ek(Yt); % Ek = 1/2*rhot.*u2t;
+%             Ek_old = get_Ek(Yt_old); % Ek_old = 1/2*rhot_old.*u2t_old;
+%             Ek_new = get_Ek(Yt_new); % Ek_new = 1/2*rhot_new.*u2t_new;
+%             energyKinTimet = get_energyKinTime(Yt_new,Yt_old); % energyKinTime = (Ek_new-Ek_old)/(2*dt);
+%             
+%             mrhot = get_rhot(mYt); % mrhot = mCt*rho(2) + (1-mCt)*rho(1);
+%             % mmut =  get_mut(mYt); % mmut = mCt*mu(2) + (1-mCt)*mu(1);
+%             gradmut = get_gradut(mYt); % gradut = grad(ut,Dx);
+%             mrhout = get_rhout(mYt); % rhout = repmat(rhot,[3,ones(1,4)]).*ut;
+%             gradmrhout = get_gradrhout(mYt); % gradrhout = grad(rhout,Dx);
+%             % mSt = get_St(mYt); % St = (gradmut+permute(gradmut,[2,1,3:6]))/2;
+%             mmuSt = get_muSt(mYt); % mmuSt = repmat(shiftdim(mmut,-1),[3,3,ones(1,4)]).*St;
+%             gradmCt = get_gradCt(mYt); % gradmCt = grad(mCt,Dx);
+%             ngradmCt = normal(get_gradCt(mYt)); % ngradmCt = normal(gradmCt);
+%             mkappa = div(normal(get_gradCt(mYt)),Dx); % mkappa = div(ngradmCt,Dx);
+%             mu2t = get_u2t(mYt); % mu2t = dot(mut,mut,1);
+%             mrhou2t = get_rhou2t(mYt); % mrhou2t = mrhot.*mu2t;
+%             
+%             mtauConv = div(permute(repmat(shiftdim(mrhout,-1),rep(mYt)),[2,1,3:ndims(mYt)+1]).*repmat(shiftdim(mut,-1),rep(mYt)),Dx);
+            
+            Taut = cat(1,tauTimet,tauConvt,tauDifft,tauSurft,tauInterft);
+            Et = cat(1,energyKinTimet,energyConvt,energyGravt,energyPrest,energyPresDilt,energyKinSpacet,energyDifft,energyVisct,energySurft);
             
             It = cat(1,Taut,Et);
-            It = cat(2,reshape(trapz(x,trapz(x,trapz(x,shiftdim(1-Ct,-1).*It,2),3),4),[nt+ne,1,N]),...
-                reshape(trapz(x,trapz(x,trapz(x,shiftdim(Ct,-1).*It,2),3),4),[nt+ne,1,N]));
+            It = cat(2,reshape(trapz(x,trapz(x,trapz(x,repmat(1-Ct,[nt+ne,ones(1,4)]).*It,2),3),4),[nt+ne,1,N]),...
+                reshape(trapz(x,trapz(x,trapz(x,repmat(Ct,[nt+ne,ones(1,4)]).*It,2),3),4),[nt+ne,1,N]));
             It = shiftdim(It,2);
             
-            Taut = ipermute(Taut,[2,order+2,1]);
-            Et = ipermute(Et,[2,order+2,1]);
+            Taut = iperm(Taut);
+            Et = iperm(Et);
             Taut = Taut(:,:,:);
             Et = Et(:,:,:);
             
@@ -502,46 +658,46 @@ for g=2^4
         save(fullfile(gridpathname,'PP.mat'),'I','nt','ne','-append');
         
         %% Post processing PCA
-        for t=0:p
-            time = ['Time ' num2str(t)];
-            disp(time)
-            
-            mYt = mY(1,:,:,t+1);
-            Rt = R(t+1);
-            sigt = sig(1:Rt,t+1);
-            Zt = Z(:,1:Rt,t+1);
-            if g<2^7
-                Vt = V(:,1:Rt,t+1);
-            else
-                load(fullfile(gridpathname,['PCAspace_t' num2str(t) '.mat']),'Vt');
-            end
-            if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                Yct = Vt*(sigt.*Zt');
-            else
-                Yct = Vt*diag(sigt)*Zt';
-            end
-            % Yct = permute(reshape(Yct,[n,sx,N]),[1,order+1,1]);
-            
-            % Vt = permute(reshape(Vt,[n,sx,Rt]),[1,order+1,1]);
-            
-            switch index
-                case 'time'
-                    Wt = W((t+1):(p+1):end,:);
-                    Wt = Wt(1:Rt,:);
-                case 'coord'
-                    Wt = W(Rmax*t+(1:Rt),:);
-            end
-            
-            if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                % Zct_approx = Wt*diag(s)*X'; % Zct_approx = Z_approx(:,1:Rt,t+1)';
-                % Yct_approx = Vt*diag(sigt)*Zct_approx;
-                Yct_approx = Vt*diag(sigt)*Wt*diag(s)*X';
-            else
-                % Zct_approx = Wt*(s.*X'); % Zct_approx = Z_approx(:,1:Rt,t+1)';
-                % Yct_approx = Vt*(sigt.*Zct_approx);
-                Yct_approx = Vt*(sigt.*Wt*(s.*X'));
-            end
-        end
+%         for t=0:p
+%             time = ['Time ' num2str(t)];
+%             disp(time)
+%             
+%             mYt = mY(1,:,:,t+1);
+%             Rt = R(t+1);
+%             sigt = sig(1:Rt,t+1);
+%             Zt = Z(:,1:Rt,t+1);
+%             if g<2^7
+%                 Vt = V(:,1:Rt,t+1);
+%             else
+%                 load(fullfile(gridpathname,['PCAspace_t' num2str(t) '.mat']),'Vt');
+%             end
+%             if verLessThan('matlab','9.1') % compatibility (<R2016b)
+%                 Yct = Vt*(sigt.*Zt');
+%             else
+%                 Yct = Vt*diag(sigt)*Zt';
+%             end
+%             % Yct = permute(reshape(Yct,[n,sx,N]),[1,order+1,1]);
+%             
+%             % Vt = permute(reshape(Vt,[n,sx,Rt]),[1,order+1,1]);
+%             
+%             switch index
+%                 case 'time'
+%                     Wt = W((t+1):(p+1):end,:);
+%                     Wt = Wt(1:Rt,:);
+%                 case 'coord'
+%                     Wt = W(Rmax*t+(1:Rt),:);
+%             end
+%             
+%             if verLessThan('matlab','9.1') % compatibility (<R2016b)
+%                 % Zct_approx = Wt*diag(s)*X'; % Zct_approx = Z_approx(:,1:Rt,t+1)';
+%                 % Yct_approx = Vt*diag(sigt)*Zct_approx;
+%                 Yct_approx = Vt*diag(sigt)*Wt*diag(s)*X';
+%             else
+%                 % Zct_approx = Wt*(s.*X'); % Zct_approx = Z_approx(:,1:Rt,t+1)';
+%                 % Yct_approx = Vt*(sigt.*Zct_approx);
+%                 Yct_approx = Vt*(sigt.*Wt*(s.*X'));
+%             end
+%         end
     
     else
         if g<2^7
@@ -690,59 +846,27 @@ for g=2^4
         clear Y
     end
     
-    mu = zeros(3*m,p+1);
-    mC = zeros(m,p+1);
-    mtauTime = zeros(3*m,p+1);
-    mtauConv = zeros(3*m,p+1);
-    mtauDiff = zeros(3*m,p+1);
-    mtauSurf = zeros(3*m,p+1);
-    mtauInterf = zeros(m,p+1);
-    menergyKinTime = zeros(m,p+1);
-    menergyConv = zeros(m,p+1);
-    menergyGrav = zeros(m,p+1);
-    menergyPres = zeros(m,p+1);
-    menergyPresDil = zeros(m,p+1);
-    menergyKinSpace = zeros(m,p+1);
-    menergyDiff = zeros(m,p+1);
-    menergyVisc = zeros(m,p+1);
-    menergySurf = zeros(m,p+1);
-    for t=0:p
-        mYt = mY(1,:,:,t+1);
-        mYt = reshape(mYt,[nvar,m]);
-        mut = mYt(1:3,:);
-        mCt = mYt(4,:);
-        mtauTimet = mYt(5:7,:);
-        mtauConvt = mYt(8:10,:);
-        mtauDifft = mYt(11:13,:);
-        mtauSurft = mYt(14:16,:);
-        mtauInterft = mYt(17,:);
-        menergyKinTimet = mYt(18,:);
-        menergyConvt = mYt(19,:);
-        menergyGravt = mYt(20,:);
-        menergyPrest = mYt(21,:);
-        menergyPresDilt = mYt(22,:);
-        menergyKinSpacet = mYt(23,:);
-        menergyDifft = mYt(24,:);
-        menergyVisct = mYt(25,:);
-        menergySurft = mYt(26,:);
-        mu(:,t+1) = mut(:);
-        mC(:,t+1) = mCt(:);
-        mtauTime(:,t+1) = mtauTimet(:);
-        mtauConv(:,t+1) = mtauConvt(:);
-        mtauDiff(:,t+1) = mtauDifft(:);
-        mtauSurf(:,t+1) = mtauSurft(:);
-        mtauInterf(:,t+1) = mtauInterft(:);
-        menergyKinTime(:,t+1) = menergyKinTimet(:);
-        menergyConv(:,t+1) = menergyConvt(:);
-        menergyGrav(:,t+1) = menergyGravt(:);
-        menergyPres(:,t+1) = menergyPrest(:);
-        menergyPresDil(:,t+1) = menergyPresDilt(:);
-        menergyKinSpace(:,t+1) = menergyKinSpacet(:);
-        menergyDiff(:,t+1) = menergyDifft(:);
-        menergyVisc(:,t+1) = menergyVisct(:);
-        menergySurf(:,t+1) = menergySurft(:);
-    end
+    % Compute mean
+    disp('Mean')
+    mu = reshape(mY(1,1:3,:,:),[3*m,p+1]);
+    mC = reshape(mY(1,4,:,:),[m,p+1]);
+    mtauTime = reshape(mY(1,5:7,:,:),[3*m,p+1]);
+    mtauConv = reshape(mY(1,8:10,:,:),[3*m,p+1]);
+    mtauDiff = reshape(mY(1,11:13,:,:),[3*m,p+1]);
+    mtauSurf = reshape(mY(1,14:16,:,:),[3*m,p+1]);
+    mtauInterf = reshape(mY(1,17,:,:),[m,p+1]);
+    menergyKinTime = reshape(mY(1,18,:,:),[m,p+1]);
+    menergyConv = reshape(mY(1,19,:,:),[m,p+1]);
+    menergyGrav = reshape(mY(1,20,:,:),[m,p+1]);
+    menergyPres = reshape(mY(1,21,:,:),[m,p+1]);
+    menergyPresDil = reshape(mY(1,22,:,:),[m,p+1]);
+    menergyKinSpace = reshape(mY(1,23,:,:),[m,p+1]);
+    menergyDiff = reshape(mY(1,24,:,:),[m,p+1]);
+    menergyVisc = reshape(mY(1,25,:,:),[m,p+1]);
+    menergySurf = reshape(mY(1,26,:,:),[m,p+1]);
     
+    % Compute variance
+    disp('Variance')
     vu = zeros(3*m,p+1);
     vC = zeros(m,p+1);
     vtauTime = zeros(3*m,p+1);
@@ -834,8 +958,10 @@ for g=2^4
         energyDifft = Yct(:,24,:);
         energyVisct = Yct(:,25,:);
         energySurft = Yct(:,26,:);
+        
         indut_ = (0:m-1)*n+(1:3)';
         indCt_ = (0:m-1)*n+4;
+        
         vut = vYt_approx(indut_(:));
         vCt = vYt_approx(indCt_(:));
         vtauTimet = 1/(N-1)*sum(tauTimet(:,:).^2)';
@@ -852,6 +978,7 @@ for g=2^4
         venergyDifft = 1/(N-1)*sum(energyDifft(:,:).^2)';
         venergyVisct = 1/(N-1)*sum(energyVisct(:,:).^2)';
         venergySurft = 1/(N-1)*sum(energySurft(:,:).^2)';
+        
         vYt_approx = zeros(nvar*m,1);
         vYt_approx(indut(:)) = vut;
         vYt_approx(indCt(:)) = vCt;
@@ -894,7 +1021,6 @@ for g=2^4
         venergySurft(:,t+1) = vYt_approx(indenergySurft(:));
     end
     
-    
     fprintf('\n');
     mu = TIMEMATRIX(mu,T);
     mC = TIMEMATRIX(mC,T);
@@ -912,6 +1038,7 @@ for g=2^4
     menergyDiff = TIMEMATRIX(menergyDiff,T);
     menergyVisc = TIMEMATRIX(menergyVisc,T);
     menergySurf = TIMEMATRIX(menergySurf,T);
+    
     vu = TIMEMATRIX(vu,T);
     vC = TIMEMATRIX(vC,T);
     vtauTime = TIMEMATRIX(vtauTime,T);
@@ -1051,6 +1178,17 @@ for g=2^4
     mIenergyDiff = mI(20,:,:);
     mIenergyVisc = mI(21,:,:);
     mIenergySurf = mI(22,:,:);
+    
+    sz = size(I);
+    sI = prod(sz(2:end-1));
+    CI = zeros(sI,sI,p+1,p+1);
+    for t=0:p
+        It = reshape(I(:,:,:,t+1),[sz(1) sI]);
+        for s=0:p
+            Is = reshape(I(:,:,:,s+1),[sz(1) sI]);
+            CI(:,:,t+1,s+1) = 1/(N-1)*It'*Is;
+        end
+    end
     
     t = (0:p)*dt;
     
@@ -1361,6 +1499,7 @@ for g=2^4
         menergyDifft = getmatrixatstep(menergyDiff,t+1);
         menergyVisct = getmatrixatstep(menergyVisc,t+1);
         menergySurft = getmatrixatstep(menergySurf,t+1);
+        
         vut = getmatrixatstep(vu,t+1);
         vCt = getmatrixatstep(vC,t+1);
         vtauTimet = getmatrixatstep(vtauTime,t+1);
@@ -1377,6 +1516,7 @@ for g=2^4
         venergyDifft = getmatrixatstep(venergyDiff,t+1);
         venergyVisct = getmatrixatstep(venergyVisc,t+1);
         venergySurft = getmatrixatstep(venergySurf,t+1);
+        
         write_vtk_mesh(M,{mut,mCt,mtauTimet,mtauConvt,mtauDifft,mtauSurft,mtauInterft,...
             menergyKinTimet,menergyConvt,menergyGravt,menergyPrest,menergyPresDilt,...
             menergyKinSpacet,menergyDifft,menergyVisct,menergySurft},[],...

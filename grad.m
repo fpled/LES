@@ -1,22 +1,21 @@
 function gradu = grad(u,Dx)
 
 s = size(u);
-gradu = zeros([3,s]);
+if s(1)==1
+    gradu = zeros([3,s(2:end)]);
+else
+    gradu = zeros([3,s]);
+end
 for i=1:3
-    dims = circshift([1 2 3],1-i,2);
-    if ndims(u)==4
-        if s(1)==3
-            dims = [dims+1,1];
-        else
-            dims = [dims,4];
-        end
-    elseif ndims(u)==5
-        dims = [dims+1,1,5];
-    end
-    ui = permute(u,dims);
+    order = [i+1,setdiff(1:ndims(u),i+1)];
+    ui = permute(u,order);
     si = size(ui);
-    gradui = ipermute(reshape(Dx*ui(:,:),si),dims);
+    gradui = reshape(Dx*ui(:,:),si);
+    gradui = ipermute(gradui,order);
     gradu(i,:) = gradui(:);
+end
+if s(1)~=1
+    gradu = permute(gradu,[2,1,3:ndims(gradu)]);
 end
 
 end
