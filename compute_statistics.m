@@ -3,7 +3,7 @@ clearvars
 close all
 
 solveProblem = true;
-displaySolution = false;
+displaySolution = true;
 displayEigenvales = true;
 displayCovariance = false;
 
@@ -30,9 +30,8 @@ gravity = 9.81; % gravity (m/s2)
 dt = 5e-3; % time step (s)
 dt = 100*dt; % physical time step stored every 100 time iterations
 
-order = [3 1 2]; % dimension order
-perm = @(u) permute(u,[2,order+2,1]);
-iperm = @(u) ipermute(u,[2,order+2,1]);
+perm = @(u) permute(u,[2,3,4,5,1]);
+iperm = @(u) ipermute(u,[2,3,4,5,1]);
 
 tolsvdYc = eps; % relative precision for truncated SVD of Yc
 tolsvdZc = 1e-6; % relative precision for truncated SVD of Zc
@@ -70,6 +69,7 @@ for g=2^4
     if solveProblem
         %% First reduction step
         fprintf('\nPCA in space');
+        t_PCA_space = tic;
         Rinit = min(r,N);
         if g<2^7
             load(fullfile(gridpathname,'data.mat'),'Y');
@@ -154,22 +154,28 @@ for g=2^4
         end
         fprintf('\n');
         
-        t = (0:p)*dt;
-        errL2 = trapz(t,err2Yc,2)/trapz(t,norm2Yc,2);
-        fprintf('\nerror = %.3e for Y',errL2);
-        fprintf('\n');
-        
         sig = sig(1:Rmax,:);
         Z = Z(:,1:Rmax,:);
         errsvdYc = errsvdYc(1:Rmax,:);
+        
         save(fullfile(gridpathname,'PCA_space.mat'),'mY','sig','Z','errsvdYc','R','Rmax');
         if g<2^7
             V = V(:,1:Rmax,:);
             save(fullfile(gridpathname,'PCA_space.mat'),'V','-append');
         end
         
+        time_PCA_space = toc(t_PCA_space);
+        fprintf('\nelapsed time = %f s',time_PCA_space);
+        fprintf('\n');
+        
+        t = (0:p)*dt;
+        errL2 = trapz(t,err2Yc,2)/trapz(t,norm2Yc,2);
+        fprintf('\nerror = %.3e for Y',errL2);
+        fprintf('\n');
+        
         %% Second reduction step for each coordinate
 %         fprintf('\nPCA in time');
+%         t_PCA_time = tic;
 %         Q = min(p+1,N);
 %         s = zeros(Q,Rmax);
 %         W = zeros(p+1,Q,Rmax);
@@ -245,9 +251,14 @@ for g=2^4
 %         X = X(:,1:Qmax,:);
 %         errsvdZc = errsvdZc(1:Qmax,:);
 %         Q = Qmax;
+%         
+%         time_PCA_time = toc(t_PCA_time);
+%         fprintf('\nelapsed time = %f s',time_PCA_time);
+%         fprintf('\n');
         
         %% Second reduction step
         fprintf('\nPCA in time');
+        t_PCA_time = tic;
         q = (p+1)*Rmax;
         switch index
             case 'time'
@@ -342,24 +353,27 @@ for g=2^4
 %             end
         end
         
-        %% Post-processing data
-        fprintf('\nPost-processing data');
-        nt = 13; % number of post-processed variables
-        ne = 9; % number of energy variables
-        nvar = n+nt+ne;
-        fprintf('\nn = %d post-processed variables',nt);
-        fprintf('\n  = %d energy variables',ne);
+        time_PCA_time = toc(t_PCA_time);
+        fprintf('\nelapsed time = %f s',time_PCA_time);
         fprintf('\n');
         
+        %% Post-processing data
+        fprintf('\nPost-processing data');
+        t_PostProcess = tic;
+        ntau = 13; % number of post-processed variables
+        ne = 9; % number of energy variables
+        fprintf('\nn = %d post-processed variables',ntau);
+        fprintf('\n  = %d energy variables',ne);
+        
         if g<2^7
-            Tau = zeros(N,nt,m,p+1);
-            E = zeros(N,ne,m,p+1);
+            Tau = zeros(N,ntau,m,p+1);
         end
-        I = zeros(N,nt+ne,2,p+1);
+        Qu = zeros(N,3,2,p+1);
+        Qtau = zeros(N,ntau,2,p+1);
+        Qe = zeros(N,ne,2,p+1);
         
         for t=0:p
-            time = ['Time ' num2str(t)];
-            disp(time)
+            fprintf('\nTime %2d, t = %4g s',t,t*dt);
             
             if t==0
                 mYt_old = zeros(1,n,m);
@@ -455,92 +469,6 @@ for g=2^4
             Yt = repmat(mYt,[ones(1,4),N]) + perm(reshape(Yct',[N,n,sx]));
             Yt_old = repmat(mYt_old,[ones(1,4),N]) + perm(reshape(Yct_old',[N,n,sx]));
             Yt_new = repmat(mYt_new,[ones(1,4),N]) + perm(reshape(Yct_new',[N,n,sx]));
-            
-%             vt = perm(reshape(Vt',[Rt,n,sx]));
-%             vt_old = perm(reshape(Vt_old',[Rt_old,n,sx]));
-%             vt_new = perm(reshape(Vt_new',[Rt_new,n,sx]));
-            
-%             rep = @(Yt) [3,ones(1,ndims(Yt))];
-%             get_ut = @(Yt) Yt(1:3,:,:,:,:);
-%             get_uti = @(Yt,i) Yt(i,:,:,:,:);
-%             get_Ct = @(Yt) Yt(4,:,:,:,:);
-%             get_rhot = @(Yt) rho(1) + (rho(2)-rho(1))*get_Ct(Yt);
-%             get_mut = @(Yt) mu(1) + (mu(2)-mu(1))*get_Ct(Yt);
-%             get_rhout = @(Yt) repmat(get_rhot(Yt),[3,ones(1,ndims(Yt)-1)]).*get_ut(Yt);
-%             get_rhouti = @(Yt,i) get_rhot(Yt).*get_uti(Yt,i);
-%             get_tauTime = @(Yt_new,Yt_old) (get_rhout(Yt_new)-get_rhout(Yt_old))/(2*dt);
-%             get_u2t = @(Yt) dot(get_ut(Yt),get_ut(Yt),1);
-%             get_Ek = @(Yt) 1/2*get_rhot(Yt).*get_u2t(Yt);
-%             get_energyKinTime = @(Yt_new,Yt_old) (get_Ek(Yt_new)-get_Ek(Yt_old))/(2*dt);
-%             
-%             get_divut = @(Yt) div(get_ut(Yt),Dx);
-%             get_gradut = @(Yt) grad(get_ut(Yt),Dx);
-%             get_gradrhout = @(Yt) grad(repmat(get_rhot(Yt),rep(Yt)).*get_ut(Yt),Dx);
-%             get_St = @(Yt) (get_gradut(Yt)+permute(get_gradut(Yt),[2,1,3:ndims(Yt)+1]))/2;
-%             get_muSt = @(Yt) repmat(shiftdim(get_mut(Yt),-1),[3,3,ones(1,ndims(Yt)-1)]).*get_St(Yt);
-%             get_gradCt = @(Yt) grad(get_Ct(Yt),Dx);
-%             get_rhou2t = @(Yt) get_rhot(Yt).*get_u2t(Yt);
-%             
-%             ut = get_ut(Yt); 
-%             ut_old = get_ut(Yt_old);
-%             ut_new = get_ut(Yt_new);
-%             
-%             Ct = get_Ct(Yt);
-%             Ct_old = get_Ct(Yt_old);
-%             Ct_new = get_Ct(Yt_new);
-%             
-%             % rhot = get_rhot(Yt);
-%             rhot_old = get_rhot(Yt_old);
-%             rhot_new = get_rhot(Yt_new);
-%             % rhout = get_rhout(Yt);
-%             rhout_old = get_rhout(Yt_old);
-%             rhout_new = get_rhout(Yt_new);
-%             tauTimet = get_tauTime(Yt_new,Yt_old) ;
-%             % u2t = get_u2t(Yt);
-%             u2t_old = get_u2t(Yt_old);
-%             u2t_new = get_u2t(Yt_new);
-%             % Ek = get_Ek(Yt);
-%             Ek_old = get_Ek(Yt_old);
-%             Ek_new = get_Ek(Yt_new);
-%             energyKinTimet = get_energyKinTime(Yt_new,Yt_old);
-%             
-%             rhot = get_rhot(Yt);
-%             % mut =  get_mut(Yt);
-%             gradut = get_gradut(Yt);
-%             rhout = get_rhout(Yt);
-%             gradrhout = get_gradrhout(Yt);
-%             % St = get_St(Yt);
-%             muSt = get_muSt(Yt);
-%             gradCt = get_gradCt(Yt);
-%             ngradCt = normal(get_gradCt(Yt));
-%             kappa = div(normal(get_gradCt(Yt)),Dx);
-%             u2t = get_u2t(Yt);
-%             rhou2t = get_rhou2t(Yt);
-            
-%             get_tauConv = @(Yt) squeeze(sum(get_gradrhout(Yt).*repmat(shiftdim(get_ut(Yt),-1),rep(Yt)),2));
-%             % get_tauConv = @(Yt) div(permute(repmat(shiftdim(get_rhout(Yt),-1),rep(Yt)),[2,1,3:ndims(Yt)+1]).*repmat(shiftdim(get_ut(Yt),-1),rep(Yt)),Dx);
-%             get_tauDiff = @(Yt) div(2*get_muSt(Yt),Dx);
-%             get_tauSurf = @(Yt) sigma*repmat(shiftdim(kappa,-1),[3,ones(1,ndims(Yt)-1)]).*get_gradCt(Yt);
-%             get_tauInterf = @(Yt) dot(get_ut(Yt),get_gradCt(Yt),1);
-%             get_energyConv = @(Yt) shiftdim(div(repmat(get_rhou2t(Yt),[3,ones(1,ndims(Yt)-1)]).*get_ut(Yt),Dx),-1);
-%             get_energyGrav = @(Yt) gravity.*get_rhouti(Yt,3);
-%             get_energyKinSpace = @(Yt) dot(get_rhout(Yt),grad(get_u2t(Yt)/2,Dx),1);
-%             get_energyDiff = @(Yt) shiftdim(div(squeeze(dot(2*get_muSt(Yt),repmat(shiftdim(get_ut(Yt),-1),rep(Yt)),2)),Dx),-1);
-%             get_energyVisc = @(Yt) shiftdim(sum(sum(2*get_muSt(Yt).*get_gradut(Yt),1),2),1);
-%             get_energySurf = @(Yt) dot(get_tauSurf(Yt),get_ut(Yt),1);
-            
-%             tauConvt = get_tauConv(Yt);
-%             tauDifft = get_tauDiff(Yt);
-%             tauSurft = get_tauSurf(Yt);
-%             tauInterft = get_tauInterf(Yt);
-%             energyConvt = get_energyConv(Yt);
-%             energyGravt = get_energyGrav(Yt);
-%             energyPrest = zeros(1,g+1,g+1,g+1,N);
-%             energyPresDilt = zeros(1,g+1,g+1,g+1,N);
-%             energyKinSpacet = get_energyKinSpace(Yt);
-%             energyDifft = get_energyDiff(Yt);
-%             energyVisct = get_energyVisc(Yt);
-%             energySurft = get_energySurf(Yt);
 
             ut = Yt(1:3,:,:,:,:); 
             ut_old = Yt_old(1:3,:,:,:,:);
@@ -578,13 +506,14 @@ for g=2^4
             u2t = dot(ut,ut,1);
             rhou2t = rhot.*u2t;
             
-            tauConvt = squeeze(sum(gradrhout.*repmat(shiftdim(ut,-1),[3,ones(1,5)]),2));
-            % tauConvt = div(permute(repmat(shiftdim(rhout,-1),[3,ones(1,5)]),[2,1,3:6]).*repmat(shiftdim(ut,-1),[3,ones(1,5)]),Dx);
-            tauDifft = div(2*muSt,Dx);
+            % Post-processed variables
+            divtauConvt = squeeze(sum(gradrhout.*repmat(shiftdim(ut,-1),[3,ones(1,5)]),2));
+            % divtauConvt = div(permute(repmat(shiftdim(rhout,-1),[3,ones(1,5)]),[2,1,3:6]).*repmat(shiftdim(ut,-1),[3,ones(1,5)]),Dx);
+            divtauDifft = div(2*muSt,Dx);
             tauSurft = sigma*repmat(shiftdim(kappa,-1),[3,ones(1,4)]).*gradCt;
             tauInterft = dot(ut,gradCt,1);
             energyConvt = shiftdim(div(repmat(rhou2t,[3,ones(1,4)]).*ut,Dx),-1);
-            energyGravt = gravity.*rhout(3,:,:,:,:);
+            energyGravt = gravity.*rhout(2,:,:,:,:);
             energyPrest = zeros(1,g+1,g+1,g+1,N);
             energyPresDilt = zeros(1,g+1,g+1,g+1,N);
             energyKinSpacet = dot(rhout,grad(u2t/2,Dx),1);
@@ -592,121 +521,152 @@ for g=2^4
             energyVisct = shiftdim(sum(sum(2*muSt.*gradut,1),2),1);
             energySurft = dot(tauSurft,ut,1);
             
-%             mut = get_ut(mYt);
-%             mut_old = get_ut(mYt_old);
-%             mut_new = get_ut(mYt_new);
-%             
-%             mCt = get_Ct(mYt);
-%             mCt_old = get_Ct(mYt_old);
-%             mCt_new = get_Ct(mYt_new);
-%             
-%             % mrhot = get_rhot(mYt); % mrhot = mCt*rho(2) + (1-mCt)*rho(1);
-%             mrhot_old = get_rhot(mYt_old); % rhot_old = mCt_old*rho(2) + (1-mCt_old)*rho(1);
-%             mrhot_new = get_rhot(mYt_new); % rhot_new = mCt_new*rho(2) + (1-mCt_new)*rho(1);
-%             % rhout = get_rhout(Yt); % rhout = repmat(rhot,[3,ones(1,4)]).*ut;
-%             rhout_old = get_rhout(Yt_old); % rhout_old = repmat(rhot_old,[3,ones(1,4)]).*ut_old;
-%             rhout_new = get_rhout(Yt_new); % rhout_new = repmat(rhot_new,[3,ones(1,4)]).*ut_new;
-%             tauTime = get_tauTime(Yt_new,Yt_old) ; % tauTime = (rhout_new-rhout_old)/(2*dt);
-%             % u2t = get_u2t(Yt); % u2t = dot(ut,ut,1);
-%             u2t_old = get_u2t(Yt_old); % u2t_old = dot(ut_old,ut_old,1);
-%             u2t_new = get_u2t(Yt_new); % u2t_new = dot(ut_new,ut_new,1);
-%             % Ek = get_Ek(Yt); % Ek = 1/2*rhot.*u2t;
-%             Ek_old = get_Ek(Yt_old); % Ek_old = 1/2*rhot_old.*u2t_old;
-%             Ek_new = get_Ek(Yt_new); % Ek_new = 1/2*rhot_new.*u2t_new;
-%             energyKinTimet = get_energyKinTime(Yt_new,Yt_old); % energyKinTime = (Ek_new-Ek_old)/(2*dt);
-%             
-%             mrhot = get_rhot(mYt); % mrhot = mCt*rho(2) + (1-mCt)*rho(1);
-%             % mmut =  get_mut(mYt); % mmut = mCt*mu(2) + (1-mCt)*mu(1);
-%             gradmut = get_gradut(mYt); % gradut = grad(ut,Dx);
-%             mrhout = get_rhout(mYt); % rhout = repmat(rhot,[3,ones(1,4)]).*ut;
-%             gradmrhout = get_gradrhout(mYt); % gradrhout = grad(rhout,Dx);
-%             % mSt = get_St(mYt); % St = (gradmut+permute(gradmut,[2,1,3:6]))/2;
-%             mmuSt = get_muSt(mYt); % mmuSt = repmat(shiftdim(mmut,-1),[3,3,ones(1,4)]).*St;
-%             gradmCt = get_gradCt(mYt); % gradmCt = grad(mCt,Dx);
-%             ngradmCt = normal(get_gradCt(mYt)); % ngradmCt = normal(gradmCt);
-%             mkappa = div(normal(get_gradCt(mYt)),Dx); % mkappa = div(ngradmCt,Dx);
-%             mu2t = get_u2t(mYt); % mu2t = dot(mut,mut,1);
-%             mrhou2t = get_rhou2t(mYt); % mrhou2t = mrhot.*mu2t;
-%             
-%             mtauConv = div(permute(repmat(shiftdim(mrhout,-1),rep(mYt)),[2,1,3:ndims(mYt)+1]).*repmat(shiftdim(mut,-1),rep(mYt)),Dx);
-            
-            Taut = cat(1,tauTimet,tauConvt,tauDifft,tauSurft,tauInterft);
+            Taut = cat(1,tauTimet,divtauConvt,divtauDifft,tauSurft,tauInterft);
             Et = cat(1,energyKinTimet,energyConvt,energyGravt,energyPrest,energyPresDilt,energyKinSpacet,energyDifft,energyVisct,energySurft);
             
-            It = cat(1,Taut,Et);
-            It = cat(2,reshape(trapz(x,trapz(x,trapz(x,repmat(1-Ct,[nt+ne,ones(1,4)]).*It,2),3),4),[nt+ne,1,N]),...
-                reshape(trapz(x,trapz(x,trapz(x,repmat(Ct,[nt+ne,ones(1,4)]).*It,2),3),4),[nt+ne,1,N]));
-            It = shiftdim(It,2);
+            % Quantities of interest: spatial average in each phase
+            Qut = cat(2,reshape(trapz(x,trapz(x,trapz(x,repmat(1-Ct,[3,ones(1,4)]).*ut,2),3),4),[3,1,N]),...
+                reshape(trapz(x,trapz(x,trapz(x,repmat(Ct,[3,ones(1,4)]).*ut,2),3),4),[3,1,N]));
+            Qtaut = cat(2,reshape(trapz(x,trapz(x,trapz(x,repmat(1-Ct,[ntau,ones(1,4)]).*Taut,2),3),4),[ntau,1,N]),...
+                reshape(trapz(x,trapz(x,trapz(x,repmat(Ct,[ntau,ones(1,4)]).*Taut,2),3),4),[ntau,1,N]));
+            Qet = cat(2,reshape(trapz(x,trapz(x,trapz(x,repmat(1-Ct,[ne,ones(1,4)]).*Et,2),3),4),[ne,1,N]),...
+                reshape(trapz(x,trapz(x,trapz(x,repmat(Ct,[ne,ones(1,4)]).*Et,2),3),4),[ne,1,N]));
+            
+            Qut = shiftdim(Qut,2);
+            Qtaut = shiftdim(Qtaut,2);
+            Qet = shiftdim(Qet,2);
+            
+            Qu(:,:,:,t+1) = Qut;
+            Qtau(:,:,:,t+1) = Qtaut;
+            Qe(:,:,:,t+1) = Qet;
             
             Taut = iperm(Taut);
-            Et = iperm(Et);
             Taut = Taut(:,:,:);
-            Et = Et(:,:,:);
             
             if g<2^7
                 Tau(:,:,:,t+1) = Taut;
-                E(:,:,:,t+1) = Et;
             else
-                save(fullfile(gridpathname,['PP_t' num2str(t) '.mat']),'Taut','Et');
+                save(fullfile(gridpathname,['data_post_t' num2str(t) '.mat']),'Taut');
             end
-            I(:,:,:,t+1) = It;
         end
         fprintf('\n');
         if g<2^7
-            save(fullfile(gridpathname,'PP.mat'),'Tau','E');
+            save(fullfile(gridpathname,'data_post.mat'),'Tau');
         end
-        save(fullfile(gridpathname,'PP.mat'),'I','nt','ne','-append');
+        save(fullfile(gridpathname,'data_post.mat'),'Qu','Qtau','Qe','ntau','ne','-append');
         
-        %% Post processing PCA
+        mQu = mean(Qu,1);
+        mQtau = mean(Qtau,1);
+        mQe = mean(Qe,1);
+        
+        Quc = Qu - repmat(mQu,N,1,1,1);
+        Qtauc = Qtau - repmat(mQtau,N,1,1,1);
+        Qec = Qe - repmat(mQe,N,1,1,1);
+        
+        vQu = zeros(3*2,p+1);
+        vQtau = zeros(ntau*2,p+1);
+        vQe = zeros(ne*2,p+1);
+        for t=0:p
+            Quct = Quc(:,:,:,t+1);
+            Qtauct = Qtauc(:,:,:,t+1);
+            Qect = Qec(:,:,:,t+1);
+            vQu(:,t+1) = var(Quct(:,:)); % vQu(:,t+1) = 1/(N-1)*sum(Quct(:,:).^2);
+            vQtau(:,t+1) = var(Qtauct(:,:)); % vQtau(:,t+1) = 1/(N-1)*sum(Qtauct(:,:).^2);
+            vQe(:,t+1) = var(Qect(:,:)); % vQe(:,t+1) = 1/(N-1)*sum(Qect(:,:).^2);
+        end
+        
+        RQu = zeros(3*2,3*2,p+1,p+1);
+        RQtau = zeros(ntau*2,ntau*2,p+1,p+1);
+        RQe = zeros(ne*2,ne*2,p+1,p+1);
+        for t=0:p
+            Quct = Quc(:,:,:,t+1);
+            Qtauct = Qtauc(:,:,:,t+1);
+            Qect = Qec(:,:,:,t+1);
+            Quct = Quct(:,:)./sqrt(vQu(:,t+1)');
+            Qtauct = Qtauct(:,:)./sqrt(vQtau(:,t+1)');
+            Qect = Qect(:,:)./sqrt(vQe(:,t+1)');
+            for tt=0:p
+                Quctt = Quc(:,:,:,tt+1);
+                Qtauctt = Qtauc(:,:,:,tt+1);
+                Qectt = Qec(:,:,:,tt+1);
+                Quctt = Quctt(:,:)./sqrt(vQu(:,tt+1)');
+                Qtauctt = Qtauctt(:,:)./sqrt(vQtau(:,tt+1)');
+                Qectt = Qectt(:,:)./sqrt(vQe(:,tt+1)');
+                RQu(:,:,t+1,tt+1) = 1/(N-1)*Quct(:,:)'*Quctt(:,:);
+                RQtau(:,:,t+1,tt+1) = 1/(N-1)*Qtauct(:,:)'*Qtauctt(:,:);
+                RQe(:,:,t+1,tt+1) = 1/(N-1)*Qect(:,:)'*Qectt(:,:);
+            end
+        end
+        
+%         RQu = zeros(3*2,3*2,p+1,p+1);
+%         RQtau = zeros(ntau*2,ntau*2,p+1,p+1);
+%         RQe = zeros(ne*2,ne*2,p+1,p+1);
 %         for t=0:p
-%             time = ['Time ' num2str(t)];
-%             disp(time)
-%             
-%             mYt = mY(1,:,:,t+1);
-%             Rt = R(t+1);
-%             sigt = sig(1:Rt,t+1);
-%             Zt = Z(:,1:Rt,t+1);
-%             if g<2^7
-%                 Vt = V(:,1:Rt,t+1);
-%             else
-%                 load(fullfile(gridpathname,['PCAspace_t' num2str(t) '.mat']),'Vt');
-%             end
-%             if verLessThan('matlab','9.1') % compatibility (<R2016b)
-%                 Yct = Vt*(sigt.*Zt');
-%             else
-%                 Yct = Vt*diag(sigt)*Zt';
-%             end
-%             % Yct = permute(reshape(Yct,[n,sx,N]),[1,order+1,1]);
-%             
-%             % Vt = permute(reshape(Vt,[n,sx,Rt]),[1,order+1,1]);
-%             
-%             switch index
-%                 case 'time'
-%                     Wt = W((t+1):(p+1):end,:);
-%                     Wt = Wt(1:Rt,:);
-%                 case 'coord'
-%                     Wt = W(Rmax*t+(1:Rt),:);
-%             end
-%             
-%             if verLessThan('matlab','9.1') % compatibility (<R2016b)
-%                 % Zct_approx = Wt*diag(s)*X'; % Zct_approx = Z_approx(:,1:Rt,t+1)';
-%                 % Yct_approx = Vt*diag(sigt)*Zct_approx;
-%                 Yct_approx = Vt*diag(sigt)*Wt*diag(s)*X';
-%             else
-%                 % Zct_approx = Wt*(s.*X'); % Zct_approx = Z_approx(:,1:Rt,t+1)';
-%                 % Yct_approx = Vt*(sigt.*Zct_approx);
-%                 Yct_approx = Vt*(sigt.*Wt*(s.*X'));
+%             Quct = Quc(:,:,:,t+1);
+%             Qtauct = Qtauc(:,:,:,t+1);
+%             Qect = Qec(:,:,:,t+1);
+%             for tt=0:p
+%                 Quctt = Quc(:,:,:,tt+1);
+%                 Qtauctt = Qtauc(:,:,:,tt+1);
+%                 Qectt = Qec(:,:,:,tt+1);
+%                 for i=1:3*2
+%                     vQuct = var(Quct(:,i)); % vQuct = 1/(N-1)*sum(Quct(:,i).^2);
+%                     for j=1:3*2
+%                         vQuctt = var(Quctt(:,j)); % vQuctt = 1/(N-1)*sum(Quctt(:,j).^2);
+%                         RQu(i,j,t+1,tt+1) = 1/(N-1)*sum(Quct(:,i).*Quctt(:,j))/sqrt(vQuct.*vQuctt);
+%                     end
+%                 end
+%                 for i=1:ntau*2
+%                     vQtauct = var(Qtauct(:,i)); % vQtauct = 1/(N-1)*sum(Qtauct(:,i).^2);
+%                     for j=1:ntau*2
+%                         vQtauctt = var(Qtauctt(:,j)); % vQtauctt = 1/(N-1)*sum(Qtauctt(:,j).^2);
+%                         RQtau(i,j,t+1,tt+1) = 1/(N-1)*sum(Qtauct(:,i).*Qtauctt(:,j))/sqrt(vQtauct.*vQtauctt);
+%                     end
+%                 end
+%                 for i=1:ne*2
+%                     vQect = var(Qect(:,i)); % vQect = 1/(N-1)*sum(Qect(:,i).^2);
+%                     for j=1:ne*2
+%                         vQectt = var(Qectt(:,j)); % vQectt = 1/(N-1)*sum(Qectt(:,j).^2);
+%                         RQe(i,j,t+1,tt+1) = 1/(N-1)*sum(Qect(:,i).*Qectt(:,j))/sqrt(vQect.*vQectt);
+%                     end
+%                 end
 %             end
 %         end
-    
+        
+        IQu = zeros(3,2,3,2,p+1);
+        IQtau = zeros(ntau,2,ntau,2,p+1);
+        IQe = zeros(ne,2,ne,2,p+1);
+        for t=0:p-1
+            funu = zeros(3*2,3*2,p-t+1);
+            funtau = zeros(ntau*2,ntau*2,p-t+1);
+            fune = zeros(ne*2,ne*2,p-t+1);
+            for tt=0:p-t
+                funu(:,:,tt+1) = RQu(:,:,tt+t+1,tt+1);
+                funtau(:,:,tt+1) = RQtau(:,:,tt+t+1,tt+1);
+                fune(:,:,tt+1) = RQe(:,:,tt+t+1,tt+1);
+            end
+            IQut = 1/((p-t)*dt)*trapz((0:p-t)*dt,funu,3);
+            IQtaut = 1/((p-t)*dt)*trapz((0:p-t)*dt,funtau,3);
+            IQet = 1/((p-t)*dt)*trapz((0:p-t)*dt,fune,3);
+            IQu(:,:,:,:,t+1) = reshape(IQut,3,2,3,2);
+            IQtau(:,:,:,:,t+1) = reshape(IQtaut,ntau,2,ntau,2);
+            IQe(:,:,:,:,t+1) = reshape(IQet,ne,2,ne,2);
+        end
+        
+        save(fullfile(gridpathname,'data_post.mat'),'mQu','mQtau','mQe','IQu','IQtau','IQe','-append');
+        
+        time_PostProcess = toc(t_PostProcess);
+        fprintf('\nelapsed time = %f s',time_PostProcess);
+        fprintf('\n');
     else
         if g<2^7
             load(fullfile(gridpathname,'PCA_space.mat'),'V');
-            load(fullfile(gridpathname,'PP.mat'),'Tau','E'); 
+            load(fullfile(gridpathname,'data_post.mat'),'Tau'); 
         end
         load(fullfile(gridpathname,'PCA_space.mat'),'mY','sig','Z','errsvdYc','R','Rmax');
         load(fullfile(gridpathname,'PCA_time.mat'),'s','W','Q','errsvdZc');
-        load(fullfile(gridpathname,'PP.mat'),'I','nt','ne');
+        load(fullfile(gridpathname,'data_post.mat'),'Qu','Qtau','Qe','ntau','ne',...
+            'mQu','mQtau','mQe','IQu','IQtau','IQe');
     end
     
     %% Outputs
@@ -817,10 +777,11 @@ for g=2^4
     nbelem = repmat(g,1,3);
     M = build_model(D,'nbelem',nbelem,'elemtype',elemtype);
     coord = getcoord(getnode(M));
-    M = setnode(M,NODE(fliplr(coord)));
+    M = setnode(M,NODE(coord(:,[2,1,3])));
     M = final(M,DDL(DDLVECT('U',M.syscoord)));
     tf = p*dt;
     T = TIMEMODEL(0,tf,p);
+    nvar = n+ntau;
     
     % Solution
     switch index
@@ -838,63 +799,47 @@ for g=2^4
     
     if g<2^7
         load(fullfile(gridpathname,'data.mat'),'Y');
-        load(fullfile(gridpathname,'PP.mat'),'Tau','E');
-        Y = cat(2,Y,Tau,E);
-        clear Tau E
-        mY = mean(Y,1);
-        Yc = Y - repmat(mY,N,1,1,1); % Yc = Y - mY.*ones(N,1,1,1);
+        load(fullfile(gridpathname,'PCA_space.mat'),'mY');
+        Yc = Y - repmat(mY,[N,1,1,1]); % Yc = Y - mY.*ones(N,1,1,1);
         clear Y
+        load(fullfile(gridpathname,'data_post.mat'),'Tau');
+        mTau = mean(Tau,1);
+        Tauc = Tau - repmat(mTau,[N,1,1,1]); % Tauc = Tau - mTau.*ones(N,1,1,1);
+        clear Tau
     end
     
-    % Compute mean
-    disp('Mean')
+    % Mean
     mu = reshape(mY(1,1:3,:,:),[3*m,p+1]);
     mC = reshape(mY(1,4,:,:),[m,p+1]);
-    mtauTime = reshape(mY(1,5:7,:,:),[3*m,p+1]);
-    mtauConv = reshape(mY(1,8:10,:,:),[3*m,p+1]);
-    mtauDiff = reshape(mY(1,11:13,:,:),[3*m,p+1]);
-    mtauSurf = reshape(mY(1,14:16,:,:),[3*m,p+1]);
-    mtauInterf = reshape(mY(1,17,:,:),[m,p+1]);
-    menergyKinTime = reshape(mY(1,18,:,:),[m,p+1]);
-    menergyConv = reshape(mY(1,19,:,:),[m,p+1]);
-    menergyGrav = reshape(mY(1,20,:,:),[m,p+1]);
-    menergyPres = reshape(mY(1,21,:,:),[m,p+1]);
-    menergyPresDil = reshape(mY(1,22,:,:),[m,p+1]);
-    menergyKinSpace = reshape(mY(1,23,:,:),[m,p+1]);
-    menergyDiff = reshape(mY(1,24,:,:),[m,p+1]);
-    menergyVisc = reshape(mY(1,25,:,:),[m,p+1]);
-    menergySurf = reshape(mY(1,26,:,:),[m,p+1]);
+    mtauTime = reshape(mTau(1,1:3,:,:),[3*m,p+1]);
+    mdivtauConv = reshape(mTau(1,4:6,:,:),[3*m,p+1]);
+    mdivtauDiff = reshape(mTau(1,7:9,:,:),[3*m,p+1]);
+    mtauSurf = reshape(mTau(1,10:12,:,:),[3*m,p+1]);
+    mtauInterf = reshape(mTau(1,13,:,:),[m,p+1]);
     
-    % Compute variance
+    % Variance
     disp('Variance')
     vu = zeros(3*m,p+1);
     vC = zeros(m,p+1);
     vtauTime = zeros(3*m,p+1);
-    vtauConv = zeros(3*m,p+1);
-    vtauDiff = zeros(3*m,p+1);
+    vdivtauConv = zeros(3*m,p+1);
+    vdivtauDiff = zeros(3*m,p+1);
     vtauSurf = zeros(3*m,p+1);
     vtauInterf = zeros(m,p+1);
-    venergyKinTime = zeros(m,p+1);
-    venergyConv = zeros(m,p+1);
-    venergyGrav = zeros(m,p+1);
-    venergyPres = zeros(m,p+1);
-    venergyPresDil = zeros(m,p+1);
-    venergyKinSpace = zeros(m,p+1);
-    venergyDiff = zeros(m,p+1);
-    venergyVisc = zeros(m,p+1);
-    venergySurf = zeros(m,p+1);
     for t=0:p
         if g<2^7
             Yct = Yc(:,:,:,t+1);
+            Tauct = Tauc(:,:,:,t+1);
             Vt = V(:,1:Rt,t+1);
         else
             load(fullfile(gridpathname,['data_t' num2str(t) '.mat']),'Yt');
-            load(fullfile(gridpathname,['PP_t' num2str(t) '.mat']),'Taut','Et');
-            Yt = cat(2,Yt,Taut,Et);
-            clear Taut Et
             mYt = mean(Yt,1);
             Yct = Yt - repmat(mYt,[N,1,1]); % Yct = Yt - mYt.*ones(N,1,1);
             clear Yt
+            load(fullfile(gridpathname,['data_post_t' num2str(t) '.mat']),'Taut');
+            mTaut = mean(Taut,1);
+            Tauct = Taut - repmat(mTaut,[N,1,1]); % Tauct = Taut - mTaut.*ones(N,1,1);
+            clear Taut
             load(fullfile(gridpathname,['PCA_space_t' num2str(t) '.mat']),'Vt');
         end
         Rt = R(t+1);
@@ -927,134 +872,72 @@ for g=2^4
             vYt_approx = sum((s.*Uct_approx').^2)';
         end
         
+        tauTimet = Tauct(:,1:3,:);
+        divtauConvt = Tauct(:,4:6,:);
+        divtauDifft = Tauct(:,7:9,:);
+        tauSurft = Tauct(:,10:12,:);
+        tauInterft = Tauct(:,13,:);
+        
+        indut = (0:m-1)*n+(1:3)';
+        indCt = (0:m-1)*n+4;
+        
+        vut = vYt_approx(indut(:));
+        vCt = vYt_approx(indCt(:));
+        vtauTimet = 1/(N-1)*sum(tauTimet(:,:).^2)';
+        vdivtauConvt = 1/(N-1)*sum(divtauConvt(:,:).^2)';
+        vdivtauDifft = 1/(N-1)*sum(divtauDifft(:,:).^2)';
+        vtauSurft = 1/(N-1)*sum(tauSurft(:,:).^2)';
+        vtauInterft = 1/(N-1)*sum(tauInterft(:,:).^2)';
+        
+        vu(:,t+1) = vut;
+        vC(:,t+1) = vCt;
+        vtauTime(:,t+1) = vtauTimet;
+        vdivtauConv(:,t+1) = vdivtauConvt;
+        vdivtauDiff(:,t+1) = vdivtauDifft;
+        vtauSurf(:,t+1) = vtauSurft;
+        vtauInterf(:,t+1) = vtauInterft;
+        
         indut = (0:m-1)*nvar+(1:3)';
         indCt = (0:m-1)*nvar+4;
         indtauTimet = (0:m-1)*nvar+(5:7)';
-        indtauConvt = (0:m-1)*nvar+(8:10)';
-        indtauDifft = (0:m-1)*nvar+(11:13)';
+        inddivtauConvt = (0:m-1)*nvar+(8:10)';
+        inddivtauDifft = (0:m-1)*nvar+(11:13)';
         indtauSurft = (0:m-1)*nvar+(14:16)';
         indtauInterft = (0:m-1)*nvar+17;
-        indenergyKinTimet = (0:m-1)*nvar+18;
-        indenergyConvt = (0:m-1)*nvar+19;
-        indenergyGravt = (0:m-1)*nvar+20;
-        indenergyPrest = (0:m-1)*nvar+21;
-        indenergyPresDilt = (0:m-1)*nvar+22;
-        indenergyKinSpacet = (0:m-1)*nvar+23;
-        indenergyDifft = (0:m-1)*nvar+24;
-        indenergyVisct = (0:m-1)*nvar+25;
-        indenergySurft = (0:m-1)*nvar+26;
         
-        tauTimet = Yct(:,5:7,:);
-        tauConvt = Yct(:,8:10,:);
-        tauDifft = Yct(:,11:13,:);
-        tauSurft = Yct(:,14:16,:);
-        tauInterft = Yct(:,17,:);
-        energyKinTimet = Yct(:,18,:);
-        energyConvt = Yct(:,19,:);
-        energyGravt = Yct(:,20,:);
-        energyPrest = Yct(:,21,:);
-        energyPresDilt = Yct(:,22,:);
-        energyKinSpacet = Yct(:,23,:);
-        energyDifft = Yct(:,24,:);
-        energyVisct = Yct(:,25,:);
-        energySurft = Yct(:,26,:);
+        vYTaut_approx = zeros(nvar*m,1);
+        vYTaut_approx(indut(:)) = vut;
+        vYTaut_approx(indCt(:)) = vCt;
+        vYTaut_approx(indtauTimet(:)) = vtauTimet;
+        vYTaut_approx(inddivtauConvt(:)) = vdivtauConvt;
+        vYTaut_approx(inddivtauDifft(:)) = vdivtauDifft;
+        vYTaut_approx(indtauSurft(:)) = vtauSurft;
+        vYTaut_approx(indtauInterft(:)) = vtauInterft;
         
-        indut_ = (0:m-1)*n+(1:3)';
-        indCt_ = (0:m-1)*n+4;
-        
-        vut = vYt_approx(indut_(:));
-        vCt = vYt_approx(indCt_(:));
-        vtauTimet = 1/(N-1)*sum(tauTimet(:,:).^2)';
-        vtauConvt = 1/(N-1)*sum(tauConvt(:,:).^2)';
-        vtauDifft = 1/(N-1)*sum(tauDifft(:,:).^2)';
-        vtauSurft = 1/(N-1)*sum(tauSurft(:,:).^2)';
-        vtauInterft = 1/(N-1)*sum(tauInterft(:,:).^2)';
-        venergyKinTimet = 1/(N-1)*sum(energyKinTimet(:,:).^2)';
-        venergyConvt = 1/(N-1)*sum(energyConvt(:,:).^2)';
-        venergyGravt = 1/(N-1)*sum(energyGravt(:,:).^2)';
-        venergyPrest = 1/(N-1)*sum(energyPrest(:,:).^2)';
-        venergyPresDilt = 1/(N-1)*sum(energyPresDilt(:,:).^2)';
-        venergyKinSpacet = 1/(N-1)*sum(energyKinSpacet(:,:).^2)';
-        venergyDifft = 1/(N-1)*sum(energyDifft(:,:).^2)';
-        venergyVisct = 1/(N-1)*sum(energyVisct(:,:).^2)';
-        venergySurft = 1/(N-1)*sum(energySurft(:,:).^2)';
-        
-        vYt_approx = zeros(nvar*m,1);
-        vYt_approx(indut(:)) = vut;
-        vYt_approx(indCt(:)) = vCt;
-        vYt_approx(indtauTimet(:)) = vtauTimet;
-        vYt_approx(indtauConvt(:)) = vtauConvt;
-        vYt_approx(indtauDifft(:)) = vtauDifft;
-        vYt_approx(indtauSurft(:)) = vtauSurft;
-        vYt_approx(indtauInterft(:)) = vtauInterft;
-        vYt_approx(indenergyKinTimet(:)) = venergyKinTimet;
-        vYt_approx(indenergyConvt(:)) = venergyConvt;
-        vYt_approx(indenergyGravt(:)) = venergyGravt;
-        vYt_approx(indenergyPrest(:)) = venergyPrest;
-        vYt_approx(indenergyPresDilt(:)) = venergyPresDilt;
-        vYt_approx(indenergyKinSpacet(:)) = venergyKinSpacet;
-        vYt_approx(indenergyDifft(:)) = venergyDifft;
-        vYt_approx(indenergyVisct(:)) = venergyVisct;
-        vYt_approx(indenergySurft(:)) = venergySurft;
-        
-        % CYt = cov(Yct(:,:)); % CYt = 1/(N-1)*Yct(:,:)'*Yct(:,:);
-        % vYt = diag(CYt);
-        vYt = 1/(N-1)*sum(Yct(:,:).^2)';
-        errvYt = norm(vYt_approx-vYt)/norm(vYt);
-        fprintf('\nTime %2d, t = %4g s : error = %.3e for VY',t,t*dt,errvYt);
-        
-        vu(:,t+1) = vYt_approx(indut(:));
-        vC(:,t+1) = vYt_approx(indCt(:));
-        vtauTime(:,t+1) = vYt_approx(indtauTimet(:));
-        vtauConv(:,t+1) = vYt_approx(indtauConvt(:));
-        vtauDiff(:,t+1) = vYt_approx(indtauDifft(:));
-        vtauSurf(:,t+1) = vYt_approx(indtauSurft(:));
-        vtauInterf(:,t+1) = vYt_approx(indtauInterft(:));
-        venergyKinTimet(:,t+1) = vYt_approx(indenergyKinTimet(:));
-        venergyConvt(:,t+1) = vYt_approx(indenergyConvt(:));
-        venergyGravt(:,t+1) = vYt_approx(indenergyGravt(:));
-        venergyPrest(:,t+1) = vYt_approx(indenergyPrest(:));
-        venergyPresDilt(:,t+1) = vYt_approx(indenergyPresDilt(:));
-        venergyKinSpacet(:,t+1) = vYt_approx(indenergyKinSpacet(:));
-        venergyDifft(:,t+1) = vYt_approx(indenergyDifft(:));
-        venergyVisct(:,t+1) = vYt_approx(indenergyVisct(:));
-        venergySurft(:,t+1) = vYt_approx(indenergySurft(:));
+        YTauct = cat(2,Yct,Tauct);
+        % CYTaut = cov(YTauct(:,:)); % CYTaut = 1/(N-1)*YTauct(:,:)'*YTauct(:,:);
+        % vYTaut = diag(CYTaut);
+        vYTaut = 1/(N-1)*sum(YTauct(:,:).^2)';
+        errvYTaut = norm(vYTaut_approx-vYTaut)/norm(vYTaut);
+        fprintf('\nTime %2d, t = %4g s : error = %.3e for VYTau',t,t*dt,errvYTaut);
     end
     
     fprintf('\n');
     mu = TIMEMATRIX(mu,T);
     mC = TIMEMATRIX(mC,T);
     mtauTime = TIMEMATRIX(mtauTime,T);
-    mtauConv = TIMEMATRIX(mtauConv,T);
-    mtauDiff = TIMEMATRIX(mtauDiff,T);
+    mdivtauConv = TIMEMATRIX(mdivtauConv,T);
+    mdivtauDiff = TIMEMATRIX(mdivtauDiff,T);
     mtauSurf = TIMEMATRIX(mtauSurf,T);
     mtauInterf = TIMEMATRIX(mtauInterf,T);
-    menergyKinTime = TIMEMATRIX(menergyKinTime,T);
-    menergyConv = TIMEMATRIX(menergyConv,T);
-    menergyGrav = TIMEMATRIX(menergyGrav,T);
-    menergyPres = TIMEMATRIX(menergyPres,T);
-    menergyPresDil = TIMEMATRIX(menergyPresDil,T);
-    menergyKinSpace = TIMEMATRIX(menergyKinSpace,T);
-    menergyDiff = TIMEMATRIX(menergyDiff,T);
-    menergyVisc = TIMEMATRIX(menergyVisc,T);
-    menergySurf = TIMEMATRIX(menergySurf,T);
     
     vu = TIMEMATRIX(vu,T);
     vC = TIMEMATRIX(vC,T);
     vtauTime = TIMEMATRIX(vtauTime,T);
-    vtauConv = TIMEMATRIX(vtauConv,T);
-    vtauDiff = TIMEMATRIX(vtauDiff,T);
+    vdivtauConv = TIMEMATRIX(vdivtauConv,T);
+    vdivtauDiff = TIMEMATRIX(vdivtauDiff,T);
     vtauSurf = TIMEMATRIX(vtauSurf,T);
     vtauInterf = TIMEMATRIX(vtauInterf,T);
-    venergyKinTime = TIMEMATRIX(venergyKinTime,T);
-    venergyConv = TIMEMATRIX(venergyConv,T);
-    venergyGrav = TIMEMATRIX(venergyGrav,T);
-    venergyPres = TIMEMATRIX(venergyPres,T);
-    venergyPresDil = TIMEMATRIX(venergyPresDil,T);
-    venergyKinSpace = TIMEMATRIX(venergyKinSpace,T);
-    venergyDiff = TIMEMATRIX(venergyDiff,T);
-    venergyVisc = TIMEMATRIX(venergyVisc,T);
-    venergySurf = TIMEMATRIX(venergySurf,T);
     
     if g<2^7
         % CY_approx = cov(Yc_approx(:,:)); % CY_approx = 1/(N-1)*Yc_approx(:,:)'*Yc_approx(:,:);
@@ -1069,138 +952,107 @@ for g=2^4
         else
             vY_approx = sum((s.*Uc_approx(:,:)).^2)';
         end
-        tauTime = permute(Yc(:,5:7,:,:),[1,4,2,3]);
-        tauConv = permute(Yc(:,8:10,:,:),[1,4,2,3]);
-        tauDiff = permute(Yc(:,11:13,:,:),[1,4,2,3]);
-        tauSurf = permute(Yc(:,14:16,:,:),[1,4,2,3]);
-        tauInterf = permute(Yc(:,17,:,:),[1,4,2,3]);
-        energyKinTime = permute(Yc(:,18,:,:),[1,4,2,3]);
-        energyConv = permute(Yc(:,19,:,:),[1,4,2,3]);
-        energyGrav = permute(Yc(:,20,:,:),[1,4,2,3]);
-        energyPres = permute(Yc(:,21,:,:),[1,4,2,3]);
-        energyPresDil = permute(Yc(:,22,:,:),[1,4,2,3]);
-        energyKinSpace = permute(Yc(:,23,:,:),[1,4,2,3]);
-        energyDiff = permute(Yc(:,24,:,:),[1,4,2,3]);
-        energyVisc = permute(Yc(:,25,:,:),[1,4,2,3]);
-        energySurf = permute(Yc(:,26,:,:),[1,4,2,3]);
-        indu_ = (0:m-1)*n+(1:3)';
-        indC_ = (0:m-1)*n+4;
-        indu_ = indu_(:)'+n*m*(0:p)';
-        indC_ = indC_(:)'+n*m*(0:p)';
-        varu = vY_approx(indu_(:));
-        varC = vY_approx(indC_(:));
+        
+        tauTime = permute(Tauc(:,1:3,:,:),[1,4,2,3]);
+        divtauConv = permute(Tauc(:,4:6,:,:),[1,4,2,3]);
+        divtauDiff = permute(Tauc(:,7:9,:,:),[1,4,2,3]);
+        tauSurf = permute(Tauc(:,10:12,:,:),[1,4,2,3]);
+        tauInterf = permute(Tauc(:,13,:,:),[1,4,2,3]);
+        
+        indu = (0:m-1)*n+(1:3)';
+        indC = (0:m-1)*n+4;
+        indu = indu(:)'+n*m*(0:p)';
+        indC = indC(:)'+n*m*(0:p)';
+        
+        varu = vY_approx(indu(:));
+        varC = vY_approx(indC(:));
         vartauTime = 1/(N-1)*sum(tauTime(:,:).^2)';
-        vartauConv = 1/(N-1)*sum(tauConv(:,:).^2)';
-        vartauDiff = 1/(N-1)*sum(tauDiff(:,:).^2)';
+        vardivtauConv = 1/(N-1)*sum(divtauConv(:,:).^2)';
+        vardivtauDiff = 1/(N-1)*sum(divtauDiff(:,:).^2)';
         vartauSurf = 1/(N-1)*sum(tauSurf(:,:).^2)';
         vartauInterf = 1/(N-1)*sum(tauInterf(:,:).^2)';
-        varenergyKinTime = 1/(N-1)*sum(energyKinTime(:,:).^2)';
-        varenergyConv = 1/(N-1)*sum(energyConv(:,:).^2)';
-        varenergyGrav = 1/(N-1)*sum(energyGrav(:,:).^2)';
-        varenergyPres = 1/(N-1)*sum(energyPres(:,:).^2)';
-        varenergyPresDil = 1/(N-1)*sum(energyPresDil(:,:).^2)';
-        varenergyKinSpace = 1/(N-1)*sum(energyKinSpace(:,:).^2)';
-        varenergyDiff = 1/(N-1)*sum(energyDiff(:,:).^2)';
-        varenergyVisc = 1/(N-1)*sum(energyVisc(:,:).^2)';
-        varenergySurf = 1/(N-1)*sum(energySurf(:,:).^2)';
-        vY_approx = zeros(nvar*m*(p+1),1);
+        
         indu = (0:m-1)*nvar+(1:3)';
         indC = (0:m-1)*nvar+4;
         indtauTime = (0:m-1)*nvar+(5:7)';
-        indtauConv = (0:m-1)*nvar+(8:10)';
-        indtauDiff = (0:m-1)*nvar+(11:13)';
+        inddivtauConv = (0:m-1)*nvar+(8:10)';
+        inddivtauDiff = (0:m-1)*nvar+(11:13)';
         indtauSurf = (0:m-1)*nvar+(14:16)';
         indtauInterf = (0:m-1)*nvar+17;
-        indenergyKinTime = (0:m-1)*nvar+18;
-        indenergyConv = (0:m-1)*nvar+19;
-        indenergyGrav = (0:m-1)*nvar+20;
-        indenergyPres = (0:m-1)*nvar+21;
-        indenergyPresDil = (0:m-1)*nvar+22;
-        indenergyKinSpace = (0:m-1)*nvar+23;
-        indenergyDiff = (0:m-1)*nvar+24;
-        indenergyVisc = (0:m-1)*nvar+25;
-        indenergySurf = (0:m-1)*nvar+26;
         
         indu = indu(:)'+nvar*m*(0:p)';
         indC = indC(:)'+nvar*m*(0:p)';
         indtauTime = indtauTime(:)'+nvar*m*(0:p)';
-        indtauConv = indtauConv(:)'+nvar*m*(0:p)';
-        indtauDiff = indtauDiff(:)'+nvar*m*(0:p)';
+        inddivtauConv = inddivtauConv(:)'+nvar*m*(0:p)';
+        inddivtauDiff = inddivtauDiff(:)'+nvar*m*(0:p)';
         indtauSurf = indtauSurf(:)'+nvar*m*(0:p)';
         indtauInterf = indtauInterf(:)'+nvar*m*(0:p)';
-        indenergyKinTime = indenergyKinTime(:)'+nvar*m*(0:p)';
-        indenergyConv = indenergyConv(:)'+nvar*m*(0:p)';
-        indenergyGrav = indenergyGrav(:)'+nvar*m*(0:p)';
-        indenergyPres = indenergyPres(:)'+nvar*m*(0:p)';
-        indenergyPresDil = indenergyPresDil(:)'+nvar*m*(0:p)';
-        indenergyKinSpace = indenergyKinSpace(:)'+nvar*m*(0:p)';
-        indenergyDiff = indenergyDiff(:)'+nvar*m*(0:p)';
-        indenergyVisc = indenergyVisc(:)'+nvar*m*(0:p)';
-        indenergySurf = indenergySurf(:)'+nvar*m*(0:p)';
         
-        vY_approx(indu(:)) = varu;
-        vY_approx(indC(:)) = varC;
-        vY_approx(indtauTime(:)) = vartauTime;
-        vY_approx(indtauConv(:)) = vartauConv;
-        vY_approx(indtauDiff(:)) = vartauDiff;
-        vY_approx(indtauSurf(:)) = vartauSurf;
-        vY_approx(indtauInterf(:)) = vartauInterf;
-        vY_approx(indenergyKinTime(:)) = varenergyKinTime;
-        vY_approx(indenergyConv(:)) = varenergyConv;
-        vY_approx(indenergyGrav(:)) = varenergyGrav;
-        vY_approx(indenergyPres(:)) = varenergyPres;
-        vY_approx(indenergyPresDil(:)) = varenergyPresDil;
-        vY_approx(indenergyKinSpace(:)) = varenergyKinSpace;
-        vY_approx(indenergyDiff(:)) = varenergyDiff;
-        vY_approx(indenergyVisc(:)) = varenergyVisc;
-        vY_approx(indenergySurf(:)) = varenergySurf;
+        vYTau_approx = zeros(nvar*m*(p+1),1);
+        vYTau_approx(indu(:)) = varu;
+        vYTau_approx(indC(:)) = varC;
+        vYTau_approx(indtauTime(:)) = vartauTime;
+        vYTau_approx(inddivtauConv(:)) = vardivtauConv;
+        vYTau_approx(inddivtauDiff(:)) = vardivtauDiff;
+        vYTau_approx(indtauSurf(:)) = vartauSurf;
+        vYTau_approx(indtauInterf(:)) = vartauInterf;
         
-        % CY = cov(Yc(:,:)); % CY = 1/(N-1)*Yc(:,:)'*Yc(:,:);
-        % vY = diag(CY);
-        vY = 1/(N-1)*sum(Yc(:,:).^2)';
-        errvY = norm(vY_approx-vY)/norm(vY);
-        fprintf('\nerror = %.3e for VY',errvY);
+        YTauc = cat(2,Yc,Tauc);
+        % CYTau = cov(YTauc(:,:)); % CYTau = 1/(N-1)*YTauc(:,:)'*YTauc(:,:);
+        % vYTau = diag(CYTau);
+        vYTau = 1/(N-1)*sum(YTauc(:,:).^2)';
+        errvYTau = norm(vYTau_approx-vYTau)/norm(vYTau);
+        fprintf('\nerror = %.3e for VYTau',errvYTau);
         fprintf('\n');
     end
     
-    mI = shiftdim(mean(I,1),1);
-    mItauTime = mI(1:3,:,:);
-    mItauConv = mI(4:6,:,:);
-    mItauDiff = mI(7:9,:,:);
-    mItauSurf = mI(10:12,:,:);
-    mItauInterf = mI(13,:,:);
-    mIenergyKinTime = mI(14,:,:);
-    mIenergyConv = mI(15,:,:);
-    mIenergyGrav = mI(16,:,:);
-    mIenergyPres = mI(17,:,:);
-    mIenergyPresDil = mI(18,:,:);
-    mIenergyKinSpace = mI(19,:,:);
-    mIenergyDiff = mI(20,:,:);
-    mIenergyVisc = mI(21,:,:);
-    mIenergySurf = mI(22,:,:);
-    
-    sz = size(I);
-    sI = prod(sz(2:end-1));
-    CI = zeros(sI,sI,p+1,p+1);
-    for t=0:p
-        It = reshape(I(:,:,:,t+1),[sz(1) sI]);
-        for s=0:p
-            Is = reshape(I(:,:,:,s+1),[sz(1) sI]);
-            CI(:,:,t+1,s+1) = 1/(N-1)*It'*Is;
-        end
-    end
+    mQu = reshape(mQu(1,1:3,:,:),[3,2,p+1]);
+    mQtauTime = reshape(mQtau(1,1:3,:,:),[3,2,p+1]);
+    mQdivtauConv = reshape(mQtau(1,4:6,:,:),[3,2,p+1]);
+    mQdivtauDiff = reshape(mQtau(1,7:9,:,:),[3,2,p+1]);
+    mQtauSurf = reshape(mQtau(1,10:12,:,:),[3,2,p+1]);
+    mQtauInterf = reshape(mQtau(1,13,:,:),[1,2,p+1]);
+    mQenergyKinTime = reshape(mQe(1,1,:,:),[1,2,p+1]);
+    mQenergyConv = reshape(mQe(1,2,:,:),[1,2,p+1]);
+    mQenergyGrav = reshape(mQe(1,3,:,:),[1,2,p+1]);
+    mQenergyPres = reshape(mQe(1,4,:,:),[1,2,p+1]);
+    mQenergyPresDil = reshape(mQe(1,5,:,:),[1,2,p+1]);
+    mQenergyKinSpace = reshape(mQe(1,6,:,:),[1,2,p+1]);
+    mQenergyDiff = reshape(mQe(1,7,:,:),[1,2,p+1]);
+    mQenergyVisc = reshape(mQe(1,8,:,:),[1,2,p+1]);
+    mQenergySurf = reshape(mQe(1,9,:,:),[1,2,p+1]);
     
     t = (0:p)*dt;
     
+    figure('Name','Mean of spatial average of velocity u')
+    clf
+    hdl(1) = plot(t,squeeze(mQu(1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
+    hold on
+    hdl(2) = plot(t,squeeze(mQu(1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
+    hdl(3) = plot(t,squeeze(mQu(2,1,:)),'LineStyle','-','Color','r','LineWidth',1);
+    hdl(4) = plot(t,squeeze(mQu(2,2,:)),'LineStyle','--','Color','r','LineWidth',1);
+    hdl(5) = plot(t,squeeze(mQu(3,1,:)),'LineStyle','-','Color','g','LineWidth',1);
+    hdl(6) = plot(t,squeeze(mQu(3,2,:)),'LineStyle','--','Color','g','LineWidth',1);
+    hold off
+    grid on
+    box on
+    set(gca,'FontSize',10)
+    xlabel('$t$ [s]','Interpreter','latex')
+    ylabel('$u$','Interpreter','latex')
+    leg = {'component 1 in phase 1','component 1 in phase 2','component 2 in phase 1','component 2 in phase 2','component 3 in phase 1','component 3 in phase 2'};
+    legend(leg{:},'Location','NorthEast')
+    mysaveas(gridpathname,'mean_u',formats,renderer);
+    mymatlab2tikz(gridpathname,'mean_u.tex');
+    
     figure('Name','Mean of spatial average of tau time')
     clf
-    hdl(1) = plot(t,squeeze(mItauTime(1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
+    hdl(1) = plot(t,squeeze(mQtauTime(1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
     hold on
-    hdl(2) = plot(t,squeeze(mItauTime(1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
-    hdl(3) = plot(t,squeeze(mItauTime(2,1,:)),'LineStyle','-','Color','r','LineWidth',1);
-    hdl(4) = plot(t,squeeze(mItauTime(2,2,:)),'LineStyle','--','Color','r','LineWidth',1);
-    hdl(5) = plot(t,squeeze(mItauTime(3,1,:)),'LineStyle','-','Color','g','LineWidth',1);
-    hdl(6) = plot(t,squeeze(mItauTime(3,2,:)),'LineStyle','--','Color','g','LineWidth',1);
+    hdl(2) = plot(t,squeeze(mQtauTime(1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
+    hdl(3) = plot(t,squeeze(mQtauTime(2,1,:)),'LineStyle','-','Color','r','LineWidth',1);
+    hdl(4) = plot(t,squeeze(mQtauTime(2,2,:)),'LineStyle','--','Color','r','LineWidth',1);
+    hdl(5) = plot(t,squeeze(mQtauTime(3,1,:)),'LineStyle','-','Color','g','LineWidth',1);
+    hdl(6) = plot(t,squeeze(mQtauTime(3,2,:)),'LineStyle','--','Color','g','LineWidth',1);
     hold off
     grid on
     box on
@@ -1212,55 +1064,55 @@ for g=2^4
     mysaveas(gridpathname,'mean_tau_time',formats,renderer);
     mymatlab2tikz(gridpathname,'mean_tau_time.tex');
     
-    figure('Name','Mean of spatial average of tau conv')
+    figure('Name','Mean of spatial average of div tau conv')
     clf
-    hdl(1) = plot(t,squeeze(mItauConv(1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
+    hdl(1) = plot(t,squeeze(mQdivtauConv(1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
     hold on
-    hdl(2) = plot(t,squeeze(mItauConv(1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
-    hdl(3) = plot(t,squeeze(mItauConv(2,1,:)),'LineStyle','-','Color','r','LineWidth',1);
-    hdl(4) = plot(t,squeeze(mItauConv(2,2,:)),'LineStyle','--','Color','r','LineWidth',1);
-    hdl(5) = plot(t,squeeze(mItauConv(3,1,:)),'LineStyle','-','Color','g','LineWidth',1);
-    hdl(6) = plot(t,squeeze(mItauConv(3,2,:)),'LineStyle','--','Color','g','LineWidth',1);
+    hdl(2) = plot(t,squeeze(mQdivtauConv(1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
+    hdl(3) = plot(t,squeeze(mQdivtauConv(2,1,:)),'LineStyle','-','Color','r','LineWidth',1);
+    hdl(4) = plot(t,squeeze(mQdivtauConv(2,2,:)),'LineStyle','--','Color','r','LineWidth',1);
+    hdl(5) = plot(t,squeeze(mQdivtauConv(3,1,:)),'LineStyle','-','Color','g','LineWidth',1);
+    hdl(6) = plot(t,squeeze(mQdivtauConv(3,2,:)),'LineStyle','--','Color','g','LineWidth',1);
     hold off
     grid on
     box on
     set(gca,'FontSize',10)
     xlabel('$t$ [s]','Interpreter','latex')
-    ylabel('$\tau_{\mathrm{conv}}$','Interpreter','latex')
+    ylabel('$\nabla \cdot \tau_{\mathrm{conv}}$','Interpreter','latex')
     leg = {'component 1 in phase 1','component 1 in phase 2','component 2 in phase 1','component 2 in phase 2','component 3 in phase 1','component 3 in phase 2'};
     legend(leg{:},'Location','NorthEast')
-    mysaveas(gridpathname,'mean_tau_conv',formats,renderer);
-    mymatlab2tikz(gridpathname,'mean_tau_conv.tex');
+    mysaveas(gridpathname,'mean_div_tau_conv',formats,renderer);
+    mymatlab2tikz(gridpathname,'mean_div_tau_conv.tex');
     
-    figure('Name','Mean of spatial average of tau diff')
+    figure('Name','Mean of spatial average of div tau diff')
     clf
-    hdl(1) = plot(t,squeeze(mItauDiff(1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
+    hdl(1) = plot(t,squeeze(mQdivtauDiff(1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
     hold on
-    hdl(2) = plot(t,squeeze(mItauDiff(1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
-    hdl(3) = plot(t,squeeze(mItauDiff(2,1,:)),'LineStyle','-','Color','r','LineWidth',1);
-    hdl(4) = plot(t,squeeze(mItauDiff(2,2,:)),'LineStyle','--','Color','r','LineWidth',1);
-    hdl(5) = plot(t,squeeze(mItauDiff(3,1,:)),'LineStyle','-','Color','g','LineWidth',1);
-    hdl(6) = plot(t,squeeze(mItauDiff(3,2,:)),'LineStyle','--','Color','g','LineWidth',1);
+    hdl(2) = plot(t,squeeze(mQdivtauDiff(1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
+    hdl(3) = plot(t,squeeze(mQdivtauDiff(2,1,:)),'LineStyle','-','Color','r','LineWidth',1);
+    hdl(4) = plot(t,squeeze(mQdivtauDiff(2,2,:)),'LineStyle','--','Color','r','LineWidth',1);
+    hdl(5) = plot(t,squeeze(mQdivtauDiff(3,1,:)),'LineStyle','-','Color','g','LineWidth',1);
+    hdl(6) = plot(t,squeeze(mQdivtauDiff(3,2,:)),'LineStyle','--','Color','g','LineWidth',1);
     hold off
     grid on
     box on
     set(gca,'FontSize',10)
     xlabel('$t$ [s]','Interpreter','latex')
-    ylabel('$\tau_{\mathrm{diff}}$','Interpreter','latex')
+    ylabel('$\nabla \cdot \tau_{\mathrm{diff}}$','Interpreter','latex')
     leg = {'component 1 in phase 1','component 1 in phase 2','component 2 in phase 1','component 2 in phase 2','component 3 in phase 1','component 3 in phase 2'};
     legend(leg{:},'Location','NorthEast')
-    mysaveas(gridpathname,'mean_tau_diff',formats,renderer);
-    mymatlab2tikz(gridpathname,'mean_tau_diff.tex');
+    mysaveas(gridpathname,'mean_div_tau_diff',formats,renderer);
+    mymatlab2tikz(gridpathname,'mean_div_tau_diff.tex');
     
     figure('Name','Mean of spatial average of tau surf')
     clf
-    hdl(1) = plot(t,squeeze(mItauSurf(1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
+    hdl(1) = plot(t,squeeze(mQtauSurf(1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
     hold on
-    hdl(2) = plot(t,squeeze(mItauSurf(1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
-    hdl(3) = plot(t,squeeze(mItauSurf(2,1,:)),'LineStyle','-','Color','r','LineWidth',1);
-    hdl(4) = plot(t,squeeze(mItauSurf(2,2,:)),'LineStyle','--','Color','r','LineWidth',1);
-    hdl(5) = plot(t,squeeze(mItauSurf(3,1,:)),'LineStyle','-','Color','g','LineWidth',1);
-    hdl(6) = plot(t,squeeze(mItauSurf(3,2,:)),'LineStyle','--','Color','g','LineWidth',1);
+    hdl(2) = plot(t,squeeze(mQtauSurf(1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
+    hdl(3) = plot(t,squeeze(mQtauSurf(2,1,:)),'LineStyle','-','Color','r','LineWidth',1);
+    hdl(4) = plot(t,squeeze(mQtauSurf(2,2,:)),'LineStyle','--','Color','r','LineWidth',1);
+    hdl(5) = plot(t,squeeze(mQtauSurf(3,1,:)),'LineStyle','-','Color','g','LineWidth',1);
+    hdl(6) = plot(t,squeeze(mQtauSurf(3,2,:)),'LineStyle','--','Color','g','LineWidth',1);
     hold off
     grid on
     box on
@@ -1274,9 +1126,9 @@ for g=2^4
     
     figure('Name','Mean of spatial average of tau interf')
     clf
-    hdl(1) = plot(t,squeeze(mItauInterf(1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
+    hdl(1) = plot(t,squeeze(mQtauInterf(1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
     hold on
-    hdl(2) = plot(t,squeeze(mItauInterf(1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
+    hdl(2) = plot(t,squeeze(mQtauInterf(1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
     hold off
     grid on
     box on
@@ -1288,6 +1140,152 @@ for g=2^4
     mysaveas(gridpathname,'mean_tau_interf',formats,renderer);
     mymatlab2tikz(gridpathname,'mean_tau_interf.tex');
     
+    IQtauTime = IQtau(1:3,:,1:3,:,:);
+    IQdivtauConv = IQtau(4:6,:,4:6,:,:);
+    IQdivtauDiff = IQtau(7:9,:,7:9,:,:);
+    IQtauSurf = IQtau(10:12,:,10:12,:,:);
+    IQtauInterf = IQtau(13,:,13,:,:);
+    IQenergyKinTime = IQe(1,:,1,:,:);
+    IQenergyConv = IQe(2,:,2,:,:);
+    IQenergyGrav = IQe(3,:,3,:,:);
+    IQenergyPres = IQe(4,:,4,:,:);
+    IQenergyPresDil = IQe(5,:,5,:,:);
+    IQenergyKinSpace = IQe(6,:,6,:,:);
+    IQenergyDiff = IQe(7,:,7,:,:);
+    IQenergyVisc = IQe(8,:,8,:,:);
+    IQenergySurf = IQe(9,:,9,:,:);
+    
+    figure('Name','Power of u')
+    clf
+    hdl(1) = plot(t,squeeze(IQu(1,1,1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
+    hold on
+    hdl(2) = plot(t,squeeze(IQu(1,2,1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
+    hdl(3) = plot(t,squeeze(IQu(2,1,2,1,:)),'LineStyle','-','Color','g','LineWidth',1);
+    hdl(4) = plot(t,squeeze(IQu(2,2,2,2,:)),'LineStyle','--','Color','g','LineWidth',1);
+    hdl(5) = plot(t,squeeze(IQu(3,1,3,1,:)),'LineStyle','-','Color','r','LineWidth',1);
+    hdl(6) = plot(t,squeeze(IQu(3,2,3,2,:)),'LineStyle','--','Color','r','LineWidth',1);
+    hold off
+    grid on
+    box on
+    set(gca,'FontSize',10)
+    xlabel('$\tau$ [s]','Interpreter','latex')
+    ylabel(['$\displaystyle\frac{1}{T-\tau} \int_0^{T-\tau} {[C_Q(t+\tau,t)]}_{jj} \, dt$'],'Interpreter','latex')
+    leg = {'u1 in phase 1','u1 in phase 2',...
+        'u2 in phase 1','u2 in phase 2',...
+        'u3 in phase 1','u3 in phase 2'};
+    legend(leg{:},'Location','NorthEast')
+    mysaveas(gridpathname,'power_u',formats,renderer);
+    mymatlab2tikz(gridpathname,'power_u.tex');
+    
+    figure('Name','Power of tau time')
+    clf
+    hdl(1) = plot(t,squeeze(IQtauTime(1,1,1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
+    hold on
+    hdl(2) = plot(t,squeeze(IQtauTime(1,2,1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
+    hdl(3) = plot(t,squeeze(IQtauTime(2,1,2,1,:)),'LineStyle','-','Color','g','LineWidth',1);
+    hdl(4) = plot(t,squeeze(IQtauTime(2,2,2,2,:)),'LineStyle','--','Color','g','LineWidth',1);
+    hdl(5) = plot(t,squeeze(IQtauTime(3,1,3,1,:)),'LineStyle','-','Color','r','LineWidth',1);
+    hdl(6) = plot(t,squeeze(IQtauTime(3,2,3,2,:)),'LineStyle','--','Color','r','LineWidth',1);
+    hold off
+    grid on
+    box on
+    set(gca,'FontSize',10)
+    xlabel('$\tau$ [s]','Interpreter','latex')
+    ylabel(['$\displaystyle\frac{1}{T-\tau} \int_0^{T-\tau} {[C_Q(t+\tau,t)]}_{jj} \, dt$'],'Interpreter','latex')
+    leg = {'$\tau_{\mathrm{time}\,1}$ in phase 1','$\tau_{\mathrm{time}\,1}$ in phase 2',...
+        '$\tau_{\mathrm{time}\,2}$ in phase 1','$\tau_{\mathrm{time}\,2}$ in phase 2',...
+        '$\tau_{\mathrm{time}\,3}$ in phase 1','$\tau_{\mathrm{time}\,3}$ in phase 2'};
+    l = legend(leg{:},'Location','NorthEast');
+    set(l,'Interpreter','latex')
+    mysaveas(gridpathname,'power_tau_time',formats,renderer);
+    mymatlab2tikz(gridpathname,'power_tau_time.tex');
+    
+    figure('Name','Power of div tau conv')
+    clf
+    hdl(1) = plot(t,squeeze(IQdivtauConv(1,1,1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
+    hold on
+    hdl(2) = plot(t,squeeze(IQdivtauConv(1,2,1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
+    hdl(3) = plot(t,squeeze(IQdivtauConv(2,1,2,1,:)),'LineStyle','-','Color','g','LineWidth',1);
+    hdl(4) = plot(t,squeeze(IQdivtauConv(2,2,2,2,:)),'LineStyle','--','Color','g','LineWidth',1);
+    hdl(5) = plot(t,squeeze(IQdivtauConv(3,1,3,1,:)),'LineStyle','-','Color','r','LineWidth',1);
+    hdl(6) = plot(t,squeeze(IQdivtauConv(3,2,3,2,:)),'LineStyle','--','Color','r','LineWidth',1);
+    hold off
+    grid on
+    box on
+    set(gca,'FontSize',10)
+    xlabel('$\tau$ [s]','Interpreter','latex')
+    ylabel(['$\displaystyle\frac{1}{T-\tau} \int_0^{T-\tau} {[C_Q(t+\tau,t)]}_{jj} \, dt$'],'Interpreter','latex')
+    leg = {'$\mathrm{div}\tau_{\mathrm{conv}\,1}$ in phase 1','$\mathrm{div}\tau_{\mathrm{conv}\,1}$ in phase 2',...
+        '$\mathrm{div}\tau_{\mathrm{conv}\,2}$ in phase 1','$\mathrm{div}\tau_{\mathrm{conv}\,2}$ in phase 2',...
+        '$\mathrm{div}\tau_{\mathrm{conv}\,3}$ in phase 1','$\mathrm{div}\tau_{\mathrm{conv}\,3}$ in phase 2'};
+    l = legend(leg{:},'Location','NorthEast');
+    set(l,'Interpreter','latex')
+    mysaveas(gridpathname,'power_div_tau_conv',formats,renderer);
+    mymatlab2tikz(gridpathname,'power_div_tau_conv.tex');
+    
+    figure('Name','Power of div tau diff')
+    clf
+    hdl(1) = plot(t,squeeze(IQdivtauDiff(1,1,1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
+    hold on
+    hdl(2) = plot(t,squeeze(IQdivtauDiff(1,2,1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
+    hdl(3) = plot(t,squeeze(IQdivtauDiff(2,1,2,1,:)),'LineStyle','-','Color','g','LineWidth',1);
+    hdl(4) = plot(t,squeeze(IQdivtauDiff(2,2,2,2,:)),'LineStyle','--','Color','g','LineWidth',1);
+    hdl(5) = plot(t,squeeze(IQdivtauDiff(3,1,3,1,:)),'LineStyle','-','Color','r','LineWidth',1);
+    hdl(6) = plot(t,squeeze(IQdivtauDiff(3,2,3,2,:)),'LineStyle','--','Color','r','LineWidth',1);
+    hold off
+    grid on
+    box on
+    set(gca,'FontSize',10)
+    xlabel('$\tau$ [s]','Interpreter','latex')
+    ylabel(['$\displaystyle\frac{1}{T-\tau} \int_0^{T-\tau} {[C_Q(t+\tau,t)]}_{jj} \, dt$'],'Interpreter','latex')
+    leg = {'$\mathrm{div}\tau_{\mathrm{diff}\,1}$ in phase 1','$\mathrm{div}\tau_{\mathrm{diff}\,1}$ in phase 2',...
+        '$\mathrm{div}\tau_{\mathrm{diff}\,2}$ in phase 1','$\mathrm{div}\tau_{\mathrm{diff}\,2}$ in phase 2',...
+        '$\mathrm{div}\tau_{\mathrm{diff}\,3}$ in phase 1','$\mathrm{div}\tau_{\mathrm{diff}\,3}$ in phase 2'};
+    l = legend(leg{:},'Location','NorthEast');
+    set(l,'Interpreter','latex')
+    mysaveas(gridpathname,'power_div_tau_diff',formats,renderer);
+    mymatlab2tikz(gridpathname,'power_div_tau_diff.tex');
+    
+    figure('Name','Power of tau surf')
+    clf
+    hdl(1) = plot(t,squeeze(IQtauSurf(1,1,1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
+    hold on
+    hdl(2) = plot(t,squeeze(IQtauSurf(1,2,1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
+    hdl(3) = plot(t,squeeze(IQtauSurf(2,1,2,1,:)),'LineStyle','-','Color','g','LineWidth',1);
+    hdl(4) = plot(t,squeeze(IQtauSurf(2,2,2,2,:)),'LineStyle','--','Color','g','LineWidth',1);
+    hdl(5) = plot(t,squeeze(IQtauSurf(3,1,3,1,:)),'LineStyle','-','Color','r','LineWidth',1);
+    hdl(6) = plot(t,squeeze(IQtauSurf(3,2,3,2,:)),'LineStyle','--','Color','r','LineWidth',1);
+    hold off
+    grid on
+    box on
+    set(gca,'FontSize',10)
+    xlabel('$\tau$ [s]','Interpreter','latex')
+    ylabel(['$\displaystyle\frac{1}{T-\tau} \int_0^{T-\tau} {[C_Q(t+\tau,t)]}_{jj} \, dt$'],'Interpreter','latex')
+    leg = {'$\tau_{\mathrm{surf}\,1}$ in phase 1','$\tau_{\mathrm{surf}\,1}$ in phase 2',...
+        '$\tau_{\mathrm{surf}\,2}$ in phase 1','$\tau_{\mathrm{surf}\,2}$ in phase 2',...
+        '$\tau_{\mathrm{surf}\,3}$ in phase 1','$\tau_{\mathrm{surf}\,3}$ in phase 2'};
+    l = legend(leg{:},'Location','NorthEast');
+    set(l,'Interpreter','latex')
+    mysaveas(gridpathname,'power_tau_surf',formats,renderer);
+    mymatlab2tikz(gridpathname,'power_tau_surf.tex');
+    
+    figure('Name','Power of tau interf')
+    clf
+    hdl(1) = plot(t,squeeze(IQtauInterf(1,1,1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
+    hold on
+    hdl(2) = plot(t,squeeze(IQtauInterf(1,2,1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
+    hold off
+    grid on
+    box on
+    set(gca,'FontSize',10)
+    xlabel('$\tau$ [s]','Interpreter','latex')
+    ylabel(['$\displaystyle\frac{1}{T-\tau} \int_0^{T-\tau} {[C_Q(t+\tau,t)]}_{jj} \, dt$'],'Interpreter','latex')
+    leg = {'$\tau_{\mathrm{interf}\,1}$ in phase 1','$\tau_{\mathrm{interf}\,1}$ in phase 2'};
+    l = legend(leg{:},'Location','NorthEast');
+    set(l,'Interpreter','latex')
+    mysaveas(gridpathname,'power_tau_interf',formats,renderer);
+    mymatlab2tikz(gridpathname,'power_tau_interf.tex');
+    
     % Display solution
     if displaySolution
         t = 11;
@@ -1298,9 +1296,9 @@ for g=2^4
                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
             evolSolution(M,mtauTime,'displ',i,'colormap',cmap,'filename',['evol_mean_tauTime' num2str(i)],'pathname',gridpathname,'FrameRate',framerate,...
                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-            evolSolution(M,mtauConv,'displ',i,'colormap',cmap,'filename',['evol_mean_tauConv' num2str(i)],'pathname',gridpathname,'FrameRate',framerate,...
+            evolSolution(M,mdivtauConv,'displ',i,'colormap',cmap,'filename',['evol_mean_divtauConv' num2str(i)],'pathname',gridpathname,'FrameRate',framerate,...
                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-            evolSolution(M,mtauDiff,'displ',i,'colormap',cmap,'filename',['evol_mean_tauDiff' num2str(i)],'pathname',gridpathname,'FrameRate',framerate,...
+            evolSolution(M,mdivtauDiff,'displ',i,'colormap',cmap,'filename',['evol_mean_divtauDiff' num2str(i)],'pathname',gridpathname,'FrameRate',framerate,...
                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
             evolSolution(M,mtauSurf,'displ',i,'colormap',cmap,'filename',['evol_mean_tauSurf' num2str(i)],'pathname',gridpathname,'FrameRate',framerate,...
                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
@@ -1309,9 +1307,9 @@ for g=2^4
 %                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
 %             evolSolution(M,vtauTime,'displ',i,'colormap',cmap,'filename',['evol_var_tauTime' num2str(i)],'pathname',gridpathname,'FrameRate',framerate);,...
 %                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-%             evolSolution(M,vtauConv,'displ',i,'colormap',cmap,'filename',['evol_var_tauConv' num2str(i)],'pathname',gridpathname,'FrameRate',framerate);,...
+%             evolSolution(M,vdivtauConv,'displ',i,'colormap',cmap,'filename',['evol_var_divtauConv' num2str(i)],'pathname',gridpathname,'FrameRate',framerate);,...
 %                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-%             evolSolution(M,vtauDiff,'displ',i,'colormap',cmap,'filename',['evol_var_tauDiff' num2str(i)],'pathname',gridpathname,'FrameRate',framerate);,...
+%             evolSolution(M,vdivtauDiff,'displ',i,'colormap',cmap,'filename',['evol_var_divtauDiff' num2str(i)],'pathname',gridpathname,'FrameRate',framerate);,...
 %                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
 %             evolSolution(M,vtauSurf,'displ',i,'colormap',cmap,'filename',['evol_var_tauSurf' num2str(i)],'pathname',gridpathname,'FrameRate',framerate);,...
 %                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
@@ -1319,7 +1317,7 @@ for g=2^4
             figure('Name',['Mean of velocity u' num2str(i)])
             clf
             plot_sol(M,getmatrixatstep(mu,t+1),'displ',i,'ampl',ampl);
-            title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
+            title(['time ' num2str(t*dt,'%.2f') ' s'],'FontSize',fontsize)
             colormap(cmap)
             colorbar
             axis on
@@ -1330,7 +1328,7 @@ for g=2^4
             figure('Name',['Mean of tau time ' num2str(i)])
             clf
             plot_sol(M,getmatrixatstep(mtauTime,t+1),'displ',i,'ampl',ampl);
-            title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
+            title(['time ' num2str(t*dt,'%.2f') ' s'],'FontSize',fontsize)
             colormap(cmap)
             colorbar
             axis on
@@ -1338,32 +1336,32 @@ for g=2^4
             set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
             mysaveas(gridpathname,['mean_tauTime' num2str(i) '_t' num2str(t*100)],formats,renderer);
             
-            figure('Name',['Mean of tau conv ' num2str(i)])
+            figure('Name',['Mean of div tau conv ' num2str(i)])
             clf
-            plot_sol(M,getmatrixatstep(mtauConv,t+1),'displ',i,'ampl',ampl);
-            title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
+            plot_sol(M,getmatrixatstep(mdivtauConv,t+1),'displ',i,'ampl',ampl);
+            title(['time ' num2str(t*dt,'%.2f') ' s'],'FontSize',fontsize)
             colormap(cmap)
             colorbar
             axis on
             box on
             set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
-            mysaveas(gridpathname,['mean_tauConv' num2str(i) '_t' num2str(t*100)],formats,renderer);
+            mysaveas(gridpathname,['mean_divtauConv' num2str(i) '_t' num2str(t*100)],formats,renderer);
             
-            figure('Name',['Mean of tau diff ' num2str(i)])
+            figure('Name',['Mean of div tau diff ' num2str(i)])
             clf
-            plot_sol(M,getmatrixatstep(mtauDiff,t+1),'displ',i,'ampl',ampl);
-            title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
+            plot_sol(M,getmatrixatstep(mdivtauDiff,t+1),'displ',i,'ampl',ampl);
+            title(['time ' num2str(t*dt,'%.2f') ' s'],'FontSize',fontsize)
             colormap(cmap)
             colorbar
             axis on
             box on
             set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
-            mysaveas(gridpathname,['mean_tauDiff' num2str(i) '_t' num2str(t*100)],formats,renderer);
+            mysaveas(gridpathname,['mean_divtauDiff' num2str(i) '_t' num2str(t*100)],formats,renderer);
             
             figure('Name',['Mean of tau surf ' num2str(i)])
             clf
             plot_sol(M,getmatrixatstep(mtauSurf,t+1),'displ',i,'ampl',ampl);
-            title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
+            title(['time ' num2str(t*dt,'%.2f') ' s'],'FontSize',fontsize)
             colormap(cmap)
             colorbar
             axis on
@@ -1374,7 +1372,7 @@ for g=2^4
 %             figure('Name',['Variance of velocity u' num2str(i)])
 %             clf
 %             plot_sol(M,getmatrixatstep(vu,t+1),'displ',i,'ampl',ampl);
-%             title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
+%             title(['time ' num2str(t*dt,'%.2f') ' s'],'FontSize',fontsize)
 %             colormap(cmap)
 %             colorbar
 %             axis on
@@ -1385,7 +1383,7 @@ for g=2^4
 %             figure('Name',['Variance of tau time ' num2str(i)])
 %             clf
 %             plot_sol(M,getmatrixatstep(vtauTime,t+1),'displ',i,'ampl',ampl);
-%             title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
+%             title(['time ' num2str(t*dt,'%.2f') ' s'],'FontSize',fontsize)
 %             colormap(cmap)
 %             colorbar
 %             axis on
@@ -1393,32 +1391,32 @@ for g=2^4
 %             set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
 %             mysaveas(gridpathname,['var_tauTime' num2str(i) '_t' num2str(t*100)],formats,renderer);
 %             
-%             figure('Name',['Variance of tau conv ' num2str(i)])
+%             figure('Name',['Variance of div tau conv ' num2str(i)])
 %             clf
-%             plot_sol(M,getmatrixatstep(vtauConv,t+1),'displ',i,'ampl',ampl);
-%             title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
+%             plot_sol(M,getmatrixatstep(vdivtauConv,t+1),'displ',i,'ampl',ampl);
+%             title(['time ' num2str(t*dt,'%.2f') ' s'],'FontSize',fontsize)
 %             colormap(cmap)
 %             colorbar
 %             axis on
 %             box on
 %             set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
-%             mysaveas(gridpathname,['var_tauConv' num2str(i) '_t' num2str(t*100)],formats,renderer);
+%             mysaveas(gridpathname,['var_divtauConv' num2str(i) '_t' num2str(t*100)],formats,renderer);
 %             
-%             figure('Name',['Variance of tau diff ' num2str(i)])
+%             figure('Name',['Variance of div tau diff ' num2str(i)])
 %             clf
-%             plot_sol(M,getmatrixatstep(vtauDiff,t+1),'displ',i,'ampl',ampl);
-%             title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
+%             plot_sol(M,getmatrixatstep(vdivtauDiff,t+1),'displ',i,'ampl',ampl);
+%             title(['time ' num2str(t*dt,'%.2f') ' s'],'FontSize',fontsize)
 %             colormap(cmap)
 %             colorbar
 %             axis on
 %             box on
 %             set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
-%             mysaveas(gridpathname,['var_tauDiff' num2str(i) '_t' num2str(t*100)],formats,renderer);
+%             mysaveas(gridpathname,['var_divtauDiff' num2str(i) '_t' num2str(t*100)],formats,renderer);
 %             
 %             figure('Name',['Variance of tau surf ' num2str(i)])
 %             clf
 %             plot_sol(M,getmatrixatstep(vtauSurf,t+1),'displ',i,'ampl',ampl);
-%             title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
+%             title(['time ' num2str(t*dt,'%.2f') ' s'],'FontSize',fontsize)
 %             colormap(cmap)
 %             colorbar
 %             axis on
@@ -1442,7 +1440,7 @@ for g=2^4
         figure('Name','Mean of indicator function C')
         clf
         plot_sol(Mscal,getmatrixatstep(mC,t+1));
-        title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
+        title(['time ' num2str(t*dt,'%.2f') ' s'],'FontSize',fontsize)
         colormap(cmap)
         colorbar
         axis on
@@ -1453,7 +1451,7 @@ for g=2^4
         figure('Name','Mean of tau interf')
         clf
         plot_sol(Mscal,getmatrixatstep(mtauInterf,t+1));
-        title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
+        title(['time ' num2str(t*dt,'%.2f') ' s'],'FontSize',fontsize)
         colormap(cmap)
         colorbar
         axis on
@@ -1464,7 +1462,7 @@ for g=2^4
 %         figure('Name','Variance of indicator function C')
 %         clf
 %         plot_sol(Mscal,getmatrixatstep(vC,t+1));
-%         title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
+%         title(['time ' num2str(t*dt,'%.2f') ' s'],'FontSize',fontsize)
 %         colormap(cmap)
 %         colorbar
 %         box on
@@ -1474,7 +1472,7 @@ for g=2^4
 %         figure('Name','Variance of tau interf')
 %         clf
 %         plot_sol(Mscal,getmatrixatstep(vtauInterf,t+1));
-%         title(['time ' num2str(t*dt,'%f') ' s'],'FontSize',fontsize)
+%         title(['time ' num2str(t*dt,'%.2f') ' s'],'FontSize',fontsize)
 %         colormap(cmap)
 %         colorbar
 %         box on
@@ -1486,50 +1484,36 @@ for g=2^4
         mut = getmatrixatstep(mu,t+1);
         mCt = getmatrixatstep(mC,t+1);
         mtauTimet = getmatrixatstep(mtauTime,t+1);
-        mtauConvt = getmatrixatstep(mtauConv,t+1);
-        mtauDifft = getmatrixatstep(mtauDiff,t+1);
+        mdivtauConvt = getmatrixatstep(mdivtauConv,t+1);
+        mdivtauDifft = getmatrixatstep(mdivtauDiff,t+1);
         mtauSurft = getmatrixatstep(mtauSurf,t+1);
         mtauInterft = getmatrixatstep(mtauInterf,t+1);
-        menergyKinTimet = getmatrixatstep(menergyKinTime,t+1);
-        menergyConvt = getmatrixatstep(menergyConv,t+1);
-        menergyGravt = getmatrixatstep(menergyGrav,t+1);
-        menergyPrest = getmatrixatstep(menergyPres,t+1);
-        menergyPresDilt = getmatrixatstep(menergyPresDil,t+1);
-        menergyKinSpacet = getmatrixatstep(menergyKinSpace,t+1);
-        menergyDifft = getmatrixatstep(menergyDiff,t+1);
-        menergyVisct = getmatrixatstep(menergyVisc,t+1);
-        menergySurft = getmatrixatstep(menergySurf,t+1);
         
         vut = getmatrixatstep(vu,t+1);
         vCt = getmatrixatstep(vC,t+1);
         vtauTimet = getmatrixatstep(vtauTime,t+1);
-        vtauConvt = getmatrixatstep(vtauConv,t+1);
-        vtauDifft = getmatrixatstep(vtauDiff,t+1);
+        vdivtauConvt = getmatrixatstep(vdivtauConv,t+1);
+        vdivtauDifft = getmatrixatstep(vdivtauDiff,t+1);
         vtauSurft = getmatrixatstep(vtauSurf,t+1);
         vtauInterft = getmatrixatstep(vtauInterf,t+1);
-        venergyKinTimet = getmatrixatstep(venergyKinTime,t+1);
-        venergyConvt = getmatrixatstep(venergyConv,t+1);
-        venergyGravt = getmatrixatstep(venergyGrav,t+1);
-        venergyPrest = getmatrixatstep(venergyPres,t+1);
-        venergyPresDilt = getmatrixatstep(venergyPresDil,t+1);
-        venergyKinSpacet = getmatrixatstep(venergyKinSpace,t+1);
-        venergyDifft = getmatrixatstep(venergyDiff,t+1);
-        venergyVisct = getmatrixatstep(venergyVisc,t+1);
-        venergySurft = getmatrixatstep(venergySurf,t+1);
         
-        write_vtk_mesh(M,{mut,mCt,mtauTimet,mtauConvt,mtauDifft,mtauSurft,mtauInterft,...
-            menergyKinTimet,menergyConvt,menergyGravt,menergyPrest,menergyPresDilt,...
-            menergyKinSpacet,menergyDifft,menergyVisct,menergySurft},[],...
-            {'velocity','phase','tau time','tau conv','tau diff','tau surf','tau interf',...
-            'kinetic energy','convection energy','gravity energy','power of external pressure forces','pressure-dilatation energy transfer',...
-            'transport of gradient of kinetic energy','energy exchange with kinetic energy','power of external viscous stresses','capillary kinetic energy'},[],...
+        write_vtk_mesh(M,{mut,mCt,mtauTimet,mdivtauConvt,mdivtauDifft,mtauSurft,mtauInterft...
+            %menergyKinTimet,menergyConvt,menergyGravt,menergyPrest,menergyPresDilt,...
+            %menergyKinSpacet,menergyDifft,menergyVisct,menergySurft...
+            },[],...
+            {'velocity','phase','tau time','div tau conv','div tau diff','tau surf','tau interf'...
+            %'kinetic energy','convection energy','gravity energy','power of external pressure forces','pressure-dilatation energy transfer',...
+            %'transport of gradient of kinetic energy','energy exchange with kinetic energy','power of external viscous stresses','capillary kinetic energy'...
+            },[],...
             gridpathname,'diphasic_fluids_mean',1,t);
-        write_vtk_mesh(M,{vut,vCt,vtauTimet,vtauConvt,vtauDifft,vtauSurft,vtauInterft,...
-            venergyKinTimet,venergyConvt,venergyGravt,venergyPrest,venergyPresDilt,...
-            venergyKinSpacet,venergyDifft,venergyVisct,venergySurft},[],...
-            {'velocity','phase','tau time','tau conv','tau diff','tau surf','tau interf',...
-            'kinetic energy','convection energy','gravity energy','power of external pressure forces','pressure-dilatation energy transfer',...
-            'transport of gradient of kinetic energy','energy exchange with kinetic energy','power of external viscous stresses','capillary kinetic energy'},[],...
+        write_vtk_mesh(M,{vut,vCt,vtauTimet,vdivtauConvt,vdivtauDifft,vtauSurft,vtauInterft...
+            %venergyKinTimet,venergyConvt,venergyGravt,venergyPrest,venergyPresDilt,...
+            %venergyKinSpacet,venergyDifft,venergyVisct,venergySurft...
+            },[],...
+            {'velocity','phase','tau time','div tau conv','div tau diff','tau surf','tau interf'...
+            %'kinetic energy','convection energy','gravity energy','power of external pressure forces','pressure-dilatation energy transfer',...
+            %'transport of gradient of kinetic energy','energy exchange with kinetic energy','power of external viscous stresses','capillary kinetic energy'...
+            },[],...
             gridpathname,'diphasic_fluids_variance',1,t);
     end
     make_pvd_file(gridpathname,'diphasic_fluids_mean',1,p+1);
