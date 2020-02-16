@@ -38,7 +38,7 @@ tolsvdZc = 1e-6; % relative precision for truncated SVD of Zc
 
 % for g=2.^(4:8)
 for g=2^4
-    tic
+    t_Total = tic;
     gridname = ['Grid' num2str(g)];
     disp(gridname)
     gridpathname = fullfile(pathname,gridname);
@@ -818,7 +818,6 @@ for g=2^4
     mtauInterf = reshape(mTau(1,13,:,:),[m,p+1]);
     
     % Variance
-    disp('Variance')
     vu = zeros(3*m,p+1);
     vC = zeros(m,p+1);
     vtauTime = zeros(3*m,p+1);
@@ -1291,27 +1290,31 @@ for g=2^4
         t = 11;
         ampl = 0;
         % ampl = getsize(M)/max(abs(mut))/5;
+        az_z = -37.5; % azimuth for the default 3D view with vertical z-axis
+        el_z = 30; % elevation for the default 3D view with vertical z-axis
+        az = az_z-90; % azimuth for the default 3D view with vertical y-axis
+        el = -el_z; % elevation for the default 3D view with vertical y-axis
         for i=1:3
-            evolSolution(M,mu,'displ',i,'colormap',cmap,'filename',['evol_mean_u' num2str(i)],'pathname',gridpathname,'FrameRate',framerate,...
+            evolSolution(M,mu,'displ',i,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename',['evol_mean_u' num2str(i)],'pathname',gridpathname,'FrameRate',framerate,...
                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-            evolSolution(M,mtauTime,'displ',i,'colormap',cmap,'filename',['evol_mean_tauTime' num2str(i)],'pathname',gridpathname,'FrameRate',framerate,...
+            evolSolution(M,mtauTime,'displ',i,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename',['evol_mean_tauTime' num2str(i)],'pathname',gridpathname,'FrameRate',framerate,...
                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-            evolSolution(M,mdivtauConv,'displ',i,'colormap',cmap,'filename',['evol_mean_divtauConv' num2str(i)],'pathname',gridpathname,'FrameRate',framerate,...
+            evolSolution(M,mdivtauConv,'displ',i,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename',['evol_mean_divtauConv' num2str(i)],'pathname',gridpathname,'FrameRate',framerate,...
                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-            evolSolution(M,mdivtauDiff,'displ',i,'colormap',cmap,'filename',['evol_mean_divtauDiff' num2str(i)],'pathname',gridpathname,'FrameRate',framerate,...
+            evolSolution(M,mdivtauDiff,'displ',i,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename',['evol_mean_divtauDiff' num2str(i)],'pathname',gridpathname,'FrameRate',framerate,...
                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-            evolSolution(M,mtauSurf,'displ',i,'colormap',cmap,'filename',['evol_mean_tauSurf' num2str(i)],'pathname',gridpathname,'FrameRate',framerate,...
+            evolSolution(M,mtauSurf,'displ',i,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename',['evol_mean_tauSurf' num2str(i)],'pathname',gridpathname,'FrameRate',framerate,...
                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
             
-%             evolSolution(M,vu,'displ',i,'colormap',cmap,'filename',['evol_var_u' num2str(i)],'pathname',gridpathname,'FrameRate',framerate);,...
+%             evolSolution(M,vu,'displ',i,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename',['evol_var_u' num2str(i)],'pathname',gridpathname,'FrameRate',framerate);,...
 %                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-%             evolSolution(M,vtauTime,'displ',i,'colormap',cmap,'filename',['evol_var_tauTime' num2str(i)],'pathname',gridpathname,'FrameRate',framerate);,...
+%             evolSolution(M,vtauTime,'displ',i,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename',['evol_var_tauTime' num2str(i)],'pathname',gridpathname,'FrameRate',framerate);,...
 %                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-%             evolSolution(M,vdivtauConv,'displ',i,'colormap',cmap,'filename',['evol_var_divtauConv' num2str(i)],'pathname',gridpathname,'FrameRate',framerate);,...
+%             evolSolution(M,vdivtauConv,'displ',i,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename',['evol_var_divtauConv' num2str(i)],'pathname',gridpathname,'FrameRate',framerate);,...
 %                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-%             evolSolution(M,vdivtauDiff,'displ',i,'colormap',cmap,'filename',['evol_var_divtauDiff' num2str(i)],'pathname',gridpathname,'FrameRate',framerate);,...
+%             evolSolution(M,vdivtauDiff,'displ',i,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename',['evol_var_divtauDiff' num2str(i)],'pathname',gridpathname,'FrameRate',framerate);,...
 %                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-%             evolSolution(M,vtauSurf,'displ',i,'colormap',cmap,'filename',['evol_var_tauSurf' num2str(i)],'pathname',gridpathname,'FrameRate',framerate);,...
+%             evolSolution(M,vtauSurf,'displ',i,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename',['evol_var_tauSurf' num2str(i)],'pathname',gridpathname,'FrameRate',framerate);,...
 %                 'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
             
             figure('Name',['Mean of velocity u' num2str(i)])
@@ -1322,6 +1325,8 @@ for g=2^4
             colorbar
             axis on
             box on
+            view(az,el)
+            camup([0 1 0])
             set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
             mysaveas(gridpathname,['mean_u' num2str(i) '_t' num2str(t*100)],formats,renderer);
             
@@ -1333,6 +1338,8 @@ for g=2^4
             colorbar
             axis on
             box on
+            view(az,el)
+            camup([0 1 0])
             set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
             mysaveas(gridpathname,['mean_tauTime' num2str(i) '_t' num2str(t*100)],formats,renderer);
             
@@ -1344,6 +1351,8 @@ for g=2^4
             colorbar
             axis on
             box on
+            view(az,el)
+            camup([0 1 0])
             set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
             mysaveas(gridpathname,['mean_divtauConv' num2str(i) '_t' num2str(t*100)],formats,renderer);
             
@@ -1355,6 +1364,8 @@ for g=2^4
             colorbar
             axis on
             box on
+            view(az,el)
+            camup([0 1 0])
             set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
             mysaveas(gridpathname,['mean_divtauDiff' num2str(i) '_t' num2str(t*100)],formats,renderer);
             
@@ -1366,6 +1377,8 @@ for g=2^4
             colorbar
             axis on
             box on
+            view(az,el)
+            camup([0 1 0])
             set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
             mysaveas(gridpathname,['mean_tauSurf' num2str(i) '_t' num2str(t*100)],formats,renderer);
             
@@ -1377,6 +1390,8 @@ for g=2^4
 %             colorbar
 %             axis on
 %             box on
+%             view(az,el)
+%             camup([0 1 0])
 %             set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
 %             mysaveas(gridpathname,['var_u' num2str(i) '_t' num2str(t*100)],formats,renderer);
 %             
@@ -1388,6 +1403,8 @@ for g=2^4
 %             colorbar
 %             axis on
 %             box on
+%             view(az,el)
+%             camup([0 1 0])
 %             set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
 %             mysaveas(gridpathname,['var_tauTime' num2str(i) '_t' num2str(t*100)],formats,renderer);
 %             
@@ -1399,6 +1416,8 @@ for g=2^4
 %             colorbar
 %             axis on
 %             box on
+%             view(az,el)
+%             camup([0 1 0])
 %             set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
 %             mysaveas(gridpathname,['var_divtauConv' num2str(i) '_t' num2str(t*100)],formats,renderer);
 %             
@@ -1410,6 +1429,8 @@ for g=2^4
 %             colorbar
 %             axis on
 %             box on
+%             view(az,el)
+%             camup([0 1 0])
 %             set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
 %             mysaveas(gridpathname,['var_divtauDiff' num2str(i) '_t' num2str(t*100)],formats,renderer);
 %             
@@ -1421,20 +1442,22 @@ for g=2^4
 %             colorbar
 %             axis on
 %             box on
+%             view(az,el)
+%             camup([0 1 0])
 %             set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
 %             mysaveas(gridpathname,['var_tauSurf' num2str(i) '_t' num2str(t*100)],formats,renderer);
         end
         
         Mscal = final(M,DDL('C'));
         
-        evolSolution(Mscal,mC,'colormap',cmap,'filename','evol_mean_C','pathname',gridpathname,'FrameRate',framerate,...
+        evolSolution(Mscal,mC,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename','evol_mean_C','pathname',gridpathname,'FrameRate',framerate,...
             'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-        evolSolution(Mscal,mtauInterf,'colormap',cmap,'filename','evol_mean_tauInterf','pathname',gridpathname,'FrameRate',framerate,...
+        evolSolution(Mscal,mtauInterf,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename','evol_mean_tauInterf','pathname',gridpathname,'FrameRate',framerate,...
             'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
         
-%         evolSolution(Mscal,vC,'colormap',cmap,'filename','evol_var_C','pathname',gridpathname,'FrameRate',framerate,...
+%         evolSolution(Mscal,vC,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename','evol_var_C','pathname',gridpathname,'FrameRate',framerate,...
 %             'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-%         evolSolution(Mscal,vtauInterf,'colormap',cmap,'filename','evol_var_tauInterf','pathname',gridpathname,'FrameRate',framerate,...
+%         evolSolution(Mscal,vtauInterf,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename','evol_var_tauInterf','pathname',gridpathname,'FrameRate',framerate,...
 %             'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
         
         figure('Name','Mean of indicator function C')
@@ -1445,6 +1468,8 @@ for g=2^4
         colorbar
         axis on
         box on
+        view(az,el)
+        camup([0 1 0])
         set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
         mysaveas(gridpathname,['mean_C_t' num2str(t*100)],formats,renderer);
         
@@ -1456,6 +1481,8 @@ for g=2^4
         colorbar
         axis on
         box on
+        view(az,el)
+        camup([0 1 0])
         set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
         mysaveas(gridpathname,['mean_tauInterf_t' num2str(t*100)],formats,renderer);
         
@@ -1465,7 +1492,10 @@ for g=2^4
 %         title(['time ' num2str(t*dt,'%.2f') ' s'],'FontSize',fontsize)
 %         colormap(cmap)
 %         colorbar
+%         axis on
 %         box on
+%         view(az,el)
+%         camup([0 1 0])
 %         set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
 %         mysaveas(gridname,['var_C_t' num2str(t*100)],formats,renderer);
 %         
@@ -1475,7 +1505,10 @@ for g=2^4
 %         title(['time ' num2str(t*dt,'%.2f') ' s'],'FontSize',fontsize)
 %         colormap(cmap)
 %         colorbar
+%         axis on
 %         box on
+%         view(az,el)
+%         camup([0 1 0])
 %         set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
 %         mysaveas(gridname,['var_tauInterf_t' num2str(t*100)],formats,renderer);
     end
@@ -1519,6 +1552,6 @@ for g=2^4
     make_pvd_file(gridpathname,'diphasic_fluids_mean',1,p+1);
     make_pvd_file(gridpathname,'diphasic_fluids_variance',1,p+1);
     
-    toc
-
+    time_Total = toc(t_Total);
+    fprintf('Elapsed time = %f s\n',time_Total);
 end
