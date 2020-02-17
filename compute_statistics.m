@@ -567,12 +567,18 @@ for g=2^4
         vQtau = zeros(ntau*2,p+1);
         vQe = zeros(ne*2,p+1);
         for t=0:p
-            Quct = Quc(:,:,:,t+1);
-            Qtauct = Qtauc(:,:,:,t+1);
-            Qect = Qec(:,:,:,t+1);
-            vQu(:,t+1) = var(Quct(:,:)); % vQu(:,t+1) = 1/(N-1)*sum(Quct(:,:).^2);
-            vQtau(:,t+1) = var(Qtauct(:,:)); % vQtau(:,t+1) = 1/(N-1)*sum(Qtauct(:,:).^2);
-            vQe(:,t+1) = var(Qect(:,:)); % vQe(:,t+1) = 1/(N-1)*sum(Qect(:,:).^2);
+            Qut = Qu(:,:,:,t+1);
+            Qtaut = Qtau(:,:,:,t+1);
+            Qet = Qe(:,:,:,t+1);
+            vQu(:,t+1) = var(Qut(:,:));
+            vQtau(:,t+1) = var(Qtaut(:,:));
+            vQe(:,t+1) = var(Qet(:,:));
+            % Quct = Quc(:,:,:,t+1);
+            % Qtauct = Qtauc(:,:,:,t+1);
+            % Qect = Qec(:,:,:,t+1);
+            % vQu(:,t+1) = 1/(N-1)*sum(Quct(:,:).^2);
+            % vQtau(:,t+1) = 1/(N-1)*sum(Qtauct(:,:).^2);
+            % vQe(:,t+1) = 1/(N-1)*sum(Qect(:,:).^2);
         end
         
         RQu = zeros(3*2,3*2,p+1,p+1);
@@ -602,32 +608,44 @@ for g=2^4
 %         RQtau = zeros(ntau*2,ntau*2,p+1,p+1);
 %         RQe = zeros(ne*2,ne*2,p+1,p+1);
 %         for t=0:p
+%             Qut = Qu(:,:,:,t+1);
+%             Qtaut = Qtau(:,:,:,t+1);
+%             Qet = Qe(:,:,:,t+1);
 %             Quct = Quc(:,:,:,t+1);
 %             Qtauct = Qtauc(:,:,:,t+1);
 %             Qect = Qec(:,:,:,t+1);
 %             for tt=0:p
+%                 Qutt = Qu(:,:,:,tt+1);
+%                 Qtautt = Qtau(:,:,:,tt+1);
+%                 Qett = Qe(:,:,:,tt+1);
 %                 Quctt = Quc(:,:,:,tt+1);
 %                 Qtauctt = Qtauc(:,:,:,tt+1);
 %                 Qectt = Qec(:,:,:,tt+1);
 %                 for i=1:3*2
-%                     vQuct = var(Quct(:,i)); % vQuct = 1/(N-1)*sum(Quct(:,i).^2);
+%                     vQut = var(Qut(:,i));
+%                     % vQut = 1/(N-1)*sum(Quct(:,i).^2);
 %                     for j=1:3*2
-%                         vQuctt = var(Quctt(:,j)); % vQuctt = 1/(N-1)*sum(Quctt(:,j).^2);
-%                         RQu(i,j,t+1,tt+1) = 1/(N-1)*sum(Quct(:,i).*Quctt(:,j))/sqrt(vQuct.*vQuctt);
+%                         vQutt = var(Qutt(:,j));
+%                         % vQutt = 1/(N-1)*sum(Quctt(:,j).^2);
+%                         RQu(i,j,t+1,tt+1) = 1/(N-1)*sum(Quct(:,i).*Quctt(:,j))/sqrt(vQut.*vQutt);
 %                     end
 %                 end
 %                 for i=1:ntau*2
-%                     vQtauct = var(Qtauct(:,i)); % vQtauct = 1/(N-1)*sum(Qtauct(:,i).^2);
+%                     vQtaut = var(Qtaut(:,i));
+%                     % vQtaut = 1/(N-1)*sum(Qtauct(:,i).^2);
 %                     for j=1:ntau*2
-%                         vQtauctt = var(Qtauctt(:,j)); % vQtauctt = 1/(N-1)*sum(Qtauctt(:,j).^2);
-%                         RQtau(i,j,t+1,tt+1) = 1/(N-1)*sum(Qtauct(:,i).*Qtauctt(:,j))/sqrt(vQtauct.*vQtauctt);
+%                         vQtautt = var(Qtautt(:,j));
+%                         % vQtautt = 1/(N-1)*sum(Qtauctt(:,j).^2);
+%                         RQtau(i,j,t+1,tt+1) = 1/(N-1)*sum(Qtauct(:,i).*Qtauctt(:,j))/sqrt(vQtaut.*vQtautt);
 %                     end
 %                 end
 %                 for i=1:ne*2
-%                     vQect = var(Qect(:,i)); % vQect = 1/(N-1)*sum(Qect(:,i).^2);
+%                     vQet = var(Qet(:,i));
+%                     % vQet = 1/(N-1)*sum(Qect(:,i).^2);
 %                     for j=1:ne*2
-%                         vQectt = var(Qectt(:,j)); % vQectt = 1/(N-1)*sum(Qectt(:,j).^2);
-%                         RQe(i,j,t+1,tt+1) = 1/(N-1)*sum(Qect(:,i).*Qectt(:,j))/sqrt(vQect.*vQectt);
+%                         vQett = var(Qett(:,j));
+%                         % vQett = 1/(N-1)*sum(Qectt(:,j).^2);
+%                         RQe(i,j,t+1,tt+1) = 1/(N-1)*sum(Qect(:,i).*Qectt(:,j))/sqrt(vQet.*vQett);
 %                     end
 %                 end
 %             end
@@ -1159,19 +1177,19 @@ for g=2^4
     hdl(1) = plot(t,squeeze(IQu(1,1,1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
     hold on
     hdl(2) = plot(t,squeeze(IQu(1,2,1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
-    hdl(3) = plot(t,squeeze(IQu(2,1,2,1,:)),'LineStyle','-','Color','g','LineWidth',1);
-    hdl(4) = plot(t,squeeze(IQu(2,2,2,2,:)),'LineStyle','--','Color','g','LineWidth',1);
-    hdl(5) = plot(t,squeeze(IQu(3,1,3,1,:)),'LineStyle','-','Color','r','LineWidth',1);
-    hdl(6) = plot(t,squeeze(IQu(3,2,3,2,:)),'LineStyle','--','Color','r','LineWidth',1);
+    hdl(3) = plot(t,squeeze(IQu(2,1,2,1,:)),'LineStyle','-','Color','r','LineWidth',1);
+    hdl(4) = plot(t,squeeze(IQu(2,2,2,2,:)),'LineStyle','--','Color','r','LineWidth',1);
+    hdl(5) = plot(t,squeeze(IQu(3,1,3,1,:)),'LineStyle','-','Color','g','LineWidth',1);
+    hdl(6) = plot(t,squeeze(IQu(3,2,3,2,:)),'LineStyle','--','Color','g','LineWidth',1);
     hold off
     grid on
     box on
     set(gca,'FontSize',10)
     xlabel('$\tau$ [s]','Interpreter','latex')
     ylabel(['$\displaystyle\frac{1}{T-\tau} \int_0^{T-\tau} {[C_Q(t+\tau,t)]}_{jj} \, dt$'],'Interpreter','latex')
-    leg = {'u1 in phase 1','u1 in phase 2',...
-        'u2 in phase 1','u2 in phase 2',...
-        'u3 in phase 1','u3 in phase 2'};
+    leg = {'u_1 in phase 1','u_1 in phase 2',...
+        'u_2 in phase 1','u_2 in phase 2',...
+        'u_3 in phase 1','u_3 in phase 2'};
     legend(leg{:},'Location','NorthEast')
     mysaveas(gridpathname,'power_u',formats,renderer);
     mymatlab2tikz(gridpathname,'power_u.tex');
@@ -1181,10 +1199,10 @@ for g=2^4
     hdl(1) = plot(t,squeeze(IQtauTime(1,1,1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
     hold on
     hdl(2) = plot(t,squeeze(IQtauTime(1,2,1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
-    hdl(3) = plot(t,squeeze(IQtauTime(2,1,2,1,:)),'LineStyle','-','Color','g','LineWidth',1);
-    hdl(4) = plot(t,squeeze(IQtauTime(2,2,2,2,:)),'LineStyle','--','Color','g','LineWidth',1);
-    hdl(5) = plot(t,squeeze(IQtauTime(3,1,3,1,:)),'LineStyle','-','Color','r','LineWidth',1);
-    hdl(6) = plot(t,squeeze(IQtauTime(3,2,3,2,:)),'LineStyle','--','Color','r','LineWidth',1);
+    hdl(3) = plot(t,squeeze(IQtauTime(2,1,2,1,:)),'LineStyle','-','Color','r','LineWidth',1);
+    hdl(4) = plot(t,squeeze(IQtauTime(2,2,2,2,:)),'LineStyle','--','Color','r','LineWidth',1);
+    hdl(5) = plot(t,squeeze(IQtauTime(3,1,3,1,:)),'LineStyle','-','Color','g','LineWidth',1);
+    hdl(6) = plot(t,squeeze(IQtauTime(3,2,3,2,:)),'LineStyle','--','Color','g','LineWidth',1);
     hold off
     grid on
     box on
@@ -1204,19 +1222,19 @@ for g=2^4
     hdl(1) = plot(t,squeeze(IQdivtauConv(1,1,1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
     hold on
     hdl(2) = plot(t,squeeze(IQdivtauConv(1,2,1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
-    hdl(3) = plot(t,squeeze(IQdivtauConv(2,1,2,1,:)),'LineStyle','-','Color','g','LineWidth',1);
-    hdl(4) = plot(t,squeeze(IQdivtauConv(2,2,2,2,:)),'LineStyle','--','Color','g','LineWidth',1);
-    hdl(5) = plot(t,squeeze(IQdivtauConv(3,1,3,1,:)),'LineStyle','-','Color','r','LineWidth',1);
-    hdl(6) = plot(t,squeeze(IQdivtauConv(3,2,3,2,:)),'LineStyle','--','Color','r','LineWidth',1);
+    hdl(3) = plot(t,squeeze(IQdivtauConv(2,1,2,1,:)),'LineStyle','-','Color','r','LineWidth',1);
+    hdl(4) = plot(t,squeeze(IQdivtauConv(2,2,2,2,:)),'LineStyle','--','Color','r','LineWidth',1);
+    hdl(5) = plot(t,squeeze(IQdivtauConv(3,1,3,1,:)),'LineStyle','-','Color','g','LineWidth',1);
+    hdl(6) = plot(t,squeeze(IQdivtauConv(3,2,3,2,:)),'LineStyle','--','Color','g','LineWidth',1);
     hold off
     grid on
     box on
     set(gca,'FontSize',10)
     xlabel('$\tau$ [s]','Interpreter','latex')
     ylabel(['$\displaystyle\frac{1}{T-\tau} \int_0^{T-\tau} {[C_Q(t+\tau,t)]}_{jj} \, dt$'],'Interpreter','latex')
-    leg = {'$\mathrm{div}\tau_{\mathrm{conv}\,1}$ in phase 1','$\mathrm{div}\tau_{\mathrm{conv}\,1}$ in phase 2',...
-        '$\mathrm{div}\tau_{\mathrm{conv}\,2}$ in phase 1','$\mathrm{div}\tau_{\mathrm{conv}\,2}$ in phase 2',...
-        '$\mathrm{div}\tau_{\mathrm{conv}\,3}$ in phase 1','$\mathrm{div}\tau_{\mathrm{conv}\,3}$ in phase 2'};
+    leg = {'$(\nabla \cdot \tau_{\mathrm{conv}})_1$ in phase 1','$(\nabla \cdot \tau_{\mathrm{conv}})_1$ in phase 2',...
+        '$(\nabla \cdot \tau_{\mathrm{conv}})_2$ in phase 1','$(\nabla \cdot \tau_{\mathrm{conv}})_2$ in phase 2',...
+        '$(\nabla \cdot \tau_{\mathrm{conv}})_3$ in phase 1','$(\nabla \cdot \tau_{\mathrm{conv}})_3$ in phase 2'};
     l = legend(leg{:},'Location','NorthEast');
     set(l,'Interpreter','latex')
     mysaveas(gridpathname,'power_div_tau_conv',formats,renderer);
@@ -1227,19 +1245,19 @@ for g=2^4
     hdl(1) = plot(t,squeeze(IQdivtauDiff(1,1,1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
     hold on
     hdl(2) = plot(t,squeeze(IQdivtauDiff(1,2,1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
-    hdl(3) = plot(t,squeeze(IQdivtauDiff(2,1,2,1,:)),'LineStyle','-','Color','g','LineWidth',1);
-    hdl(4) = plot(t,squeeze(IQdivtauDiff(2,2,2,2,:)),'LineStyle','--','Color','g','LineWidth',1);
-    hdl(5) = plot(t,squeeze(IQdivtauDiff(3,1,3,1,:)),'LineStyle','-','Color','r','LineWidth',1);
-    hdl(6) = plot(t,squeeze(IQdivtauDiff(3,2,3,2,:)),'LineStyle','--','Color','r','LineWidth',1);
+    hdl(3) = plot(t,squeeze(IQdivtauDiff(2,1,2,1,:)),'LineStyle','-','Color','r','LineWidth',1);
+    hdl(4) = plot(t,squeeze(IQdivtauDiff(2,2,2,2,:)),'LineStyle','--','Color','r','LineWidth',1);
+    hdl(5) = plot(t,squeeze(IQdivtauDiff(3,1,3,1,:)),'LineStyle','-','Color','g','LineWidth',1);
+    hdl(6) = plot(t,squeeze(IQdivtauDiff(3,2,3,2,:)),'LineStyle','--','Color','g','LineWidth',1);
     hold off
     grid on
     box on
     set(gca,'FontSize',10)
     xlabel('$\tau$ [s]','Interpreter','latex')
     ylabel(['$\displaystyle\frac{1}{T-\tau} \int_0^{T-\tau} {[C_Q(t+\tau,t)]}_{jj} \, dt$'],'Interpreter','latex')
-    leg = {'$\mathrm{div}\tau_{\mathrm{diff}\,1}$ in phase 1','$\mathrm{div}\tau_{\mathrm{diff}\,1}$ in phase 2',...
-        '$\mathrm{div}\tau_{\mathrm{diff}\,2}$ in phase 1','$\mathrm{div}\tau_{\mathrm{diff}\,2}$ in phase 2',...
-        '$\mathrm{div}\tau_{\mathrm{diff}\,3}$ in phase 1','$\mathrm{div}\tau_{\mathrm{diff}\,3}$ in phase 2'};
+    leg = {'$(\nabla \cdot \tau_{\mathrm{diff}})_1$ in phase 1','$(\nabla \cdot \tau_{\mathrm{diff}})_1$ in phase 2',...
+        '$(\nabla \cdot \tau_{\mathrm{diff}})_2$ in phase 1','$(\nabla \cdot \tau_{\mathrm{diff}})_2$ in phase 2',...
+        '$(\nabla \cdot \tau_{\mathrm{diff}})_3$ in phase 1','$(\nabla \cdot \tau_{\mathrm{diff}})_3$ in phase 2'};
     l = legend(leg{:},'Location','NorthEast');
     set(l,'Interpreter','latex')
     mysaveas(gridpathname,'power_div_tau_diff',formats,renderer);
@@ -1250,10 +1268,10 @@ for g=2^4
     hdl(1) = plot(t,squeeze(IQtauSurf(1,1,1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
     hold on
     hdl(2) = plot(t,squeeze(IQtauSurf(1,2,1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
-    hdl(3) = plot(t,squeeze(IQtauSurf(2,1,2,1,:)),'LineStyle','-','Color','g','LineWidth',1);
-    hdl(4) = plot(t,squeeze(IQtauSurf(2,2,2,2,:)),'LineStyle','--','Color','g','LineWidth',1);
-    hdl(5) = plot(t,squeeze(IQtauSurf(3,1,3,1,:)),'LineStyle','-','Color','r','LineWidth',1);
-    hdl(6) = plot(t,squeeze(IQtauSurf(3,2,3,2,:)),'LineStyle','--','Color','r','LineWidth',1);
+    hdl(3) = plot(t,squeeze(IQtauSurf(2,1,2,1,:)),'LineStyle','-','Color','r','LineWidth',1);
+    hdl(4) = plot(t,squeeze(IQtauSurf(2,2,2,2,:)),'LineStyle','--','Color','r','LineWidth',1);
+    hdl(5) = plot(t,squeeze(IQtauSurf(3,1,3,1,:)),'LineStyle','-','Color','g','LineWidth',1);
+    hdl(6) = plot(t,squeeze(IQtauSurf(3,2,3,2,:)),'LineStyle','--','Color','g','LineWidth',1);
     hold off
     grid on
     box on
@@ -1279,7 +1297,7 @@ for g=2^4
     set(gca,'FontSize',10)
     xlabel('$\tau$ [s]','Interpreter','latex')
     ylabel(['$\displaystyle\frac{1}{T-\tau} \int_0^{T-\tau} {[C_Q(t+\tau,t)]}_{jj} \, dt$'],'Interpreter','latex')
-    leg = {'$\tau_{\mathrm{interf}\,1}$ in phase 1','$\tau_{\mathrm{interf}\,1}$ in phase 2'};
+    leg = {'$\tau_{\mathrm{interf}}$ in phase 1','$\tau_{\mathrm{interf}}$ in phase 2'};
     l = legend(leg{:},'Location','NorthEast');
     set(l,'Interpreter','latex')
     mysaveas(gridpathname,'power_tau_interf',formats,renderer);
