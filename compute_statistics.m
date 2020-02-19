@@ -1038,10 +1038,10 @@ if g<2^7
     tauSurf = permute(Tauc(:,10:12,:,:),[1,4,2,3]);
     tauInterf = permute(Tauc(:,13,:,:),[1,4,2,3]);
     
-    indu = (0:m-1)*n+(1:3)';
+    indu = repmat((0:m-1)*n,[3,1])+repmat((1:3)',[1,m]);
     indC = (0:m-1)*n+4;
-    indu = indu(:)'+n*m*(0:p)';
-    indC = indC(:)'+n*m*(0:p)';
+    indu = repmat(indu(:)',[p+1,1])+repmat(n*m*(0:p)',[1,3*m]);
+    indC = repmat(indC(:)',[p+1,1])+repmat(n*m*(0:p)',[1,m]);
     
     varu = vY_approx(indu(:));
     varC = vY_approx(indC(:));
@@ -1051,21 +1051,21 @@ if g<2^7
     vartauSurf = 1/(N-1)*sum(tauSurf(:,:).^2)';
     vartauInterf = 1/(N-1)*sum(tauInterf(:,:).^2)';
     
-    indu = (0:m-1)*nvar+(1:3)';
+    indu = repmat((0:m-1)*nvar,[3,1])+repmat((1:3)',[1,m]);
     indC = (0:m-1)*nvar+4;
-    indtauTime = (0:m-1)*nvar+(5:7)';
-    inddivtauConv = (0:m-1)*nvar+(8:10)';
-    inddivtauDiff = (0:m-1)*nvar+(11:13)';
-    indtauSurf = (0:m-1)*nvar+(14:16)';
+    indtauTime = repmat((0:m-1)*nvar,[3,1])+repmat((5:7)',[1,m]);
+    inddivtauConv = repmat((0:m-1)*nvar,[3,1])+repmat((8:10)',[1,m]);
+    inddivtauDiff = repmat((0:m-1)*nvar,[3,1])+repmat((11:13)',[1,m]);
+    indtauSurf = repmat((0:m-1)*nvar,[3,1])+repmat((14:16)',[1,m]);
     indtauInterf = (0:m-1)*nvar+17;
     
-    indu = indu(:)'+nvar*m*(0:p)';
-    indC = indC(:)'+nvar*m*(0:p)';
-    indtauTime = indtauTime(:)'+nvar*m*(0:p)';
-    inddivtauConv = inddivtauConv(:)'+nvar*m*(0:p)';
-    inddivtauDiff = inddivtauDiff(:)'+nvar*m*(0:p)';
-    indtauSurf = indtauSurf(:)'+nvar*m*(0:p)';
-    indtauInterf = indtauInterf(:)'+nvar*m*(0:p)';
+    indu = repmat(indu(:)',[p+1,1])+repmat(nvar*m*(0:p)',[1,3*m]);
+    indC = repmat(indC(:)',[p+1,1])+repmat(nvar*m*(0:p)',[1,m]);
+    indtauTime = repmat(indtauTime(:)',[p+1,1])+repmat(nvar*m*(0:p)',[1,3*m]);
+    inddivtauConv = repmat(inddivtauConv(:)',[p+1,1])+repmat(nvar*m*(0:p)',[1,3*m]);
+    inddivtauDiff = repmat(inddivtauDiff(:)',[p+1,1])+repmat(nvar*m*(0:p)',[1,3*m]);
+    indtauSurf = repmat(indtauSurf(:)',[p+1,1])+repmat(nvar*m*(0:p)',[1,3*m]);
+    indtauInterf = repmat(indtauInterf(:)',[p+1,1])+repmat(nvar*m*(0:p)',[1,m]);
     
     vYTau_approx = zeros(nvar*m*(p+1),1);
     vYTau_approx(indu(:)) = varu;
