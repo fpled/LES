@@ -2,8 +2,10 @@ clc
 clearvars
 close all
 
-solveProblem = true;
-computeError = false;
+computePCAspace = true;
+computePCAtime = true;
+postProcess = true;
+
 displaySolution = false;
 displayEigenvales = false;
 displayCovariance = false;
@@ -68,8 +70,8 @@ Dx = spdiags(repmat([1 -1],g+1,1),[1 -1],g+1,g+1)/(2*dx);
 % Implicit central-difference time scheme (second-order accurate, unconditionally stable)
 Dt = spdiags(repmat([1 -1],p+1,1),[1 -1],p+1,p+1)/(2*dt);
 
-if solveProblem
-    %% First reduction step
+%% First reduction step in space
+if computePCAspace
     fprintf('\nPCA in space');
     t_PCA_space = tic;
     Rinit = min(r,N);
@@ -127,6 +129,21 @@ if solveProblem
         % sigtf = sigtf/sqrt(N-1);
         % err2Yct = sum(sigtf.^2)-sum(sigt.^2);
         
+        % mZt = mean(Zt,1)';
+        % CZt = cov(Zt); % CZt = 1/(N-1)*Zt'*Zt;
+        % norm(mZt)
+        % norm(CZt-eye(Rt))
+        % norm(Vt'*Vt-eye(Rt))
+        
+        %if verLessThan('matlab','9.1') % compatibility (<R2016b)
+        %    CYt_approx = Vt*Sigt.^2*Vt';
+        %else
+        %    CYt_approx = Vt*(sigt.^2.*Vt');
+        %end
+        %CYt = cov(Yct'); % CYt = 1/(N-1)*Yct*Yct';
+        %errCYt = norm(CYt_approx-CYt)/norm(CYt);
+        %fprintf('\n                                                  error = %.3e for CY',errCYt);
+        
         sig(1:Rt,t+1) = sigt;
         if g<2^7
             V(:,1:Rt,t+1) = Vt;
@@ -138,44 +155,38 @@ if solveProblem
         errsvdYc(1:Rt,t+1) = errsvdYct;
         err2Yc(t+1) = err2Yct;
         norm2Yc(t+1) = norm2Yct;
-        
-        %if verLessThan('matlab','9.1') % compatibility (<R2016b)
-        %    CYt_approx = Vt*Sigt.^2*Vt';
-        %else
-        %    CYt_approx = Vt*(sigt.^2.*Vt');
-        %end
-        %CYt = cov(Yct'); % CYt = 1/(N-1)*Yct*Yct';
-        %errCYt = norm(CYt_approx-CYt)/norm(CYt);
-        %fprintf('\n                                                  error = %.3e for CY',errCYt);
-        
-        % mZt = mean(Zt,1)';
-        % CZt = cov(Zt); % CZt = 1/(N-1)*Zt'*Zt;
-        % norm(mZt)
-        % norm(CZt-eye(Rt))
-        % norm(Vt'*Vt-eye(Rt))
     end
     fprintf('\n');
     
-    sig = sig(1:Rmax,:);
-    Z = Z(:,1:Rmax,:);
-    errsvdYc = errsvdYc(1:Rmax,:);
+    ts = (0:p)*dt;
+    errL2 = trapz(ts,err2Yc,2)/trapz(ts,norm2Yc,2);
+    fprintf('\nerror = %.3e for Y',errL2);
+    fprintf('\n');
     
-    save(fullfile(gridpathname,'PCA_space.mat'),'mY','sig','Z','R','Rmax','errsvdYc');
+    sig = sig(1:Rmax,:);
     if g<2^7
         V = V(:,1:Rmax,:);
-        save(fullfile(gridpathname,'PCA_space.mat'),'V','-append');
     end
+    Z = Z(:,1:Rmax,:);
+    errsvdYc = errsvdYc(1:Rmax,:);
     
     time_PCA_space = toc(t_PCA_space);
     fprintf('\nelapsed time = %f s',time_PCA_space);
     fprintf('\n');
     
-    t = (0:p)*dt;
-    errL2 = trapz(t,err2Yc,2)/trapz(t,norm2Yc,2);
-    fprintf('\nerror = %.3e for Y',errL2);
-    fprintf('\n');
-    
-    %% Second reduction step for each coordinate
+    save(fullfile(gridpathname,'PCA_space.mat'),'mY','sig','Z','R','Rmax','errsvdYc','time_PCA_space');
+    if g<2^7
+        save(fullfile(gridpathname,'PCA_space.mat'),'V','-append');
+    end
+else
+    load(fullfile(gridpathname,'PCA_space.mat'),'mY','sig','Z','R','Rmax','errsvdYc','time_PCA_space');
+    if g<2^7
+        load(fullfile(gridpathname,'PCA_space.mat'),'V');
+    end
+end
+
+%% Second reduction step in time for each coordinate
+% if computePCAtime
 %     fprintf('\nPCA in time');
 %     t_PCA_time = tic;
 %     Q = min(p+1,N);
@@ -212,11 +223,11 @@ if solveProblem
 %         % saf = saf/sqrt(N-1);
 %         % err2Zca = sum(saf.^2)-sum(sa.^2);
 %         
-%         s(1:Qa,a) = sa;
-%         W(:,1:Qa,a) = Wa;
-%         X(:,1:Qa,a) = Xa;
-%         Q(a) = Qa;
-%         errsvdZc(1:Qa,a) = errsvdZca;
+%         % mXa = mean(Xa,1)';
+%         % CXa = cov(Xa); % CXa = 1/(N-1)*Xa'*Xa;
+%         % norm(mXa)
+%         % norm(CXa-eye(Qa))
+%         % norm(Wa'*Wa-eye(Qa))
 %         
 %         if verLessThan('matlab','9.1') % compatibility (<R2016b)
 %             CZa_approx = Wa*Sa.^2*Wa';
@@ -241,11 +252,11 @@ if solveProblem
 %             mymatlab2tikz(gridpathname,['covariance_CZ_a' num2str(a) '.tex']);
 %         end
 %         
-%         % mXa = mean(Xa,1)';
-%         % CXa = cov(Xa); % CXa = 1/(N-1)*Xa'*Xa;
-%         % norm(mXa)
-%         % norm(CXa-eye(Qa))
-%         % norm(Wa'*Wa-eye(Qa))
+%         s(1:Qa,a) = sa;
+%         W(:,1:Qa,a) = Wa;
+%         X(:,1:Qa,a) = Xa;
+%         Q(a) = Qa;
+%         errsvdZc(1:Qa,a) = errsvdZca;
 %     end
 %     fprintf('\n');
 %     
@@ -258,8 +269,14 @@ if solveProblem
 %     time_PCA_time = toc(t_PCA_time);
 %     fprintf('\nelapsed time = %f s',time_PCA_time);
 %     fprintf('\n');
+%     
+%     save(fullfile(gridpathname,'PCA_time.mat'),'s','W','Q','errsvdZc','time_PCA_time');
+% else
+%     load(fullfile(gridpathname,'PCA_time.mat'),'s','W','Q','errsvdZc','time_PCA_time');
+% end
     
-    %% Second reduction step
+%% Second reduction step in time
+if computePCAtime
     fprintf('\nPCA in time');
     t_PCA_time = tic;
     q = (p+1)*Rmax;
@@ -292,6 +309,15 @@ if solveProblem
     % sf = sf/sqrt(N-1);
     % err2Zc = sum(sf.^2)-sum(s.^2);
     
+    % mX = mean(X,1)';
+    % CX = cov(X); % CX = 1/(N-1)*X'*X;
+    % norm(mX)
+    % norm(CX-eye(Q))
+    % norm(W'*W-eye(Q))
+    % norm(CZ_approx*W-(p+1)*W)
+    % norm(CZ*W-(p+1)*W)
+    % norm(abs(s.^2-(p+1)))
+    
     if verLessThan('matlab','9.1') % compatibility (<R2016b)
         CZ_approx = W*S.^2*W';
     else
@@ -301,17 +327,6 @@ if solveProblem
     errCZ = norm(CZ_approx-CZ)/norm(CZ);
     fprintf('\n                          error = %.3e for CZ',errCZ);
     fprintf('\n');
-    
-    save(fullfile(gridpathname,'PCA_time.mat'),'s','W','errsvdZc','Q');
-    
-    % mX = mean(X,1)';
-    % CX = cov(X); % CX = 1/(N-1)*X'*X;
-    % norm(mX)
-    % norm(CX-eye(Q))
-    % norm(W'*W-eye(Q))
-    % norm(CZ_approx*W-(p+1)*W)
-    % norm(CZ*W-(p+1)*W)
-    % norm(abs(s.^2-(p+1)))
     
     if displayCovariance
         figure('Name','Covariance matrix')
@@ -360,6 +375,12 @@ if solveProblem
     fprintf('\nelapsed time = %f s',time_PCA_time);
     fprintf('\n');
     
+    save(fullfile(gridpathname,'PCA_time.mat'),'s','W','Q','errsvdZc','time_PCA_time');
+else
+    load(fullfile(gridpathname,'PCA_time.mat'),'s','W','Q','errsvdZc','time_PCA_time');
+end
+
+if postProcess
     %% Post-processing data
     fprintf('\nPost-processing data');
     t_PostProcess = tic;
@@ -368,6 +389,7 @@ if solveProblem
     fprintf('\nn = %d post-processed variables',ntau);
     fprintf('\n  = %d energy variables',ne);
     
+    mTau = zeros(1,ntau,m,p+1);
     if g<2^7
         Tau = zeros(N,ntau,m,p+1);
     end
@@ -546,6 +568,9 @@ if solveProblem
         Taut = iperm(Taut);
         Taut = Taut(:,:,:);
         
+        mTaut = mean(Taut,1);
+        mTau(:,:,:,t+1) = mTaut;
+        
         if g<2^7
             Tau(:,:,:,t+1) = Taut;
         else
@@ -553,10 +578,6 @@ if solveProblem
         end
     end
     fprintf('\n');
-    if g<2^7
-        save(fullfile(gridpathname,'data_post.mat'),'Tau');
-    end
-    save(fullfile(gridpathname,'data_post.mat'),'Qu','Qtau','Qe','ntau','ne','-append');
     
     mQu = mean(Qu,1);
     mQtau = mean(Qtau,1);
@@ -607,53 +628,6 @@ if solveProblem
         end
     end
     
-    %         RQu = zeros(3*2,3*2,p+1,p+1);
-    %         RQtau = zeros(ntau*2,ntau*2,p+1,p+1);
-    %         RQe = zeros(ne*2,ne*2,p+1,p+1);
-    %         for t=0:p
-    %             Qut = Qu(:,:,:,t+1);
-    %             Qtaut = Qtau(:,:,:,t+1);
-    %             Qet = Qe(:,:,:,t+1);
-    %             Quct = Quc(:,:,:,t+1);
-    %             Qtauct = Qtauc(:,:,:,t+1);
-    %             Qect = Qec(:,:,:,t+1);
-    %             for tt=0:p
-    %                 Qutt = Qu(:,:,:,tt+1);
-    %                 Qtautt = Qtau(:,:,:,tt+1);
-    %                 Qett = Qe(:,:,:,tt+1);
-    %                 Quctt = Quc(:,:,:,tt+1);
-    %                 Qtauctt = Qtauc(:,:,:,tt+1);
-    %                 Qectt = Qec(:,:,:,tt+1);
-    %                 for i=1:3*2
-    %                     stdQut = std(Qut(:,i));
-    %                     % stdQut = sqt(1/(N-1)*sum(Quct(:,i).^2));
-    %                     for j=1:3*2
-    %                         stdQutt = std(Qutt(:,j));
-    %                         % stdQutt = sqrt(1/(N-1)*sum(Quctt(:,j).^2));
-    %                         RQu(i,j,t+1,tt+1) = 1/(N-1)*sum(Quct(:,i).*Quctt(:,j))/(stdQut.*stdQutt);
-    %                     end
-    %                 end
-    %                 for i=1:ntau*2
-    %                     stdQtaut = std(Qtaut(:,i));
-    %                     % stdQtaut = sqrt(1/(N-1)*sum(Qtauct(:,i).^2));
-    %                     for j=1:ntau*2
-    %                         stdQtautt = std(Qtautt(:,j));
-    %                         % stdQtautt = sqrt(1/(N-1)*sum(Qtauctt(:,j).^2));
-    %                         RQtau(i,j,t+1,tt+1) = 1/(N-1)*sum(Qtauct(:,i).*Qtauctt(:,j))/(stdQtaut.*stdQtautt);
-    %                     end
-    %                 end
-    %                 for i=1:ne*2
-    %                     stdQet = std(Qet(:,i));
-    %                     % stdQet = sqrt(1/(N-1)*sum(Qect(:,i).^2));
-    %                     for j=1:ne*2
-    %                         stdQett = std(Qett(:,j));
-    %                         % stdQett = sqrt(1/(N-1)*sum(Qectt(:,j).^2));
-    %                         RQe(i,j,t+1,tt+1) = 1/(N-1)*sum(Qect(:,i).*Qectt(:,j))/(stdQet.*stdQett);
-    %                     end
-    %                 end
-    %             end
-    %         end
-    
     IQu = zeros(3*2,3*2,p+1);
     IQtau = zeros(ntau*2,ntau*2,p+1);
     IQe = zeros(ne*2,ne*2,p+1);
@@ -677,76 +651,21 @@ if solveProblem
     IQtau = reshape(IQtau,ntau,2,ntau,2,p+1);
     IQe = reshape(IQe,ne,2,ne,2,p+1);
     
-    save(fullfile(gridpathname,'data_post.mat'),'mQu','mQtau','mQe','IQu','IQtau','IQe','-append');
-    
     time_PostProcess = toc(t_PostProcess);
     fprintf('\nelapsed time = %f s',time_PostProcess);
     fprintf('\n');
-else
+    
+    save(fullfile(gridpathname,'data_post.mat'),'mTau','ntau','ne',...
+        'Qu','Qtau','Qe','mQu','mQtau','mQe','IQu','IQtau','IQe','time_PostProcess');
     if g<2^7
-        load(fullfile(gridpathname,'PCA_space.mat'),'V');
+        save(fullfile(gridpathname,'data_post.mat'),'Tau','-append');
+    end
+else
+    load(fullfile(gridpathname,'data_post.mat'),'mTau','ntau','ne',...
+        'Qu','Qtau','Qe','mQu','mQtau','mQe','IQu','IQtau','IQe','time_PostProcess');
+    if g<2^7
         load(fullfile(gridpathname,'data_post.mat'),'Tau');
     end
-    load(fullfile(gridpathname,'PCA_space.mat'),'mY','sig','Z','R','Rmax','errsvdYc');
-    load(fullfile(gridpathname,'PCA_time.mat'),'s','W','Q','errsvdZc');
-    load(fullfile(gridpathname,'data_post.mat'),'Qu','Qtau','Qe','ntau','ne',...
-        'mQu','mQtau','mQe','IQu','IQtau','IQe');
-end
-
-%% Compute error
-g_ref = 2^8;
-sx_ref = [g_ref+1,g_ref+1,g_ref+1]; % reference spatial dimensions
-if computeError && g<g_ref
-    fprintf('\nComputing error');
-    t_Error = tic;
-    gridname_ref = ['Grid' num2str(g_ref)];
-    gridpathname_ref = fullfile(pathname,gridname_ref);
-    load(fullfile(gridpathname_ref,'PCA_space.mat'),'mY','sig','Z','R','Rmax');
-    load(fullfile(gridpathname_ref,'PCA_time.mat'),'s','W','Q');
-    mY_ref = mY;
-    sig_ref = sig;
-    Z_ref = Z;
-    R_ref = R;
-    Rmax_ref = Rmax;
-    s_ref = s;
-    W_ref = W;
-    Q_ref = Q;
-    clear mY sig Z R Rmax s W Q
-    for t=0:p
-        mYt_ref = mY_ref(1,:,:,t+1);
-        Rt_ref = R_ref(t+1);
-        sigt_ref = sig_ref(1:Rt_ref,t+1);
-        % Zt_ref = Z_ref(:,1:Rt_ref,t+1);
-        load(fullfile(gridpathname_ref,['PCA_space_t' num2str(t) '.mat']),'Vt');
-        Vt_ref = Vt;
-        clear Vt
-        switch index
-            case 'time'
-                Wt_ref = W_ref((t+1):(p+1):end,:);
-                Wt_ref = Wt_ref(1:Rt_ref,:);
-            case 'coord'
-                Wt_ref = W_ref(Rmax_ref*t+(1:Rt_ref),:);
-        end
-        
-        if verLessThan('matlab','9.1') % compatibility (<R2016b)
-            Zct_ref = Wt_ref*diag(s_ref)*X_ref'; % Zct_ref = Zt_ref';
-            Yct_ref = Vt_ref*diag(sigt_ref)*Zct_ref;
-        else
-            Zct_ref = Wt_ref*(s_ref.*X_ref'); % Zct_ref = Zt_ref';
-            Yct_ref = Vt_ref*(sigt_ref.*Zct_ref);
-        end
-        
-        mYt_ref = perm(reshape(mYt_ref,[1,n,sx_ref]));
-        Yt_ref = repmat(mYt_ref,[ones(1,4),N]) + perm(reshape(Yct_ref',[N,n,sx_ref]));
-        
-        load(fullfile(gridpathname_ref,['data_post_t' num2str(t) '.mat']),'Taut');
-        Taut_ref = Taut;
-        clear Taut
-    end
-    
-    time_Error = toc(t_Error);
-    fprintf('\nelapsed time = %f s',time_Error);
-    fprintf('\n');
 end
 
 %% Outputs
@@ -863,32 +782,7 @@ tf = p*dt;
 T = TIMEMODEL(0,tf,p);
 nvar = n+ntau;
 
-% Solution
-switch index
-    case 'time'
-        W = permute(reshape(W',[Q,p+1,Rmax]),[3,1,2]);
-        % Z_approx = permute(reshape(Zc_approx',[N,p+1,Rmax]),[1,3,2]);
-    case 'coord'
-        W = permute(reshape(W',[Q,Rmax,p+1]),[2,1,3]);
-        % Z_approx = reshape(Zc_approx',[N,Rmax,p+1]);
-end
-if g<2^7
-    % Yc_approx = zeros(N,n,m,p+1);
-    Uc_approx = zeros(Q,n,m,p+1);
-end
-
-if g<2^7
-    load(fullfile(gridpathname,'data.mat'),'Y');
-    load(fullfile(gridpathname,'PCA_space.mat'),'mY');
-    Yc = Y - repmat(mY,[N,1,1,1]); % Yc = Y - mY.*ones(N,1,1,1);
-    clear Y
-    load(fullfile(gridpathname,'data_post.mat'),'Tau');
-    mTau = mean(Tau,1);
-    Tauc = Tau - repmat(mTau,[N,1,1,1]); % Tauc = Tau - mTau.*ones(N,1,1,1);
-    clear Tau
-end
-
-% Mean
+% Mean solution
 mu = reshape(mY(1,1:3,:,:),[3*m,p+1]);
 mC = reshape(mY(1,4,:,:),[m,p+1]);
 mtauTime = reshape(mTau(1,1:3,:,:),[3*m,p+1]);
@@ -897,7 +791,15 @@ mdivtauDiff = reshape(mTau(1,7:9,:,:),[3*m,p+1]);
 mtauSurf = reshape(mTau(1,10:12,:,:),[3*m,p+1]);
 mtauInterf = reshape(mTau(1,13,:,:),[m,p+1]);
 
-% Variance
+mu = TIMEMATRIX(mu,T);
+mC = TIMEMATRIX(mC,T);
+mtauTime = TIMEMATRIX(mtauTime,T);
+mdivtauConv = TIMEMATRIX(mdivtauConv,T);
+mdivtauDiff = TIMEMATRIX(mdivtauDiff,T);
+mtauSurf = TIMEMATRIX(mtauSurf,T);
+mtauInterf = TIMEMATRIX(mtauInterf,T);
+
+% Variance of solution
 vu = zeros(3*m,p+1);
 vC = zeros(m,p+1);
 vtauTime = zeros(3*m,p+1);
@@ -905,23 +807,23 @@ vdivtauConv = zeros(3*m,p+1);
 vdivtauDiff = zeros(3*m,p+1);
 vtauSurf = zeros(3*m,p+1);
 vtauInterf = zeros(m,p+1);
+
+switch index
+    case 'time'
+        W = permute(reshape(W',[Q,p+1,Rmax]),[3,1,2]);
+        % Z_approx = permute(reshape(Zc_approx',[N,p+1,Rmax]),[1,3,2]);
+    case 'coord'
+        W = permute(reshape(W',[Q,Rmax,p+1]),[2,1,3]);
+        % Z_approx = reshape(Zc_approx',[N,Rmax,p+1]);
+end
+
 for t=0:p
+    Rt = R(t+1);
     if g<2^7
-        Yct = Yc(:,:,:,t+1);
-        Tauct = Tauc(:,:,:,t+1);
         Vt = V(:,1:Rt,t+1);
     else
-        load(fullfile(gridpathname,['data_t' num2str(t) '.mat']),'Yt');
-        mYt = mean(Yt,1);
-        Yct = Yt - repmat(mYt,[N,1,1]); % Yct = Yt - mYt.*ones(N,1,1);
-        clear Yt
-        load(fullfile(gridpathname,['data_post_t' num2str(t) '.mat']),'Taut');
-        mTaut = mean(Taut,1);
-        Tauct = Taut - repmat(mTaut,[N,1,1]); % Tauct = Taut - mTaut.*ones(N,1,1);
-        clear Taut
         load(fullfile(gridpathname,['PCA_space_t' num2str(t) '.mat']),'Vt');
     end
-    Rt = R(t+1);
     sigt = sig(1:Rt,t+1);
     Wt = W(1:Rt,:,t+1);
     if verLessThan('matlab','9.1') % compatibility (<R2016b)
@@ -932,10 +834,6 @@ for t=0:p
         % Zct_approx = Wt*(s.*X'); % Zct_approx = Z_approx(:,1:Rt,t+1)';
         % Yct_approx = Vt*(sigt.*Zct_approx);
         Uct_approx = Vt*(sigt.*Wt);
-    end
-    if g<2^7
-        % Yc_approx(:,:,:,t+1) = reshape(Yct_approx',[N,n,m]);
-        Uc_approx(:,:,:,t+1) = reshape(Uct_approx',[Q,n,m]);
     end
     
     % CYt_approx = cov(Yct_approx'); % CYt_approx = 1/(N-1)*Yct_approx*Yct_approx';
@@ -950,6 +848,14 @@ for t=0:p
     else
         vYt_approx = sum((s.*Uct_approx').^2)';
     end
+    
+    mTaut = mTau(:,:,:,t+1);
+    if g<2^7
+        Taut = Tau(:,:,:,t+1);
+    else
+        load(fullfile(gridpathname,['data_post_t' num2str(t) '.mat']),'Taut');
+    end
+    Tauct = Taut - repmat(mTaut,[N,1,1]); % Tauct = Taut - mTaut.*ones(N,1,1);
     
     tauTimet = Tauct(:,1:3,:);
     divtauConvt = Tauct(:,4:6,:);
@@ -975,40 +881,8 @@ for t=0:p
     vdivtauDiff(:,t+1) = vdivtauDifft;
     vtauSurf(:,t+1) = vtauSurft;
     vtauInterf(:,t+1) = vtauInterft;
-    
-    indut = repmat((0:m-1)*nvar,[3,1])+repmat((1:3)',[1,m]);
-    indCt = (0:m-1)*nvar+4;
-    indtauTimet = repmat((0:m-1)*nvar,[3,1])+repmat((5:7)',[1,m]);
-    inddivtauConvt = repmat((0:m-1)*nvar,[3,1])+repmat((8:10)',[1,m]);
-    inddivtauDifft = repmat((0:m-1)*nvar,[3,1])+repmat((11:13)',[1,m]);
-    indtauSurft = repmat((0:m-1)*nvar,[3,1])+repmat((14:16)',[1,m]);
-    indtauInterft = (0:m-1)*nvar+17;
-    
-    vYTaut_approx = zeros(nvar*m,1);
-    vYTaut_approx(indut(:)) = vut;
-    vYTaut_approx(indCt(:)) = vCt;
-    vYTaut_approx(indtauTimet(:)) = vtauTimet;
-    vYTaut_approx(inddivtauConvt(:)) = vdivtauConvt;
-    vYTaut_approx(inddivtauDifft(:)) = vdivtauDifft;
-    vYTaut_approx(indtauSurft(:)) = vtauSurft;
-    vYTaut_approx(indtauInterft(:)) = vtauInterft;
-    
-    YTauct = cat(2,Yct,Tauct);
-    % CYTaut = cov(YTauct(:,:)); % CYTaut = 1/(N-1)*YTauct(:,:)'*YTauct(:,:);
-    % vYTaut = diag(CYTaut);
-    vYTaut = 1/(N-1)*sum(YTauct(:,:).^2)';
-    errvYTaut = norm(vYTaut_approx-vYTaut)/norm(vYTaut);
-    fprintf('\nTime %2d, t = %4g s : error = %.3e for VYTau',t,t*dt,errvYTaut);
 end
-
 fprintf('\n');
-mu = TIMEMATRIX(mu,T);
-mC = TIMEMATRIX(mC,T);
-mtauTime = TIMEMATRIX(mtauTime,T);
-mdivtauConv = TIMEMATRIX(mdivtauConv,T);
-mdivtauDiff = TIMEMATRIX(mdivtauDiff,T);
-mtauSurf = TIMEMATRIX(mtauSurf,T);
-mtauInterf = TIMEMATRIX(mtauInterf,T);
 
 vu = TIMEMATRIX(vu,T);
 vC = TIMEMATRIX(vC,T);
@@ -1017,73 +891,6 @@ vdivtauConv = TIMEMATRIX(vdivtauConv,T);
 vdivtauDiff = TIMEMATRIX(vdivtauDiff,T);
 vtauSurf = TIMEMATRIX(vtauSurf,T);
 vtauInterf = TIMEMATRIX(vtauInterf,T);
-
-if g<2^7
-    % CY_approx = cov(Yc_approx(:,:)); % CY_approx = 1/(N-1)*Yc_approx(:,:)'*Yc_approx(:,:);
-    % if verLessThan('matlab','9.1') % compatibility (<R2016b)
-    %     CY_approx = Uc_approx(:,:)'*diag(s).^2*Uc_approx(:,:);
-    % else
-    %     CY_approx = Uc_approx(:,:)'*(s.^2.*Uc_approx(:,:));
-    % end
-    % vY_approx = diag(CY_approx);
-    if verLessThan('matlab','9.1') % compatibility (<R2016b)
-        vY_approx = sum((diag(s)*Uc_approx(:,:)).^2)';
-    else
-        vY_approx = sum((s.*Uc_approx(:,:)).^2)';
-    end
-    
-    tauTime = permute(Tauc(:,1:3,:,:),[1,4,2,3]);
-    divtauConv = permute(Tauc(:,4:6,:,:),[1,4,2,3]);
-    divtauDiff = permute(Tauc(:,7:9,:,:),[1,4,2,3]);
-    tauSurf = permute(Tauc(:,10:12,:,:),[1,4,2,3]);
-    tauInterf = permute(Tauc(:,13,:,:),[1,4,2,3]);
-    
-    indu = repmat((0:m-1)*n,[3,1])+repmat((1:3)',[1,m]);
-    indC = (0:m-1)*n+4;
-    indu = repmat(indu(:)',[p+1,1])+repmat(n*m*(0:p)',[1,3*m]);
-    indC = repmat(indC(:)',[p+1,1])+repmat(n*m*(0:p)',[1,m]);
-    
-    varu = vY_approx(indu(:));
-    varC = vY_approx(indC(:));
-    vartauTime = 1/(N-1)*sum(tauTime(:,:).^2)';
-    vardivtauConv = 1/(N-1)*sum(divtauConv(:,:).^2)';
-    vardivtauDiff = 1/(N-1)*sum(divtauDiff(:,:).^2)';
-    vartauSurf = 1/(N-1)*sum(tauSurf(:,:).^2)';
-    vartauInterf = 1/(N-1)*sum(tauInterf(:,:).^2)';
-    
-    indu = repmat((0:m-1)*nvar,[3,1])+repmat((1:3)',[1,m]);
-    indC = (0:m-1)*nvar+4;
-    indtauTime = repmat((0:m-1)*nvar,[3,1])+repmat((5:7)',[1,m]);
-    inddivtauConv = repmat((0:m-1)*nvar,[3,1])+repmat((8:10)',[1,m]);
-    inddivtauDiff = repmat((0:m-1)*nvar,[3,1])+repmat((11:13)',[1,m]);
-    indtauSurf = repmat((0:m-1)*nvar,[3,1])+repmat((14:16)',[1,m]);
-    indtauInterf = (0:m-1)*nvar+17;
-    
-    indu = repmat(indu(:)',[p+1,1])+repmat(nvar*m*(0:p)',[1,3*m]);
-    indC = repmat(indC(:)',[p+1,1])+repmat(nvar*m*(0:p)',[1,m]);
-    indtauTime = repmat(indtauTime(:)',[p+1,1])+repmat(nvar*m*(0:p)',[1,3*m]);
-    inddivtauConv = repmat(inddivtauConv(:)',[p+1,1])+repmat(nvar*m*(0:p)',[1,3*m]);
-    inddivtauDiff = repmat(inddivtauDiff(:)',[p+1,1])+repmat(nvar*m*(0:p)',[1,3*m]);
-    indtauSurf = repmat(indtauSurf(:)',[p+1,1])+repmat(nvar*m*(0:p)',[1,3*m]);
-    indtauInterf = repmat(indtauInterf(:)',[p+1,1])+repmat(nvar*m*(0:p)',[1,m]);
-    
-    vYTau_approx = zeros(nvar*m*(p+1),1);
-    vYTau_approx(indu(:)) = varu;
-    vYTau_approx(indC(:)) = varC;
-    vYTau_approx(indtauTime(:)) = vartauTime;
-    vYTau_approx(inddivtauConv(:)) = vardivtauConv;
-    vYTau_approx(inddivtauDiff(:)) = vardivtauDiff;
-    vYTau_approx(indtauSurf(:)) = vartauSurf;
-    vYTau_approx(indtauInterf(:)) = vartauInterf;
-    
-    YTauc = cat(2,Yc,Tauc);
-    % CYTau = cov(YTauc(:,:)); % CYTau = 1/(N-1)*YTauc(:,:)'*YTauc(:,:);
-    % vYTau = diag(CYTau);
-    vYTau = 1/(N-1)*sum(YTauc(:,:).^2)';
-    errvYTau = norm(vYTau_approx-vYTau)/norm(vYTau);
-    fprintf('\nerror = %.3e for VYTau',errvYTau);
-    fprintf('\n');
-end
 
 % Display quantities of interest
 if displayQoI
