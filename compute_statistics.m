@@ -957,7 +957,7 @@ for t=0:p
     tauSurft = Tauct(:,10:12,:);
     tauInterft = Tauct(:,13,:);
     
-    indut = (0:m-1)*n+(1:3)';
+    indut = repmat((0:m-1)*n,[3,1])+repmat((1:3)',[1,m]);
     indCt = (0:m-1)*n+4;
     
     vut = vYt_approx(indut(:));
@@ -976,12 +976,12 @@ for t=0:p
     vtauSurf(:,t+1) = vtauSurft;
     vtauInterf(:,t+1) = vtauInterft;
     
-    indut = (0:m-1)*nvar+(1:3)';
+    indut = repmat((0:m-1)*nvar,[3,1])+repmat((1:3)',[1,m]);
     indCt = (0:m-1)*nvar+4;
-    indtauTimet = (0:m-1)*nvar+(5:7)';
-    inddivtauConvt = (0:m-1)*nvar+(8:10)';
-    inddivtauDifft = (0:m-1)*nvar+(11:13)';
-    indtauSurft = (0:m-1)*nvar+(14:16)';
+    indtauTimet = repmat((0:m-1)*nvar,[3,1])+repmat((5:7)',[1,m]);
+    inddivtauConvt = repmat((0:m-1)*nvar,[3,1])+repmat((8:10)',[1,m]);
+    inddivtauDifft = repmat((0:m-1)*nvar,[3,1])+repmat((11:13)',[1,m]);
+    indtauSurft = repmat((0:m-1)*nvar,[3,1])+repmat((14:16)',[1,m]);
     indtauInterft = (0:m-1)*nvar+17;
     
     vYTaut_approx = zeros(nvar*m,1);
