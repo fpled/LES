@@ -5,14 +5,12 @@ close all
 computePCAspace = true;
 computePCAtime = true;
 postProcess = true;
+applyFilter = true;
 
 displaySolution = false;
 displayEigenvales = false;
 displayCovariance = false;
 displayQoI = false;
-
-% index = 'time';
-index = 'coord';
 
 cmap = 'default';
 % cmap = 'gray';
@@ -30,17 +28,18 @@ mu = [0.1,0.1]; % dynamic viscosity of [water,oil] (Pa.s)
 rho = [1000,900]; % mass density of [water,oil] (kg/m3)
 gravity = 9.81; % gravity (m/s2)
 
-% Time scheme
-dt = 5e-3; % time step (s)
-dt = 100*dt; % physical time step stored every 100 time iterations
-
 perm = @(u) permute(u,[2,3,4,5,1]);
 iperm = @(u) ipermute(u,[2,3,4,5,1]);
 
 tolsvdYc = eps; % relative precision for truncated SVD of Yc
-tolsvdZc = 1e-6; % relative precision for truncated SVD of Zc
+tolsvdZc = eps; % relative precision for truncated SVD of Zc
 
-g=2^4;
+index = 'coord'; % index for time ordering ('coord', 'time')
+
+filterType = 'linear'; % 3D filter type ('box' or 'mean' or 'average', 'linear' or 'trapz')
+
+% Spatial grid size
+g = 2^4; % spatial grid size (2^4, 2^5, 2^6, 2^7, 2^8)
 
 t_Total = tic;
 gridname = ['Grid' num2str(g)];
@@ -55,20 +54,18 @@ fprintf('\nm = %d spatial points',m);
 fprintf('\np+1 = %d time steps',p+1);
 fprintf('\n');
 
-sx = [g+1,g+1,g+1]; % spatial dimensions
-
 % Spatial scheme
+sx = [g+1,g+1,g+1]; % spatial dimensions
 dx = L/g; % spatial step (m)
 x = linspace(0,L,g+1); % spatial discretization in each spatial dimension
-% Implicit central-difference spatial scheme (second-order accurate, unconditionlly stable)
-Dx = spdiags(repmat([1 -1],g+1,1),[1 -1],g+1,g+1)/(2*dx);
+Dx = spdiags(repmat([1 -1],g+1,1),[1 -1],g+1,g+1)/(2*dx); % Implicit central-difference spatial scheme (second-order accurate, unconditionlly stable)
 
-% Explicit backward Euler time scheme (first-order accurate, conditionally stable)
-% Dt = spdiags(repmat([1 -1],p+1,1),[0 -1],p+1,p+1)/dt;
-% Implicit forward Euler time scheme (first-order accurate, unconditionally stable)
-% Dt = spdiags(repmat([1 -1],p+1,1),[1 0],p+1,p+1)/dt;
-% Implicit central-difference time scheme (second-order accurate, unconditionally stable)
-Dt = spdiags(repmat([1 -1],p+1,1),[1 -1],p+1,p+1)/(2*dt);
+% Time scheme
+dt = 5e-3; % computing time step (s)
+dt = 100*dt; % physical time step stored every 100 computing time steps
+% Dt = spdiags(repmat([1 -1],p+1,1),[0 -1],p+1,p+1)/dt; % Explicit backward Euler time scheme (first-order accurate, conditionally stable)
+% Dt = spdiags(repmat([1 -1],p+1,1),[1 0],p+1,p+1)/dt; % Implicit forward Euler time scheme (first-order accurate, unconditionally stable)
+Dt = spdiags(repmat([1 -1],p+1,1),[1 -1],p+1,p+1)/(2*dt); % Implicit central-difference time scheme (second-order accurate, unconditionally stable)
 
 %% First reduction step in space
 if computePCAspace
@@ -78,7 +75,7 @@ if computePCAspace
     if g<2^7
         load(fullfile(gridpathname,'data.mat'),'Y');
         mY = mean(Y,1);
-        Yc = Y - repmat(mY,N,1,1,1); % Yc = Y - mY.*ones(N,1,1,1);
+        Yc = Y - repmat(mY,[N,1,1,1]); % Yc = Y - mY.*ones(N,1,1,1);
         clear Y
         V = zeros(r,Rinit,p+1);
     else
@@ -90,7 +87,6 @@ if computePCAspace
     err2Yc = zeros(1,p+1);
     norm2Yc = zeros(1,p+1);
     R = zeros(1,p+1);
-    Rmax = 1;
     for t=0:p
         if g<2^7
             Yct = Yc(:,:,:,t+1);
@@ -118,7 +114,6 @@ if computePCAspace
         % errYct = norm(Yct_approx-Yct)/norm(Yct);
         errYct = errsvdYct(end);
         Rt = length(sigt);
-        Rmax = max(Rmax,Rt);
         fprintf('\nTime %2d, t = %4g s : rank R = %d, error = %.3e for Y',t,t*dt,Rt,errYct);
         
         norm2Yct = sum(var(Yct,0,2));
@@ -163,6 +158,7 @@ if computePCAspace
     fprintf('\nerror = %.3e for Y',errL2);
     fprintf('\n');
     
+    Rmax = max(R);
     sig = sig(1:Rmax,:);
     if g<2^7
         V = V(:,1:Rmax,:);
@@ -174,12 +170,12 @@ if computePCAspace
     fprintf('\nelapsed time = %f s',time_PCA_space);
     fprintf('\n');
     
-    save(fullfile(gridpathname,'PCA_space.mat'),'mY','sig','Z','R','Rmax','errsvdYc','time_PCA_space');
+    save(fullfile(gridpathname,'PCA_space.mat'),'mY','sig','Z','R','errsvdYc','time_PCA_space');
     if g<2^7
         save(fullfile(gridpathname,'PCA_space.mat'),'V','-append');
     end
 else
-    load(fullfile(gridpathname,'PCA_space.mat'),'mY','sig','Z','R','Rmax','errsvdYc','time_PCA_space');
+    load(fullfile(gridpathname,'PCA_space.mat'),'mY','sig','Z','R','errsvdYc','time_PCA_space');
     if g<2^7
         load(fullfile(gridpathname,'PCA_space.mat'),'V');
     end
@@ -190,13 +186,13 @@ end
 %     fprintf('\nPCA in time');
 %     t_PCA_time = tic;
 %     Q = min(p+1,N);
+%     Rmax = max(R);
 %     s = zeros(Q,Rmax);
 %     W = zeros(p+1,Q,Rmax);
 %     X = zeros(N,Q,Rmax);
 %     errsvdZc = zeros(Q,Rmax);
 %     err2Zc = zeros(Rmax,1);
 %     Q = zeros(1,Rmax);
-%     Qmax = 1;
 %     for a=1:Rmax
 %         Zca = Z(:,a,:);
 %         Zca = Zca(:,:)';
@@ -212,7 +208,6 @@ end
 %         % errZca = norm(Zca_approx-Zca)/norm(Zca);
 %         errZca = errsvdZca(end);
 %         Qa = length(sa);
-%         Qmax = max(Qmax,Qa);
 %         fprintf('\nCoordinate alpha = %2.f : rank Q = %d, error = %.3e for Z',a,Qa,errZca);
 %         
 %         % norm2Zca = sum(var(Zca,0,2));
@@ -260,11 +255,11 @@ end
 %     end
 %     fprintf('\n');
 %     
-%     s = s(1:Qmax,:);
-%     W = W(:,1:Qmax,:);
-%     X = X(:,1:Qmax,:);
-%     errsvdZc = errsvdZc(1:Qmax,:);
-%     Q = Qmax;
+%     Q = max(Q);
+%     s = s(1:Q,:);
+%     W = W(:,1:Q,:);
+%     X = X(:,1:Q,:);
+%     errsvdZc = errsvdZc(1:Q,:);
 %     
 %     time_PCA_time = toc(t_PCA_time);
 %     fprintf('\nelapsed time = %f s',time_PCA_time);
@@ -279,13 +274,14 @@ end
 if computePCAtime
     fprintf('\nPCA in time');
     t_PCA_time = tic;
+    Rmax = max(R);
     q = (p+1)*Rmax;
     switch index
+        case 'coord'
+            Zc = Z(:,:)';
         case 'time'
             Zc = permute(Z,[1,3,2]);
             Zc = Zc(:,:)';
-        case 'coord'
-            Zc = Z(:,:)';
     end
     [W,S,X,errsvdZc] = svdtruncate(Zc,tolsvdZc);
     S = S/sqrt(N-1);
@@ -336,12 +332,12 @@ if computePCAtime
         axis image
         set(gca,'FontSize',fontsize)
         switch index
-            case 'time'
-                xlabel('$K=\alpha p+k$','Interpreter','latex')
-                ylabel('$K''=\alpha'' p+k''$','Interpreter','latex')
             case 'coord'
                 xlabel('$K=(k-1)R+\alpha$','Interpreter','latex')
                 ylabel('$K''=(k''-1)R+\alpha''$','Interpreter','latex')
+            case 'time'
+                xlabel('$K=\alpha p+k$','Interpreter','latex')
+                ylabel('$K''=\alpha'' p+k''$','Interpreter','latex')
         end
         title('Covariance matrix $[C_{\zeta}(t^k,t^{k''})]_{\alpha,\alpha''} = [C_Z]_{K,K''}$','Interpreter','latex')
         mysaveas(gridpathname,'covariance_CZ',formats,renderer);
@@ -349,10 +345,10 @@ if computePCAtime
         
         %     for t=0:p
         %         switch index
-        %             case 'time'
-        %                 ind = (0:Rmax-1)*(p+1)+t+1;
         %             case 'coord'
         %                 ind = t*Rmax+(1:Rmax);
+        %             case 'time'
+        %                 ind = (0:Rmax-1)*(p+1)+t+1;
         %         end
         %         CZt_approx = CZ_approx(ind,ind);
         %         CZt = CZ(ind,ind);
@@ -380,8 +376,8 @@ else
     load(fullfile(gridpathname,'PCA_time.mat'),'s','W','Q','errsvdZc','time_PCA_time');
 end
 
+%% Post-processing data
 if postProcess
-    %% Post-processing data
     fprintf('\nPost-processing data');
     t_PostProcess = tic;
     ntau = 13; % number of post-processed variables
@@ -400,100 +396,35 @@ if postProcess
     for t=0:p
         fprintf('\nTime %2d, t = %4g s',t,t*dt);
         
-        if t==0
-            mYt_old = zeros(1,n,m);
-            Rt_old = Rmax;
-            sigt_old = zeros(Rmax,1);
-            % Zt_old = zeros(N,Rmax);
-            Vt_old = zeros(n*m,Rmax);
-            Wt_old = zeros(Rmax,Q);
-        else
-            mYt_old = mY(1,:,:,t);
-            Rt_old = R(t);
-            sigt_old = sig(1:Rt_old,t);
-            % Zt_old = Z(:,1:Rt_old,t);
-            if g<2^7
-                Vt_old = V(:,1:Rt_old,t);
-            else
-                load(fullfile(gridpathname,['PCAspace_t' num2str(t-1) '.mat']),'Vt');
-                Vt_old = Vt;
-            end
-            switch index
-                case 'time'
-                    Wt_old = W(t:(p+1):end,:);
-                    Wt_old = Wt_old(1:Rt_old,:);
-                case 'coord'
-                    Wt_old = W(Rmax*(t-1)+(1:Rt_old),:);
-            end
-        end
-        
-        if t==p
-            mYt_new = zeros(1,n,m);
-            Rt_new = Rmax;
-            sigt_new = zeros(Rmax,1);
-            % Zt_new = zeros(N,Rmax);
-            Vt_new = zeros(n*m,Rmax);
-            Wt_new = zeros(Rmax,Q);
-        else
-            mYt_new = mY(1,:,:,t+2);
-            Rt_new = R(t+2);
-            sigt_new = sig(1:Rt_new,t+2);
-            % Zt_new = Z(:,1:Rt_new,t+2);
-            if g<2^7
-                Vt_new = V(:,1:Rt_new,t+2);
-            else
-                load(fullfile(gridpathname,['PCAspace_t' num2str(t+1) '.mat']),'Vt');
-                Vt_new = Vt;
-            end
-            switch index
-                case 'time'
-                    Wt_new = W((t+2):(p+1):end,:);
-                    Wt_new = Wt_new(1:Rt_new,:);
-                case 'coord'
-                    Wt_new = W(Rmax*(t+1)+(1:Rt_new),:);
-            end
-        end
-        
-        mYt = mY(1,:,:,t+1);
-        Rt = R(t+1);
-        sigt = sig(1:Rt,t+1);
-        % Zt = Z(:,1:Rt,t+1);
         if g<2^7
-            Vt = V(:,1:Rt,t+1);
+            Yt = get_reduced_order_representation_at_step(mY,sig,V,s,W,X,R,t+1,'index',index,'gridpathname',gridpathname);
+            if t==0
+                Yt_old = get_reduced_order_representation_at_step(mY,sig,V,s,W,X,R,1,'index',index,'gridpathname',gridpathname);
+            else
+                Yt_old = get_reduced_order_representation_at_step(mY,sig,V,s,W,X,R,t,'index',index,'gridpathname',gridpathname);
+            end
+            if t==p
+                Yt_new = get_reduced_order_representation_at_step(mY,sig,V,s,W,X,R,p+1,'index',index,'gridpathname',gridpathname);
+            else
+                Yt_new = get_reduced_order_representation_at_step(mY,sig,V,s,W,X,R,t+2,'index',index,'gridpathname',gridpathname);
+            end
         else
-            load(fullfile(gridpathname,['PCAspace_t' num2str(t) '.mat']),'Vt');
-        end
-        switch index
-            case 'time'
-                Wt = W((t+1):(p+1):end,:);
-                Wt = Wt(1:Rt,:);
-            case 'coord'
-                Wt = W(Rmax*t+(1:Rt),:);
-        end
-        
-        if verLessThan('matlab','9.1') % compatibility (<R2016b)
-            Zct = Wt*diag(s)*X'; % Zct = Zt';
-            Zct_old = Wt_old*diag(s)*X'; % Zct_old = Zt_old';
-            Zct_new = Wt_new*diag(s)*X'; % Zct_new = Zt_new';
-            Yct = Vt*diag(sigt)*Zct;
-            Yct_old = Vt_old*diag(sigt_old)*Zct_old;
-            Yct_new = Vt*diag(sigt_new)*Zct_new;
-        else
-            Zct = Wt*(s.*X'); % Zct = Zt';
-            Zct_old = Wt_old*(s.*X'); % Zct_old = Zt_old';
-            Zct_new = Wt_new*(s.*X'); % Zct_new = Zt_new';
-            Yct = Vt*(sigt.*Zct);
-            Yct_old = Vt_old*(sigt_old.*Zct_old);
-            Yct_new = Vt*(sigt_new.*Zct_new);
+            Yt = get_reduced_order_representation_at_step(mY,sig,[],s,W,X,R,t+1,'index',index,'gridpathname',gridpathname);
+            if t==0
+                Yt_old = get_reduced_order_representation_at_step(mY,sig,[],s,W,X,R,1,'index',index,'gridpathname',gridpathname);
+            else
+                Yt_old = get_reduced_order_representation_at_step(mY,sig,[],s,W,X,R,t,'index',index,'gridpathname',gridpathname);
+            end
+            if t==p
+                Yt_new = get_reduced_order_representation_at_step(mY,sig,[],s,W,X,R,p+1,'index',index,'gridpathname',gridpathname);
+            else
+                Yt_new = get_reduced_order_representation_at_step(mY,sig,[],s,W,X,R,t+2,'index',index,'gridpathname',gridpathname);
+            end
         end
         
-        mYt = perm(reshape(mYt,[1,n,sx]));
-        mYt_old = perm(reshape(mYt_old,[1,n,sx]));
-        mYt_new = perm(reshape(mYt_new,[1,n,sx]));
-        
-        Yt = repmat(mYt,[ones(1,4),N]) + perm(reshape(Yct',[N,n,sx]));
-        Yt_old = repmat(mYt_old,[ones(1,4),N]) + perm(reshape(Yct_old',[N,n,sx]));
-        Yt_new = repmat(mYt_new,[ones(1,4),N]) + perm(reshape(Yct_new',[N,n,sx]));
+        Yt = perm(reshape(Yt,[N,n,sx]));
+        Yt_old = perm(reshape(Yt_old,[N,n,sx]));
+        Yt_new = perm(reshape(Yt_new,[N,n,sx]));
         
         ut = Yt(1:3,:,:,:,:);
         ut_old = Yt_old(1:3,:,:,:,:);
@@ -668,6 +599,171 @@ else
     end
 end
 
+%% Applying filter
+if applyFilter% && g==2^8
+    fprintf('\nApplying filter');
+    t_Filter = tic;
+    
+    
+    switch filterType
+        case {'box','mean','average'}
+            filterSize = [3 3 3];
+            h = ones(filterSize)/prod(filterSize);
+        case {'linear','trapz'}
+            filterSize = [3 3 3];
+            c = 4;
+            h = zeros(filterSize);
+            h(:,:,1) = [1 c 1; c c^2 c; 1 c 1];
+            h(:,:,2) = [c c^2 c; c^2 c^3 c^2; c c^2 c];
+            h(:,:,3) = [1 c 1; c c^2 c; 1 c 1];
+            h = h/prod(filterSize);
+    end
+    
+    if g<2^7
+        load(fullfile(gridpathname,'data.mat'),'Y');
+        load(fullfile(gridpathname,'data_post.mat'),'Tau');
+        Ybar = zeros(N,n,m,p+1);
+        Taubar = zeros(N,ntau,m,p+1);
+        myYbar = zeros(N,n,m,p+1);
+        myTaubar = zeros(N,ntau,m,p+1);
+    else
+        mYbar = zeros(1,n,m,p+1);
+        mTaubar = zeros(1,ntau,m,p+1);
+    end
+    
+    for t=0:p
+        fprintf('\nTime %2d, t = %4g s',t,t*dt);
+        
+        if g<2^7
+            Yt = Y(:,:,:,t+1);
+            Taut = Tau(:,:,:,t+1);
+        else
+            load(fullfile(gridpathname,['data_t' num2str(t) '.mat']),'Yt');
+            load(fullfile(gridpathname,['data_post_t' num2str(t) '.mat']),'Taut');
+        end
+        YTaut = cat(2,Yt,Taut);
+        
+        YTaut = reshape(YTaut,[N,n+ntau,sx]);
+        YTaut_padded = padarray(YTaut,[0 0 1 1 1],'replicate','both');
+        
+        myYTaubart = YTaut_padded;
+        for i=(1:sx(1))+1
+            for j=(1:sx(2))+1
+                for k=(1:sx(3))+1
+                    myYTaubart(:,:,i,j,k) = YTaut_padded(:,:,i-1,j-1,k-1) + YTaut_padded(:,:,i-1,j-1,k+1) + YTaut_padded(:,:,i-1,j+1,k-1) + YTaut_padded(:,:,i-1,j+1,k+1)...
+                        + YTaut_padded(:,:,i+1,j-1,k-1) + YTaut_padded(:,:,i+1,j-1,k+1) + YTaut_padded(:,:,i+1,j+1,k-1) + YTaut_padded(:,:,i+1,j+1,k+1)...
+                        + 4*(YTaut_padded(:,:,i,j-1,k-1) + YTaut_padded(:,:,i,j-1,k+1) + YTaut_padded(:,:,i,j+1,k-1) + YTaut_padded(:,:,i,j+1,k+1)...
+                        + YTaut_padded(:,:,i-1,j,k-1) + YTaut_padded(:,:,i-1,j,k+1,:) + YTaut_padded(:,:,i+1,j,k-1) + YTaut_padded(:,:,i+1,j,k+1)...
+                        + YTaut_padded(:,:,i-1,j-1,k) + YTaut_padded(:,:,i-1,j+1,k) + YTaut_padded(:,:,i+1,j-1,k) + YTaut_padded(:,:,i+1,j+1,k))...
+                        + 4^2*(YTaut_padded(:,:,i,j,k-1) + YTaut_padded(:,:,i,j,k+1) + YTaut_padded(:,:,i,j-1,k) + YTaut_padded(:,:,i,j+1,k) + YTaut_padded(:,:,i-1,j,k) + YTaut_padded(:,:,i+1,j,k))...
+                        + 4^3*YTaut_padded(:,:,i,j,k);
+                end
+            end
+        end
+        myYTaubart = myYTaubart(:,:,2:end-1,2:end-1,2:end-1)/(2*3)^3;
+        myYTaubart = myYTaubart(:,:,:);
+        
+        myYbart = myYTaubart(:,1:4,:);
+        myTaubart = myYTaubart(:,5:end,:);
+        
+        YTaubart = YTaut;
+        for l=1:N
+            for i=1:(n+ntau)
+                YTaubartl = squeeze(YTaubart(l,i,:,:,:));
+                switch filterType
+                    case {'box','mean','average'}
+                        YTaubartl = imboxfilt3(YTaubartl,filterSize,'Padding','replicate','NormalizationFactor',1/prod(filterSize));
+                        % YTaubartl = imfilter(YTaubartl,h,'replicate');
+                    case {'linear','trapz'}
+                        YTaubartl = imfilter(YTaubartl,h,'replicate');
+                end
+                YTaubart(l,i,:,:,:) = YTaubartl;
+            end
+        end
+        YTaubart = YTaubart(:,:,:);
+        
+        Ybart = YTaubart(:,1:4,:);
+        Taubart = YTaubart(:,5:end,:);
+        
+        if g<2^7
+            Ybar(:,:,:,t+1) = Ybart;
+            Taubar(:,:,:,t+1) = Taubart;
+            myYbar(:,:,:,t+1) = myYbart;
+            myTaubar(:,:,:,t+1) = myTaubart;
+        else
+            mYbart = mean(Ybart,1);
+            mTaubart = mean(Taubart,1);
+            mYbar(1,:,:,t+1) = mYbart;
+            mTaubar(1,:,:,t+1) = mTaubart;
+            save(fullfile(gridpathname,['data_filtered_t' num2str(t) '.mat']),'Ybart');
+            save(fullfile(gridpathname,['data_post_filtered_t' num2str(t) '.mat']),'Taubart');
+        end
+    end
+    fprintf('\n');
+    
+    if g<2^7
+        mYbar = mean(Ybar,1);
+        mTaubar = mean(Taubar,1);
+        mymYbar = mean(myYbar,1);
+        mymTaubar = mean(myTaubar,1);
+    end
+    
+%     for t=0:p
+%         mYt = mY(1,:,:,t+1);
+%         Rt = R(t+1);
+%         sigt = sig(1:Rt,t+1);
+%         % Zt = Z(:,1:Rt,t+1);
+%         if g<2^7
+%             Vt = V(:,1:Rt,t+1);
+%         else
+%             load(fullfile(gridpathname,['PCAspace_t' num2str(t) '.mat']),'Vt');
+%         end
+%         switch index
+%             case 'coord'
+%                 Wt = W(Rmax*t+(1:Rt),:);
+%             case 'time'
+%                 Wt = W((t+1):(p+1):end,:);
+%                 Wt = Wt(1:Rt,:);
+%         end
+%         
+%         if verLessThan('matlab','9.1') % compatibility (<R2016b)
+%             Zct = Wt*diag(s)*X'; % Zct = Zt';
+%             Yct = Vt*diag(sigt)*Zct;
+%         else
+%             Zct = Wt*(s.*X'); % Zct = Zt';
+%             Yct = Vt*(sigt.*Zct);
+%         end
+%         
+%         mYt = perm(reshape(mYt,[1,n,sx]));
+%         Yt = repmat(mYt,[ones(1,4),N]) + perm(reshape(Yct',[N,n,sx]));
+%         
+%         if g<2^7
+%             Taut = Tau(:,:,:,t+1);
+%         else
+%             load(fullfile(gridpathname,['data_post_t' num2str(t) '.mat']),'Taut');
+%         end
+%         
+%     end
+    
+    time_Filter = toc(t_Filter);
+    fprintf('\nelapsed time = %f s',time_Filter);
+    fprintf('\n');
+    
+    save(fullfile(gridpathname,'data_filtered.mat'),'mYbar');
+    save(fullfile(gridpathname,'data_post_filtered.mat'),'mTaubar');
+    if g<2^7
+        save(fullfile(gridpathname,'data_filtered.mat'),'Ybar','-append');
+        save(fullfile(gridpathname,'data_post_filtered.mat'),'Taubar','-append');
+    end
+else
+    load(fullfile(gridpathname,'data_filtered.mat'),'mYbar');
+    load(fullfile(gridpathname,'data_post_filtered.mat'),'mTaubar');
+    if g<2^7
+        load(fullfile(gridpathname,'data_filtered.mat'),'Ybar');
+        load(fullfile(gridpathname,'data_post_filtered.mat'),'Taubar');
+    end
+end
+
 %% Outputs
 % Display eigenvalues
 if displayEigenvales
@@ -783,7 +879,7 @@ T = TIMEMODEL(0,tf,p);
 nvar = n+ntau;
 
 % Mean solution
-mu = reshape(mY(1,1:3,:,:),[3*m,p+1]);
+mU = reshape(mY(1,1:3,:,:),[3*m,p+1]);
 mC = reshape(mY(1,4,:,:),[m,p+1]);
 mtauTime = reshape(mTau(1,1:3,:,:),[3*m,p+1]);
 mdivtauConv = reshape(mTau(1,4:6,:,:),[3*m,p+1]);
@@ -791,13 +887,45 @@ mdivtauDiff = reshape(mTau(1,7:9,:,:),[3*m,p+1]);
 mtauSurf = reshape(mTau(1,10:12,:,:),[3*m,p+1]);
 mtauInterf = reshape(mTau(1,13,:,:),[m,p+1]);
 
-mu = TIMEMATRIX(mu,T);
+mUbar = reshape(mYbar(1,1:3,:,:),[3*m,p+1]);
+mCbar = reshape(mYbar(1,4,:,:),[m,p+1]);
+mtauTimebar = reshape(mTaubar(1,1:3,:,:),[3*m,p+1]);
+mdivtauConvbar = reshape(mTaubar(1,4:6,:,:),[3*m,p+1]);
+mdivtauDiffbar = reshape(mTaubar(1,7:9,:,:),[3*m,p+1]);
+mtauSurfbar = reshape(mTaubar(1,10:12,:,:),[3*m,p+1]);
+mtauInterfbar = reshape(mTaubar(1,13,:,:),[m,p+1]);
+
+mymUbar = reshape(mymYbar(1,1:3,:,:),[3*m,p+1]);
+mymCbar = reshape(mymYbar(1,4,:,:),[m,p+1]);
+mymtauTimebar = reshape(mymTaubar(1,1:3,:,:),[3*m,p+1]);
+mymdivtauConvbar = reshape(mymTaubar(1,4:6,:,:),[3*m,p+1]);
+mymdivtauDiffbar = reshape(mymTaubar(1,7:9,:,:),[3*m,p+1]);
+mymtauSurfbar = reshape(mymTaubar(1,10:12,:,:),[3*m,p+1]);
+mymtauInterfbar = reshape(mymTaubar(1,13,:,:),[m,p+1]);
+
+mU = TIMEMATRIX(mU,T);
 mC = TIMEMATRIX(mC,T);
 mtauTime = TIMEMATRIX(mtauTime,T);
 mdivtauConv = TIMEMATRIX(mdivtauConv,T);
 mdivtauDiff = TIMEMATRIX(mdivtauDiff,T);
 mtauSurf = TIMEMATRIX(mtauSurf,T);
 mtauInterf = TIMEMATRIX(mtauInterf,T);
+
+mUbar = TIMEMATRIX(mUbar,T);
+mCbar = TIMEMATRIX(mCbar,T);
+mtauTimebar = TIMEMATRIX(mtauTimebar,T);
+mdivtauConvbar = TIMEMATRIX(mdivtauConvbar,T);
+mdivtauDiffbar = TIMEMATRIX(mdivtauDiffbar,T);
+mtauSurfbar = TIMEMATRIX(mtauSurfbar,T);
+mtauInterfbar = TIMEMATRIX(mtauInterfbar,T);
+
+mymUbar = TIMEMATRIX(mymUbar,T);
+mymCbar = TIMEMATRIX(mymCbar,T);
+mymtauTimebar = TIMEMATRIX(mymtauTimebar,T);
+mymdivtauConvbar = TIMEMATRIX(mymdivtauConvbar,T);
+mymdivtauDiffbar = TIMEMATRIX(mymdivtauDiffbar,T);
+mymtauSurfbar = TIMEMATRIX(mymtauSurfbar,T);
+mymtauInterfbar = TIMEMATRIX(mymtauInterfbar,T);
 
 % Variance of solution
 vu = zeros(3*m,p+1);
@@ -809,12 +937,12 @@ vtauSurf = zeros(3*m,p+1);
 vtauInterf = zeros(m,p+1);
 
 switch index
-    case 'time'
-        W = permute(reshape(W',[Q,p+1,Rmax]),[3,1,2]);
-        % Z_approx = permute(reshape(Zc_approx',[N,p+1,Rmax]),[1,3,2]);
     case 'coord'
         W = permute(reshape(W',[Q,Rmax,p+1]),[2,1,3]);
         % Z_approx = reshape(Zc_approx',[N,Rmax,p+1]);
+    case 'time'
+        W = permute(reshape(W',[Q,p+1,Rmax]),[3,1,2]);
+        % Z_approx = permute(reshape(Zc_approx',[N,p+1,Rmax]),[1,3,2]);
 end
 
 for t=0:p
@@ -1187,7 +1315,7 @@ if displaySolution
     az = az_z-90; % azimuth for the default 3D view with vertical y-axis
     el = -el_z; % elevation for the default 3D view with vertical y-axis
     for i=1:3
-        evolSolution(M,mu,'displ',i,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename',['evol_mean_u' num2str(i)],'pathname',gridpathname,'FrameRate',framerate,...
+        evolSolution(M,mU,'displ',i,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename',['evol_mean_u' num2str(i)],'pathname',gridpathname,'FrameRate',framerate,...
             'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
         evolSolution(M,mtauTime,'displ',i,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename',['evol_mean_tauTime' num2str(i)],'pathname',gridpathname,'FrameRate',framerate,...
             'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
@@ -1211,7 +1339,7 @@ if displaySolution
         
         figure('Name',['Mean of velocity u' num2str(i)])
         clf
-        plot_sol(M,getmatrixatstep(mu,t+1),'displ',i,'ampl',ampl);
+        plot_sol(M,getmatrixatstep(mU,t+1),'displ',i,'ampl',ampl);
         title(['time ' num2str(t*dt,'%.2f') ' s'],'FontSize',fontsize)
         colormap(cmap)
         colorbar
@@ -1406,13 +1534,29 @@ if displaySolution
 end
 
 for t=0:p
-    mut = getmatrixatstep(mu,t+1);
+    mUt = getmatrixatstep(mU,t+1);
     mCt = getmatrixatstep(mC,t+1);
     mtauTimet = getmatrixatstep(mtauTime,t+1);
     mdivtauConvt = getmatrixatstep(mdivtauConv,t+1);
     mdivtauDifft = getmatrixatstep(mdivtauDiff,t+1);
     mtauSurft = getmatrixatstep(mtauSurf,t+1);
     mtauInterft = getmatrixatstep(mtauInterf,t+1);
+    
+    mUbart = getmatrixatstep(mUbar,t+1);
+    mCbart = getmatrixatstep(mCbar,t+1);
+    mtauTimebart = getmatrixatstep(mtauTimebar,t+1);
+    mdivtauConvbart = getmatrixatstep(mdivtauConvbar,t+1);
+    mdivtauDiffbart = getmatrixatstep(mdivtauDiffbar,t+1);
+    mtauSurfbart = getmatrixatstep(mtauSurfbar,t+1);
+    mtauInterfbart = getmatrixatstep(mtauInterfbar,t+1);
+    
+    mymUbart = getmatrixatstep(mymUbar,t+1);
+    mymCbart = getmatrixatstep(mymCbar,t+1);
+    mymtauTimebart = getmatrixatstep(mymtauTimebar,t+1);
+    mymdivtauConvbart = getmatrixatstep(mymdivtauConvbar,t+1);
+    mymdivtauDiffbart = getmatrixatstep(mymdivtauDiffbar,t+1);
+    mymtauSurfbart = getmatrixatstep(mymtauSurfbar,t+1);
+    mymtauInterfbart = getmatrixatstep(mymtauInterfbar,t+1);
     
     vut = getmatrixatstep(vu,t+1);
     vCt = getmatrixatstep(vC,t+1);
@@ -1422,11 +1566,15 @@ for t=0:p
     vtauSurft = getmatrixatstep(vtauSurf,t+1);
     vtauInterft = getmatrixatstep(vtauInterf,t+1);
     
-    write_vtk_mesh(M,{mut,mCt,mtauTimet,mdivtauConvt,mdivtauDifft,mtauSurft,mtauInterft...
+    write_vtk_mesh(M,{mUt,mCt,mtauTimet,mdivtauConvt,mdivtauDifft,mtauSurft,mtauInterft,...
+        mUbart,mCbart,mtauTimebart,mdivtauConvbart,mdivtauDiffbart,mtauSurfbart,mtauInterfbart,...
+        mymUbart,mymCbart,mymtauTimebart,mymdivtauConvbart,mymdivtauDiffbart,mymtauSurfbart,mymtauInterfbart...
         %menergyKinTimet,menergyConvt,menergyGravt,menergyPrest,menergyPresDilt,...
         %menergyKinSpacet,menergyDifft,menergyVisct,menergySurft...
         },[],...
-        {'velocity','phase','tau time','div tau conv','div tau diff','tau surf','tau interf'...
+        {'velocity','phase','tau time','div tau conv','div tau diff','tau surf','tau interf',...
+        'filtered velocity','filtered phase','filtered tau time','filtered div tau conv','filtered div tau diff','filtered tau surf','filtered tau interf',...
+        'my filtered velocity','my filtered phase','my filtered tau time','my filtered div tau conv','my filtered div tau diff','my filtered tau surf','my filtered tau interf'...
         %'kinetic energy','convection energy','gravity energy','power of external pressure forces','pressure-dilatation energy transfer',...
         %'transport of gradient of kinetic energy','energy exchange with kinetic energy','power of external viscous stresses','capillary kinetic energy'...
         },[],...
