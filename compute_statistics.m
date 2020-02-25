@@ -41,8 +41,8 @@ index = 'coord'; % index for ordering ('coord', 'time')
 filterType = 'box'; % 3D filter type ('box' or 'mean' or 'average', 'linear' or 'trapz')
 
 % Spatial grid size
-gset = 2.^(4:6); % set of spatial grid sizes
-g = gset(3); % current spatial grid size
+gset = 2.^(4:8); % set of spatial grid sizes
+g = gset(5); % current spatial grid size
 gref = gset(end); % reference spatial grid size
 ng = length(gset); % number of spatial grid sizes
 
