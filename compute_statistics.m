@@ -41,8 +41,8 @@ index = 'coord'; % index for ordering ('coord', 'time')
 filterType = 'box'; % 3D filter type ('box' or 'mean' or 'average', 'linear' or 'trapz')
 
 % Spatial grid size
-gset = 2.^(4:8); % set of spatial grid sizes
-g = gset(5); % current spatial grid size
+gset = 2.^(4:5); % set of spatial grid sizes
+g = gset(end); % current spatial grid size
 gref = gset(end); % reference spatial grid size
 ng = length(gset); % number of spatial grid sizes
 
@@ -472,38 +472,48 @@ if postProcess
         Yt = perm(reshape(Yt,[N,n,sx]));
         ut = Yt(1:3,:,:,:,:);
         Ct = Yt(4,:,:,:,:);
+        clear Yt
         rhot = Ct*rho(2) + (1-Ct)*rho(1);
         rhout = repmat(rhot,[3,ones(1,4)]).*ut;
         u2t = dot(ut,ut,1);
-        Ek = 1/2*rhot.*u2t;
+        if t==0 || t==p
+            Ek = 1/2*rhot.*u2t;
+        end
         if t>0
             Yt_old = perm(reshape(Yt_old,[N,n,sx]));
             ut_old = Yt_old(1:3,:,:,:,:);
             Ct_old = Yt_old(4,:,:,:,:);
+            clear Yt_old
             rhot_old = Ct_old*rho(2) + (1-Ct_old)*rho(1);
             rhout_old = repmat(rhot_old,[3,ones(1,4)]).*ut_old;
             u2t_old = dot(ut_old,ut_old,1);
             Ek_old = 1/2*rhot_old.*u2t_old;
+            clear ut_old Ct_old rhot_old u2t_old
         end
         if t<p
             Yt_new = perm(reshape(Yt_new,[N,n,sx]));
             ut_new = Yt_new(1:3,:,:,:,:);
             Ct_new = Yt_new(4,:,:,:,:);
+            clear Yt_new
             rhot_new = Ct_new*rho(2) + (1-Ct_new)*rho(1);
             rhout_new = repmat(rhot_new,[3,ones(1,4)]).*ut_new;
             u2t_new = dot(ut_new,ut_new,1);
             Ek_new = 1/2*rhot_new.*u2t_new;
+            clear ut_new Ct_new rhot_new u2t_new
         end
         
         if t==0
             tauTimet = (rhout_new-rhout)/dt;
             energyKinTimet = (Ek_new-Ek)/dt;
+            clear rhout_new Ek Ek_new
         elseif t==p
             tauTimet = (rhout-rhout_old)/dt;
             energyKinTimet = (Ek-Ek_old)/dt;
+            clear rhout_old Ek Ek_old
         else
             tauTimet = (rhout_new-rhout_old)/(2*dt);
             energyKinTimet = (Ek_new-Ek_old)/(2*dt);
+            clear rhout_new rhout_old Ek_new Ek_old
         end
         
         mut = Ct*mu(2) + (1-Ct)*mu(1);
@@ -514,8 +524,8 @@ if postProcess
         gradCt = grad(Ct,Dx);
         ngradCt = normal(gradCt);
         kappa = div(ngradCt,Dx);
-        u2t = dot(ut,ut,1);
         rhou2t = rhot.*u2t;
+        clear Ct mut rhot ngradCt St
         
         % Post-processed variables
         divtauConvt = squeeze(sum(gradrhout.*repmat(shiftdim(ut,-1),[3,ones(1,5)]),2));
@@ -523,6 +533,7 @@ if postProcess
         divtauDifft = div(2*muSt,Dx);
         tauSurft = sigma*repmat(shiftdim(kappa,-1),[3,ones(1,4)]).*gradCt;
         tauInterft = dot(ut,gradCt,1);
+        clear gradCt
         energyConvt = shiftdim(div(repmat(rhou2t,[3,ones(1,4)]).*ut,Dx),-1);
         energyGravt = gravity.*rhout(2,:,:,:,:);
         energyPrest = zeros(1,g+1,g+1,g+1,N);
@@ -531,9 +542,12 @@ if postProcess
         energyDifft = shiftdim(div(squeeze(dot(2*muSt,repmat(shiftdim(ut,-1),[3,ones(1,5)]),2)),Dx),-1);
         energyVisct = shiftdim(sum(sum(2*muSt.*gradut,1),2),1);
         energySurft = dot(tauSurft,ut,1);
+        clear ut gradut rhout gradrhout muSt kappa
         
         Taut = cat(1,tauTimet,divtauConvt,divtauDifft,tauSurft,tauInterft);
+        clear tauTimet divtauConvt divtauDifft tauSurft tauInterft
         Et = cat(1,energyKinTimet,energyConvt,energyGravt,energyPrest,energyPresDilt,energyKinSpacet,energyDifft,energyVisct,energySurft);
+        clear energyKinTimet energyConvt energyGravt energyPrest energyPresDilt energyKinSpacet energyDifft energyVisct energySurft
         
         Taut = iperm(Taut);
         Taut = Taut(:,:,:);
@@ -608,6 +622,7 @@ if computeQoI
         Yt = reshape(Yt,[N,n,sx]);
         ut = Yt(:,1:3,:,:,:);
         Ct = Yt(:,4,:,:,:);
+        clear Yt
         Taut = reshape(Taut,[N,ntau,sx]);
         Et = reshape(Et,[N,ne,sx]);
         
@@ -756,10 +771,10 @@ if applyFilter
                     load(fullfile(gridpathname,['data_tau_t' num2str(t) '.mat']),'Taut');
                 end
                 YTaut = cat(2,Yt,Taut);
+                clear Yt Taut
                 
-                YTaut = reshape(YTaut,[N,n+ntau,sx]);
-                
-                YTaubart = YTaut;
+                YTaubart = reshape(YTaut,[N,n+ntau,sx]);
+                clear YTaut
                 for l=1:N
                     for i=1:(n+ntau)
                         YTaubartl = squeeze(YTaubart(l,i,:,:,:));
@@ -893,11 +908,13 @@ if applyFilter
             
             ut = Yt(:,1:3,:);
             Ct = Yt(:,4,:);
+            clear Yt
             tauTimet = Taut(:,1:3,:);
             divtauConvt = Taut(:,4:6,:);
             divtauDifft = Taut(:,7:9,:);
             tauSurft = Taut(:,10:12,:);
             tauInterft = Taut(:,13,:);
+            clear Taut
             
             errorut = sqrt(mean(trapz(trapz(trapz(x,reshape(sum((ubart-ut).^2,2),[N,sx]),2),3),4),1));
             errorCt = sqrt(mean(trapz(trapz(trapz(x,reshape((Cbart-Ct).^2,[N,sx]),2),3),4),1));
