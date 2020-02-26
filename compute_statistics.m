@@ -397,17 +397,28 @@ else
     load(fullfile(gridpathname,'PCA_time.mat'),'s','W','Q','errsvdZc','time_PCA_time');
 end
 else
+    fprintf('\nComputing mean');
+    t_Mean = tic;
+    
     if g<2^7
         load(fullfile(gridpathname,'data.mat'),'Y');
         mY = mean(Y,1);
     else
         mY = zeros(1,n,m,p+1);
         for t=0:p
+            fprintf('\nTime step %2d/%2d',t,p);
             load(fullfile(gridpathname,['data_t' num2str(t) '.mat']),'Yt');
             mYt = mean(Yt,1);
             mY(1,:,:,t+1) = mYt;
         end
     end
+    fprintf('\n');
+    
+    time_Mean = toc(t_Mean);
+    fprintf('\nelapsed time = %f s',time_Mean);
+    fprintf('\n');
+    
+    save(fullfile(gridpathname,'mean_data.mat'),'mY','time_Mean');
 end
 
 %% Post-processing data
