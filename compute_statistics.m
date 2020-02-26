@@ -2,6 +2,7 @@ clc
 clearvars
 close all
 
+constructMesh = true;
 performPCA = false;
 performPCAspace = true;
 performPCAtime = true;
@@ -61,14 +62,29 @@ fprintf('\n');
 
 % Spatial mesh
 L = 1; % domain size (m)
-D = DOMAIN(3,[0.0,0.0,0.0],[L,L,L]);
 elemtype = 'CUB8';
 nbelem = [g,g,g];
-M = build_model(D,'nbelem',nbelem,'elemtype',elemtype);
-coord = getcoord(getnode(M));
-M = setnode(M,NODE(coord(:,[2,1,3])));
-M = final(M,DDL(DDLVECT('U',M.syscoord)));
-Mscal = final(M,DDL('C'));
+
+if constructMesh
+    fprintf('\nConstructing spatial mesh');
+    t_Mesh = tic;
+    
+    D = DOMAIN(3,[0.0,0.0,0.0],[L,L,L]);
+    M = build_model(D,'nbelem',nbelem,'elemtype',elemtype);
+    coord = getcoord(getnode(M));
+    M = setnode(M,NODE(coord(:,[2,1,3])));
+    M = final(M,DDL(DDLVECT('U',M.syscoord)));
+    Mscal = final(M,DDL('C'));
+    fprintf('\n');
+    
+    time_Mesh = toc(t_Mesh);
+    fprintf('\nelapsed time = %f s',time_Mesh);
+    fprintf('\n');
+    
+    save(fullfile(gridpathname,'mesh.mat'),'M','Mscal','time_Mesh');
+else
+    load(fullfile(gridpathname,'mesh.mat'),'M','Mscal','time_Mesh');
+end
 
 % Spatial scheme
 sx = [g+1,g+1,g+1]; % sx = nbelem+1; % spatial dimensions
