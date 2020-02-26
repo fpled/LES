@@ -36,7 +36,6 @@ for g=2.^(7:8)
     disp(gridname)
     
     m = (g+1)^3; % number of spatial points
-    mY = zeros(1,n,m,p+1);
     for t=0:p
         time = ['Time ' num2str(t)];
         disp(time)
@@ -103,13 +102,11 @@ for g=2.^(7:8)
             
             calllib('tecio','tecFileReaderClose',handle);
         end
-        mYt = mean(Yt,1);
-        mY(:,:,:,t+1) = mYt;
         save(fullfile(pathname,gridname,['data_t' num2str(t) '.mat']),'Yt');
         
     end
     fprintf('\n');
-    save(fullfile(pathname,gridname,'data.mat'),'mY','N','n','m','p');
+    save(fullfile(pathname,gridname,'data.mat'),'N','n','m','p');
     toc
 end
 

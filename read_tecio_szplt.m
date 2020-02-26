@@ -109,9 +109,8 @@ for g=2.^(4:6)
         Y(l,:,:,:) = Yl;
         
     end
-    mY = mean(Y,1);
     fprintf('\n');
-    save(fullfile(pathname,gridname,'data.mat'),'Y','mY','N','n','m','p');
+    save(fullfile(pathname,gridname,'data.mat'),'Y','N','n','m','p');
     toc
 end
 
