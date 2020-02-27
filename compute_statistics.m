@@ -532,7 +532,7 @@ if postProcess
         divtauDifft = div(2*muSt,Dx);
         tauSurft = sigma*repmat(shiftdim(kappa,-1),[3,ones(1,4)]).*gradCt;
         tauInterft = dot(ut,gradCt,1);
-        clear gradCt
+        clear gradCt kappa
         energyConvt = shiftdim(div(repmat(rhou2t,[3,ones(1,4)]).*ut,Dx),-1);
         energyGravt = gravity.*rhout(2,:,:,:,:);
         energyPrest = zeros(1,g+1,g+1,g+1,N);
@@ -541,7 +541,7 @@ if postProcess
         energyDifft = shiftdim(div(squeeze(dot(2*muSt,repmat(shiftdim(ut,-1),[3,ones(1,5)]),2)),Dx),-1);
         energyVisct = shiftdim(sum(sum(2*muSt.*gradut,1),2),1);
         energySurft = dot(tauSurft,ut,1);
-        clear ut gradut rhout gradrhout muSt kappa
+        clear ut gradut rhout gradrhout muSt
         
         Taut = cat(1,tauTimet,divtauConvt,divtauDifft,tauSurft,tauInterft);
         clear tauTimet divtauConvt divtauDifft tauSurft tauInterft
