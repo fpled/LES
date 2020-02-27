@@ -783,8 +783,8 @@ if applyFilter
                         YTaubartl = squeeze(YTaubart(l,i,:,:,:));
                         switch filterType
                             case {'box','mean','average'}
-                                YTaubartl = imboxfilt3(YTaubartl,filterSize,'Padding','replicate','NormalizationFactor',1/prod(filterSize));
-                                % YTaubartl = imfilter(YTaubartl,h,'replicate');
+                                % YTaubartl = imboxfilt3(YTaubartl,filterSize,'Padding','replicate','NormalizationFactor',1/prod(filterSize));
+                                YTaubartl = imfilter(YTaubartl,h,'replicate');
                             case {'linear','trapz'}
                                 YTaubartl = imfilter(YTaubartl,h,'replicate');
                         end
