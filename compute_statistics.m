@@ -5,6 +5,7 @@ close all
 performPCA = false;
 performPCAspace = true;
 performPCAtime = true;
+computeMean = true;
 postProcess = true;
 computeQoI = true;
 applyFilter = true;
@@ -385,28 +386,32 @@ else
     load(fullfile(gridpathname,'PCA_time.mat'),'s','W','Q','errsvdZc','time_PCA_time');
 end
 else
-    fprintf('\nComputing mean');
-    t_Mean = tic;
-    
-    if g<2^7
-        load(fullfile(gridpathname,'data.mat'),'Y');
-        mY = mean(Y,1);
-    else
-        mY = zeros(1,n,m,p+1);
-        for t=0:p
-            fprintf('\nTime step %2d/%2d',t,p);
-            load(fullfile(gridpathname,['data_t' num2str(t) '.mat']),'Yt');
-            mYt = mean(Yt,1);
-            mY(1,:,:,t+1) = mYt;
+    if computeMean
+        fprintf('\nComputing mean');
+        t_Mean = tic;
+        
+        if g<2^7
+            load(fullfile(gridpathname,'data.mat'),'Y');
+            mY = mean(Y,1);
+        else
+            mY = zeros(1,n,m,p+1);
+            for t=0:p
+                fprintf('\nTime step %2d/%2d',t,p);
+                load(fullfile(gridpathname,['data_t' num2str(t) '.mat']),'Yt');
+                mYt = mean(Yt,1);
+                mY(1,:,:,t+1) = mYt;
+            end
         end
+        fprintf('\n');
+        
+        time_Mean = toc(t_Mean);
+        fprintf('\nelapsed time = %f s',time_Mean);
+        fprintf('\n');
+        
+        save(fullfile(gridpathname,'mean_data.mat'),'mY','time_Mean');
+    else
+        load(fullfile(gridpathname,'mean_data.mat'),'mY','time_Mean');
     end
-    fprintf('\n');
-    
-    time_Mean = toc(t_Mean);
-    fprintf('\nelapsed time = %f s',time_Mean);
-    fprintf('\n');
-    
-    save(fullfile(gridpathname,'mean_data.mat'),'mY','time_Mean');
 end
 
 %% Post-processing data
@@ -526,13 +531,15 @@ if postProcess
         rhou2t = rhot.*u2t;
         clear Ct mut rhot ngradCt St
         
-        % Post-processed variables
         divtauConvt = squeeze(sum(gradrhout.*repmat(shiftdim(ut,-1),[3,ones(1,5)]),2));
         % divtauConvt = div(permute(repmat(shiftdim(rhout,-1),[3,ones(1,5)]),[2,1,3:6]).*repmat(shiftdim(ut,-1),[3,ones(1,5)]),Dx);
         divtauDifft = div(2*muSt,Dx);
         tauSurft = sigma*repmat(shiftdim(kappa,-1),[3,ones(1,4)]).*gradCt;
         tauInterft = dot(ut,gradCt,1);
         clear gradCt kappa
+        Taut = cat(1,tauTimet,divtauConvt,divtauDifft,tauSurft,tauInterft);
+        clear tauTimet divtauConvt divtauDifft tauSurft tauInterft
+        
         energyConvt = shiftdim(div(repmat(rhou2t,[3,ones(1,4)]).*ut,Dx),-1);
         energyGravt = gravity.*rhout(2,:,:,:,:);
         energyPrest = zeros(1,g+1,g+1,g+1,N);
@@ -542,9 +549,6 @@ if postProcess
         energyVisct = shiftdim(sum(sum(2*muSt.*gradut,1),2),1);
         energySurft = dot(tauSurft,ut,1);
         clear ut gradut rhout rhou2t gradrhout muSt
-        
-        Taut = cat(1,tauTimet,divtauConvt,divtauDifft,tauSurft,tauInterft);
-        clear tauTimet divtauConvt divtauDifft tauSurft tauInterft
         Et = cat(1,energyKinTimet,energyConvt,energyGravt,energyPrest,energyPresDilt,energyKinSpacet,energyDifft,energyVisct,energySurft);
         clear energyKinTimet energyConvt energyGravt energyPrest energyPresDilt energyKinSpacet energyDifft energyVisct energySurft
         
