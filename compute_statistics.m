@@ -2,15 +2,14 @@ clc
 clearvars
 close all
 
-constructMesh = true;
 performPCA = false;
 performPCAspace = true;
 performPCAtime = true;
 postProcess = true;
 computeQoI = true;
 applyFilter = true;
+constructMesh = true;
 
-displaySolution = false;
 displayEigenvalues = false;
 displayCovariance = false;
 displayQoI = false;
@@ -43,7 +42,7 @@ filterType = 'box'; % 3D filter type ('box' or 'mean' or 'average', 'linear' or 
 
 % Spatial grid size
 gset = 2.^(4:5); % set of spatial grid sizes
-g = gset(end); % current spatial grid size
+g = gset(2); % current spatial grid size
 gref = gset(end); % reference spatial grid size
 ng = length(gset); % number of spatial grid sizes
 
@@ -60,33 +59,8 @@ fprintf('\nm = %d spatial points',m);
 fprintf('\np+1 = %d time steps',p+1);
 fprintf('\n');
 
-% Spatial mesh
-L = 1; % domain size (m)
-elemtype = 'CUB8';
-nbelem = [g,g,g];
-
-if constructMesh
-    fprintf('\nConstructing spatial mesh');
-    t_Mesh = tic;
-    
-    D = DOMAIN(3,[0.0,0.0,0.0],[L,L,L]);
-    M = build_model(D,'nbelem',nbelem,'elemtype',elemtype);
-    coord = getcoord(getnode(M));
-    M = setnode(M,NODE(coord(:,[2,1,3])));
-    M = final(M,DDL(DDLVECT('U',M.syscoord)));
-    Mscal = final(M,DDL('C'));
-    fprintf('\n');
-    
-    time_Mesh = toc(t_Mesh);
-    fprintf('\nelapsed time = %f s',time_Mesh);
-    fprintf('\n');
-    
-    save(fullfile(gridpathname,'mesh.mat'),'M','Mscal','time_Mesh');
-else
-    load(fullfile(gridpathname,'mesh.mat'),'M','Mscal','time_Mesh');
-end
-
 % Spatial scheme
+L = 1; % domain size (m)
 sx = [g+1,g+1,g+1]; % sx = nbelem+1; % spatial dimensions
 dx = L/g; % spatial step (m)
 x = linspace(0,L,g+1); % spatial discretization in each spatial dimension
@@ -100,8 +74,6 @@ dt = 100*dt; % physical time step stored every 100 computing time steps
 % Dt = spdiags(repmat([1 -1],p+1,1),[1 0],p+1,p+1)/dt; Dt(end,end) = 1/(2*dt); % Implicit forward Euler time scheme (first-order accurate, unconditionally stable)
 Dt = spdiags(repmat([1 -1],p+1,1),[1 -1],p+1,p+1)/(2*dt); % Implicit central-difference time scheme (second-order accurate, unconditionally stable)
 Dt(1,[1 2]) = [-1 1]/dt; Dt(end,[end-1 end]) = [-1 1]/dt;
-tf = p*dt;
-T = TIMEMODEL(0,tf,p);
 
 if performPCA
 %% First reduction step in space
@@ -852,16 +824,8 @@ if applyFilter
         gridrefname = ['Grid' num2str(gref)];
         fprintf(['\nReference ' gridrefname]);
         gridrefpathname = fullfile(pathname,gridrefname);
-        
-        nbelemref = [gref,gref,gref];
-        Mref = build_model(D,'nbelem',nbelemref,'elemtype',elemtype);
-        coordref = getcoord(getnode(Mref));
-        Mref = setnode(Mref,NODE(coordref(:,[2,1,3])));
-        Mref = final(Mref,DDL(DDLVECT('U',Mref.syscoord)));
-        Mrefscal = final(Mref,DDL('C'));
-        
-        P = calc_P(Mref,M);
-        Pscal = calc_P(Mrefscal,Mscal);
+        sxref = [gref+1,gref+1,gref+1];
+        k = gref/g;
         
         if gref<2^7
             load(fullfile(gridrefpathname,['data_filtered_grid' num2str(g) '.mat']),'Ybar');
@@ -901,29 +865,21 @@ if applyFilter
                 load(fullfile(gridrefpathname,['data_tau_filtered_grid' num2str(g) '_t' num2str(t) '.mat']),'Taubart');
             end
             
+            Ybart = reshape(Ybart,[N,n,sxref]);
+            Taubart = reshape(Taubart,[N,ntau,sxref]);
+            
+            Ybart = reshape(Ybart(:,:,1:k:end,1:k:end,1:k:end),[N,n,m]);
+            Taubart = reshape(Taubart(:,:,1:k:end,1:k:end,1:k:end),[N,ntau,m]);
+            
             ubart = Ybart(:,1:3,:);
             Cbart = Ybart(:,4,:);
+            clear Ybart
             tauTimebart = Taubart(:,1:3,:);
             divtauConvbart = Taubart(:,4:6,:);
             divtauDiffbart = Taubart(:,7:9,:);
             tauSurfbart = Taubart(:,10:12,:);
             tauInterfbart = Taubart(:,13,:);
-            
-            ubart = P*ubart(:,:)';
-            Cbart = Pscal*Cbart(:,:)';
-            tauTimebart = P*tauTimebart(:,:)';
-            divtauConvbart = P*divtauConvbart(:,:)';
-            divtauDiffbart = P*divtauDiffbart(:,:)';
-            tauSurfbart = P*tauSurfbart(:,:)';
-            tauInterfbart = Pscal*tauInterfbart(:,:)';
-            
-            ubart = reshape(ubart',[N,3,m]);
-            Cbart = reshape(Cbart',[N,1,m]);
-            tauTimebart = reshape(tauTimebart',[N,3,m]);
-            divtauConvbart = reshape(divtauConvbart',[N,3,m]);
-            divtauDiffbart = reshape(divtauDiffbart',[N,3,m]);
-            tauSurfbart = reshape(tauSurfbart',[N,3,m]);
-            tauInterfbart = reshape(tauInterfbart',[N,1,m]);
+            clear Taubart
             
             if g<2^7
                 Yt = Y(:,:,:,t+1);
@@ -1114,43 +1070,27 @@ mdivtauDiff = reshape(mTau(1,7:9,:,:),[3*m,p+1]);
 mtauSurf = reshape(mTau(1,10:12,:,:),[3*m,p+1]);
 mtauInterf = reshape(mTau(1,13,:,:),[m,p+1]);
 
-mU = TIMEMATRIX(mU,T);
-mC = TIMEMATRIX(mC,T);
-mtauTime = TIMEMATRIX(mtauTime,T);
-mdivtauConv = TIMEMATRIX(mdivtauConv,T);
-mdivtauDiff = TIMEMATRIX(mdivtauDiff,T);
-mtauSurf = TIMEMATRIX(mtauSurf,T);
-mtauInterf = TIMEMATRIX(mtauInterf,T);
-
 % Mean filtered solution
 if g==gref
-    mUbar = cell(1,ng-1);
-    mCbar = cell(1,ng-1);
-    mtauTimebar = cell(1,ng-1);
-    mdivtauConvbar = cell(1,ng-1);
-    mdivtauDiffbar = cell(1,ng-1);
-    mtauSurfbar = cell(1,ng-1);
-    mtauInterfbar = cell(1,ng-1);
+    mUbar = zeros(ng-1,3*m,p+1);
+    mCbar = zeros(ng-1,m,p+1);
+    mtauTimebar = zeros(ng-1,3*m,p+1);
+    mdivtauConvbar = zeros(ng-1,3*m,p+1);
+    mdivtauDiffbar = zeros(ng-1,3*m,p+1);
+    mtauSurfbar = zeros(ng-1,3*m,p+1);
+    mtauInterfbar = zeros(ng-1,m,p+1);
     for ig=1:ng-1
         gbar = gset(ng-ig);
         load(fullfile(gridpathname,['data_filtered_grid' num2str(gbar) '.mat']),'mYbar');
         load(fullfile(gridpathname,['data_tau_filtered_grid' num2str(gbar) '.mat']),'mTaubar');
         
-        mUbar{ig} = reshape(mYbar(1,1:3,:,:),[3*m,p+1]);
-        mCbar{ig} = reshape(mYbar(1,4,:,:),[m,p+1]);
-        mtauTimebar{ig} = reshape(mTaubar(1,1:3,:,:),[3*m,p+1]);
-        mdivtauConvbar{ig} = reshape(mTaubar(1,4:6,:,:),[3*m,p+1]);
-        mdivtauDiffbar{ig} = reshape(mTaubar(1,7:9,:,:),[3*m,p+1]);
-        mtauSurfbar{ig} = reshape(mTaubar(1,10:12,:,:),[3*m,p+1]);
-        mtauInterfbar{ig} = reshape(mTaubar(1,13,:,:),[m,p+1]);
-        
-        mUbar{ig} = TIMEMATRIX(mUbar{ig},T);
-        mCbar{ig} = TIMEMATRIX(mCbar{ig},T);
-        mtauTimebar{ig} = TIMEMATRIX(mtauTimebar{ig},T);
-        mdivtauConvbar{ig} = TIMEMATRIX(mdivtauConvbar{ig},T);
-        mdivtauDiffbar{ig} = TIMEMATRIX(mdivtauDiffbar{ig},T);
-        mtauSurfbar{ig} = TIMEMATRIX(mtauSurfbar{ig},T);
-        mtauInterfbar{ig} = TIMEMATRIX(mtauInterfbar{ig},T);
+        mUbar(ig,:,:) = reshape(mYbar(1,1:3,:,:),[3*m,p+1]);
+        mCbar(ig,:,:) = reshape(mYbar(1,4,:,:),[m,p+1]);
+        mtauTimebar(ig,:,:) = reshape(mTaubar(1,1:3,:,:),[3*m,p+1]);
+        mdivtauConvbar(ig,:,:) = reshape(mTaubar(1,4:6,:,:),[3*m,p+1]);
+        mdivtauDiffbar(ig,:,:) = reshape(mTaubar(1,7:9,:,:),[3*m,p+1]);
+        mtauSurfbar(ig,:,:) = reshape(mTaubar(1,10:12,:,:),[3*m,p+1]);
+        mtauInterfbar(ig,:,:) = reshape(mTaubar(1,13,:,:),[m,p+1]);
     end
 else
     mUbar = reshape(mYbar(1,1:3,:,:),[3*m,p+1]);
@@ -1160,14 +1100,6 @@ else
     mdivtauDiffbar = reshape(mTaubar(1,7:9,:,:),[3*m,p+1]);
     mtauSurfbar = reshape(mTaubar(1,10:12,:,:),[3*m,p+1]);
     mtauInterfbar = reshape(mTaubar(1,13,:,:),[m,p+1]);
-    
-    mUbar = TIMEMATRIX(mUbar,T);
-    mCbar = TIMEMATRIX(mCbar,T);
-    mtauTimebar = TIMEMATRIX(mtauTimebar,T);
-    mdivtauConvbar = TIMEMATRIX(mdivtauConvbar,T);
-    mdivtauDiffbar = TIMEMATRIX(mdivtauDiffbar,T);
-    mtauSurfbar = TIMEMATRIX(mtauSurfbar,T);
-    mtauInterfbar = TIMEMATRIX(mtauInterfbar,T);
 end
 
 % Variance of solution
@@ -1235,12 +1167,15 @@ for t=0:p
             load(fullfile(gridpathname,['data_t' num2str(t) '.mat']),'Yt');
         end
         Yct = Yt - repmat(mYt,[N,1,1]); % Yct = Yt - mYt.*ones(N,1,1);
+        clear Yt
         
         ut = Yct(:,1:3,:);
         Ct = Yct(:,4,:);
+        clear Yct
         
         vUt = 1/(N-1)*sum(ut(:,:).^2)';
         vCt = 1/(N-1)*sum(Ct(:,:).^2)';
+        clear ut Ct
     end
     
     mTaut = mTau(:,:,:,t+1);
@@ -1250,18 +1185,21 @@ for t=0:p
         load(fullfile(gridpathname,['data_tau_t' num2str(t) '.mat']),'Taut');
     end
     Tauct = Taut - repmat(mTaut,[N,1,1]); % Tauct = Taut - mTaut.*ones(N,1,1);
+    clear Taut
     
     tauTimet = Tauct(:,1:3,:);
     divtauConvt = Tauct(:,4:6,:);
     divtauDifft = Tauct(:,7:9,:);
     tauSurft = Tauct(:,10:12,:);
     tauInterft = Tauct(:,13,:);
+    clear Tauct
     
     vtauTimet = 1/(N-1)*sum(tauTimet(:,:).^2)';
     vdivtauConvt = 1/(N-1)*sum(divtauConvt(:,:).^2)';
     vdivtauDifft = 1/(N-1)*sum(divtauDifft(:,:).^2)';
     vtauSurft = 1/(N-1)*sum(tauSurft(:,:).^2)';
     vtauInterft = 1/(N-1)*sum(tauInterft(:,:).^2)';
+    clear tauTimet divtauConvt divtauDifft tauSurft tauInterft
     
     vU(:,t+1) = vUt;
     vC(:,t+1) = vCt;
@@ -1272,248 +1210,6 @@ for t=0:p
     vtauInterf(:,t+1) = vtauInterft;
 end
 fprintf('\n');
-
-vU = TIMEMATRIX(vU,T);
-vC = TIMEMATRIX(vC,T);
-vtauTime = TIMEMATRIX(vtauTime,T);
-vdivtauConv = TIMEMATRIX(vdivtauConv,T);
-vdivtauDiff = TIMEMATRIX(vdivtauDiff,T);
-vtauSurf = TIMEMATRIX(vtauSurf,T);
-vtauInterf = TIMEMATRIX(vtauInterf,T);
-
-% Display solution
-if displaySolution
-    ampl = 0;
-    % ampl = getsize(M)/max(abs(mut))/5;
-    az_z = -37.5; % azimuth for the default 3D view with vertical z-axis
-    el_z = 30; % elevation for the default 3D view with vertical z-axis
-    az = az_z-90; % azimuth for the default 3D view with vertical y-axis
-    el = -el_z; % elevation for the default 3D view with vertical y-axis
-    
-    %% Mean
-    for i=1:3
-        evolSolution(M,mU,'displ',i,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename',['evol_mean_u' num2str(i)],'pathname',gridpathname,'FrameRate',framerate,...
-            'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-        evolSolution(M,mtauTime,'displ',i,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename',['evol_mean_tauTime' num2str(i)],'pathname',gridpathname,'FrameRate',framerate,...
-            'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-        evolSolution(M,mdivtauConv,'displ',i,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename',['evol_mean_divtauConv' num2str(i)],'pathname',gridpathname,'FrameRate',framerate,...
-            'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-        evolSolution(M,mdivtauDiff,'displ',i,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename',['evol_mean_divtauDiff' num2str(i)],'pathname',gridpathname,'FrameRate',framerate,...
-            'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-        evolSolution(M,mtauSurf,'displ',i,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename',['evol_mean_tauSurf' num2str(i)],'pathname',gridpathname,'FrameRate',framerate,...
-            'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-    end
-    evolSolution(Mscal,mC,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename','evol_mean_C','pathname',gridpathname,'FrameRate',framerate,...
-        'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-    evolSolution(Mscal,mtauInterf,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename','evol_mean_tauInterf','pathname',gridpathname,'FrameRate',framerate,...
-        'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-    
-    ti = 11;
-    for i=1:3
-        figure('Name',['Mean of velocity u_' num2str(i)])
-        clf
-        plot_sol(M,getmatrixatstep(mU,ti+1),'displ',i,'ampl',ampl);
-        title(['time ' num2str(ti*dt,'%.2f') ' s'],'FontSize',fontsize)
-        colormap(cmap)
-        colorbar
-        axis on
-        box on
-        view(az,el)
-        camup([0 1 0])
-        set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
-        mysaveas(gridpathname,['mean_u' num2str(i) '_t' num2str(ti*100)],formats,renderer);
-        
-        figure('Name',['Mean of tauTime_' num2str(i)])
-        clf
-        plot_sol(M,getmatrixatstep(mtauTime,ti+1),'displ',i,'ampl',ampl);
-        title(['time ' num2str(ti*dt,'%.2f') ' s'],'FontSize',fontsize)
-        colormap(cmap)
-        colorbar
-        axis on
-        box on
-        view(az,el)
-        camup([0 1 0])
-        set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
-        mysaveas(gridpathname,['mean_tauTime' num2str(i) '_t' num2str(ti*100)],formats,renderer);
-        
-        figure('Name',['Mean of div(tauConv)_' num2str(i)])
-        clf
-        plot_sol(M,getmatrixatstep(mdivtauConv,ti+1),'displ',i,'ampl',ampl);
-        title(['time ' num2str(ti*dt,'%.2f') ' s'],'FontSize',fontsize)
-        colormap(cmap)
-        colorbar
-        axis on
-        box on
-        view(az,el)
-        camup([0 1 0])
-        set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
-        mysaveas(gridpathname,['mean_divtauConv' num2str(i) '_t' num2str(ti*100)],formats,renderer);
-        
-        figure('Name',['Mean of div(tauDiff)_' num2str(i)])
-        clf
-        plot_sol(M,getmatrixatstep(mdivtauDiff,ti+1),'displ',i,'ampl',ampl);
-        title(['time ' num2str(ti*dt,'%.2f') ' s'],'FontSize',fontsize)
-        colormap(cmap)
-        colorbar
-        axis on
-        box on
-        view(az,el)
-        camup([0 1 0])
-        set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
-        mysaveas(gridpathname,['mean_divtauDiff' num2str(i) '_t' num2str(ti*100)],formats,renderer);
-        
-        figure('Name',['Mean of tauSurf ' num2str(i)])
-        clf
-        plot_sol(M,getmatrixatstep(mtauSurf,ti+1),'displ',i,'ampl',ampl);
-        title(['time ' num2str(ti*dt,'%.2f') ' s'],'FontSize',fontsize)
-        colormap(cmap)
-        colorbar
-        axis on
-        box on
-        view(az,el)
-        camup([0 1 0])
-        set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
-        mysaveas(gridpathname,['mean_tauSurf' num2str(i) '_t' num2str(ti*100)],formats,renderer);
-    end
-    
-    figure('Name','Mean of indicator function C')
-    clf
-    plot_sol(Mscal,getmatrixatstep(mC,ti+1));
-    title(['time ' num2str(ti*dt,'%.2f') ' s'],'FontSize',fontsize)
-    colormap(cmap)
-    colorbar
-    axis on
-    box on
-    view(az,el)
-    camup([0 1 0])
-    set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
-    mysaveas(gridpathname,['mean_C_t' num2str(ti*100)],formats,renderer);
-    
-    figure('Name','Mean of tauInterf')
-    clf
-    plot_sol(Mscal,getmatrixatstep(mtauInterf,ti+1));
-    title(['time ' num2str(ti*dt,'%.2f') ' s'],'FontSize',fontsize)
-    colormap(cmap)
-    colorbar
-    axis on
-    box on
-    view(az,el)
-    camup([0 1 0])
-    set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
-    mysaveas(gridpathname,['mean_tauInterf_t' num2str(ti*100)],formats,renderer);
-    
-    %% Variance
-%     for i=1:3
-%         evolSolution(M,vU,'displ',i,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename',['evol_var_u' num2str(i)],'pathname',gridpathname,'FrameRate',framerate);,...
-%             'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-%         evolSolution(M,vtauTime,'displ',i,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename',['evol_var_tauTime' num2str(i)],'pathname',gridpathname,'FrameRate',framerate);,...
-%             'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-%         evolSolution(M,vdivtauConv,'displ',i,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename',['evol_var_divtauConv' num2str(i)],'pathname',gridpathname,'FrameRate',framerate);,...
-%             'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-%         evolSolution(M,vdivtauDiff,'displ',i,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename',['evol_var_divtauDiff' num2str(i)],'pathname',gridpathname,'FrameRate',framerate);,...
-%             'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-%         evolSolution(M,vtauSurf,'displ',i,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename',['evol_var_tauSurf' num2str(i)],'pathname',gridpathname,'FrameRate',framerate);,...
-%             'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-%     end
-%     evolSolution(Mscal,vC,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename','evol_var_C','pathname',gridpathname,'FrameRate',framerate,...
-%         'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-%     evolSolution(Mscal,vtauInterf,'colormap',cmap,'view',[az,el],'camup',[0 1 0],'filename','evol_var_tauInterf','pathname',gridpathname,'FrameRate',framerate,...
-%         'axison',true,'boxon',true,'boxstylefull',true,'noxtick',true,'noytick',true,'noztick',true);
-%     
-%     ti = 11;
-%     for i=1:3
-%         figure('Name',['Variance of velocity u_' num2str(i)])
-%         clf
-%         plot_sol(M,getmatrixatstep(vU,ti+1),'displ',i,'ampl',ampl);
-%         title(['time ' num2str(ti*dt,'%.2f') ' s'],'FontSize',fontsize)
-%         colormap(cmap)
-%         colorbar
-%         axis on
-%         box on
-%         view(az,el)
-%         camup([0 1 0])
-%         set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
-%         mysaveas(gridpathname,['var_u' num2str(i) '_t' num2str(ti*100)],formats,renderer);
-%         
-%         figure('Name',['Variance of tauTime_' num2str(i)])
-%         clf
-%         plot_sol(M,getmatrixatstep(vtauTime,ti+1),'displ',i,'ampl',ampl);
-%         title(['time ' num2str(ti*dt,'%.2f') ' s'],'FontSize',fontsize)
-%         colormap(cmap)
-%         colorbar
-%         axis on
-%         box on
-%         view(az,el)
-%         camup([0 1 0])
-%         set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
-%         mysaveas(gridpathname,['var_tauTime' num2str(i) '_t' num2str(ti*100)],formats,renderer);
-%         
-%         figure('Name',['Variance of div(tauConv)_' num2str(i)])
-%         clf
-%         plot_sol(M,getmatrixatstep(vdivtauConv,ti+1),'displ',i,'ampl',ampl);
-%         title(['time ' num2str(ti*dt,'%.2f') ' s'],'FontSize',fontsize)
-%         colormap(cmap)
-%         colorbar
-%         axis on
-%         box on
-%         view(az,el)
-%         camup([0 1 0])
-%         set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
-%         mysaveas(gridpathname,['var_divtauConv' num2str(i) '_t' num2str(ti*100)],formats,renderer);
-%         
-%         figure('Name',['Variance of div(tauDiff)_' num2str(i)])
-%         clf
-%         plot_sol(M,getmatrixatstep(vdivtauDiff,ti+1),'displ',i,'ampl',ampl);
-%         title(['time ' num2str(ti*dt,'%.2f') ' s'],'FontSize',fontsize)
-%         colormap(cmap)
-%         colorbar
-%         axis on
-%         box on
-%         view(az,el)
-%         camup([0 1 0])
-%         set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
-%         mysaveas(gridpathname,['var_divtauDiff' num2str(i) '_t' num2str(ti*100)],formats,renderer);
-%         
-%         figure('Name',['Variance of tauSurf_' num2str(i)])
-%         clf
-%         plot_sol(M,getmatrixatstep(vtauSurf,ti+1),'displ',i,'ampl',ampl);
-%         title(['time ' num2str(ti*dt,'%.2f') ' s'],'FontSize',fontsize)
-%         colormap(cmap)
-%         colorbar
-%         axis on
-%         box on
-%         view(az,el)
-%         camup([0 1 0])
-%         set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
-%         mysaveas(gridpathname,['var_tauSurf' num2str(i) '_t' num2str(ti*100)],formats,renderer);
-%     end
-%     
-%     figure('Name','Variance of indicator function C')
-%     clf
-%     plot_sol(Mscal,getmatrixatstep(vC,ti+1));
-%     title(['time ' num2str(ti*dt,'%.2f') ' s'],'FontSize',fontsize)
-%     colormap(cmap)
-%     colorbar
-%     axis on
-%     box on
-%     view(az,el)
-%     camup([0 1 0])
-%     set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
-%     mysaveas(gridname,['var_C_t' num2str(ti*100)],formats,renderer);
-%     
-%     figure('Name','Variance of tauInterf')
-%     clf
-%     plot_sol(Mscal,getmatrixatstep(vtauInterf,ti+1));
-%     title(['time ' num2str(ti*dt,'%.2f') ' s'],'FontSize',fontsize)
-%     colormap(cmap)
-%     colorbar
-%     axis on
-%     box on
-%     view(az,el)
-%     camup([0 1 0])
-%     set(gca,'FontSize',fontsize,'BoxStyle','full','XTick',[],'YTick',[],'ZTick',[])
-%     mysaveas(gridname,['var_tauInterf_t' num2str(ti*100)],formats,renderer);
-end
 
 % Display error between data and filtered data
 if g~=gref && displayError
@@ -1827,15 +1523,38 @@ if displayQoI
     mymatlab2tikz(gridpathname,'power_tauInterf.tex');
 end
 
+%% Spatial mesh
+if constructMesh
+    fprintf('\nConstructing spatial mesh');
+    t_Mesh = tic;
+    
+    D = DOMAIN(3,[0.0,0.0,0.0],[L,L,L]);
+    elemtype = 'CUB8';
+    nbelem = [g,g,g];
+    M = build_model(D,'nbelem',nbelem,'elemtype',elemtype);
+    coord = getcoord(getnode(M));
+    M = setnode(M,NODE(coord(:,[2,1,3])));
+    M = final(M,DDL(DDLVECT('U',M.syscoord)));
+    fprintf('\n');
+    
+    time_Mesh = toc(t_Mesh);
+    fprintf('\nelapsed time = %f s',time_Mesh);
+    fprintf('\n');
+    
+    save(fullfile(gridpathname,'mesh.mat'),'M','time_Mesh');
+else
+    load(fullfile(gridpathname,'mesh.mat'),'M','time_Mesh');
+end
+
 %% Mean
 for t=0:p
-    mUt = getmatrixatstep(mU,t+1);
-    mCt = getmatrixatstep(mC,t+1);
-    mtauTimet = getmatrixatstep(mtauTime,t+1);
-    mdivtauConvt = getmatrixatstep(mdivtauConv,t+1);
-    mdivtauDifft = getmatrixatstep(mdivtauDiff,t+1);
-    mtauSurft = getmatrixatstep(mtauSurf,t+1);
-    mtauInterft = getmatrixatstep(mtauInterf,t+1);
+    mUt = mU(:,t+1);
+    mCt = mC(:,t+1);
+    mtauTimet = mtauTime(:,t+1);
+    mdivtauConvt = mdivtauConv(:,t+1);
+    mdivtauDifft = mdivtauDiff(:,t+1);
+    mtauSurft = mtauSurf(:,t+1);
+    mtauInterft = mtauInterf(:,t+1);
     
     if g==gref
         mUbart = cell(1,ng-1);
@@ -1854,13 +1573,13 @@ for t=0:p
         legtauInterfbart = cell(1,ng-1);
         for ig=1:ng-1
             gbar = gset(ng-ig);
-            mUbart{ig} = getmatrixatstep(mUbar{ig},t+1);
-            mCbart{ig} = getmatrixatstep(mCbar{ig},t+1);
-            mtauTimebart{ig} = getmatrixatstep(mtauTimebar{ig},t+1);
-            mdivtauConvbart{ig} = getmatrixatstep(mdivtauConvbar{ig},t+1);
-            mdivtauDiffbart{ig} = getmatrixatstep(mdivtauDiffbar{ig},t+1);
-            mtauSurfbart{ig} = getmatrixatstep(mtauSurfbar{ig},t+1);
-            mtauInterfbart{ig} = getmatrixatstep(mtauInterfbar{ig},t+1);
+            mUbart{ig} = mUbar(ig,:,t+1);
+            mCbart{ig} = mCbar(ig,:,t+1);
+            mtauTimebart{ig} = mtauTimebar(ig,:,t+1);
+            mdivtauConvbart{ig} = mdivtauConvbar(ig,:,t+1);
+            mdivtauDiffbart{ig} = mdivtauDiffbar(ig,:,t+1);
+            mtauSurfbart{ig} = mtauSurfbar(ig,:,t+1);
+            mtauInterfbart{ig} = mtauInterfbar(ig,:,t+1);
             legUbart{ig} = ['velocity filtered grid ' num2str(gbar)];
             legCbart{ig} = ['phase filtered grid ' num2str(gbar)];
             legtauTimebart{ig} = ['phase filtered grid ' num2str(gbar)];
@@ -1881,13 +1600,13 @@ for t=0:p
             ],[],...
             gridpathname,['diphasic_fluids_grid' num2str(g) '_mean'],1,t);
     else
-        mUbart = getmatrixatstep(mUbar,t+1);
-        mCbart = getmatrixatstep(mCbar,t+1);
-        mtauTimebart = getmatrixatstep(mtauTimebar,t+1);
-        mdivtauConvbart = getmatrixatstep(mdivtauConvbar,t+1);
-        mdivtauDiffbart = getmatrixatstep(mdivtauDiffbar,t+1);
-        mtauSurfbart = getmatrixatstep(mtauSurfbar,t+1);
-        mtauInterfbart = getmatrixatstep(mtauInterfbar,t+1);
+        mUbart = mUbar(:,t+1);
+        mCbart = mCbar(:,t+1);
+        mtauTimebart = mtauTimebar(:,t+1);
+        mdivtauConvbart = mdivtauConvbar(:,t+1);
+        mdivtauDiffbart = mdivtauDiffbar(:,t+1);
+        mtauSurfbart = mtauSurfbar(:,t+1);
+        mtauInterfbart = mtauInterfbar(:,t+1);
         
         write_vtk_mesh(M,{mUt,mCt,mtauTimet,mdivtauConvt,mdivtauDifft,mtauSurft,mtauInterft,...
             mUbart,mCbart,mtauTimebart,mdivtauConvbart,mdivtauDiffbart,mtauSurfbart,mtauInterfbart...
