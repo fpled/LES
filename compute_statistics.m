@@ -14,7 +14,7 @@ constructMesh = true;
 displayEigenvalues = false;
 displayCovariance = false;
 displayQoI = false;
-displayError = true;
+displayError = false;
 
 cmap = 'default';
 % cmap = 'gray';
