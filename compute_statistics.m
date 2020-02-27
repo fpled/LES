@@ -541,7 +541,7 @@ if postProcess
         energyDifft = shiftdim(div(squeeze(dot(2*muSt,repmat(shiftdim(ut,-1),[3,ones(1,5)]),2)),Dx),-1);
         energyVisct = shiftdim(sum(sum(2*muSt.*gradut,1),2),1);
         energySurft = dot(tauSurft,ut,1);
-        clear ut gradut rhout gradrhout muSt
+        clear ut gradut rhout rhou2t gradrhout muSt
         
         Taut = cat(1,tauTimet,divtauConvt,divtauDifft,tauSurft,tauInterft);
         clear tauTimet divtauConvt divtauDifft tauSurft tauInterft
