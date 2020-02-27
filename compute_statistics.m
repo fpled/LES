@@ -42,8 +42,8 @@ index = 'coord'; % index for ordering ('coord', 'time')
 filterType = 'box'; % 3D filter type ('box' or 'mean' or 'average', 'linear' or 'trapz')
 
 % Spatial grid size
-gset = 2.^(4:5); % set of spatial grid sizes
-g = gset(2); % current spatial grid size
+gset = 2.^(4:6); % set of spatial grid sizes
+g = gset(end); % current spatial grid size
 gref = gset(end); % reference spatial grid size
 ng = length(gset); % number of spatial grid sizes
 
@@ -538,7 +538,7 @@ if postProcess
         tauInterft = dot(ut,gradCt,1);
         clear gradCt kappa
         Taut = cat(1,tauTimet,divtauConvt,divtauDifft,tauSurft,tauInterft);
-        clear tauTimet divtauConvt divtauDifft tauSurft tauInterft
+        clear tauTimet divtauConvt divtauDifft tauInterft
         
         energyConvt = shiftdim(div(repmat(rhou2t,[3,ones(1,4)]).*ut,Dx),-1);
         energyGravt = gravity.*rhout(2,:,:,:,:);
@@ -548,7 +548,7 @@ if postProcess
         energyDifft = shiftdim(div(squeeze(dot(2*muSt,repmat(shiftdim(ut,-1),[3,ones(1,5)]),2)),Dx),-1);
         energyVisct = shiftdim(sum(sum(2*muSt.*gradut,1),2),1);
         energySurft = dot(tauSurft,ut,1);
-        clear ut gradut rhout rhou2t gradrhout muSt
+        clear ut gradut rhout rhou2t gradrhout muSt tauSurft
         Et = cat(1,energyKinTimet,energyConvt,energyGravt,energyPrest,energyPresDilt,energyKinSpacet,energyDifft,energyVisct,energySurft);
         clear energyKinTimet energyConvt energyGravt energyPrest energyPresDilt energyKinSpacet energyDifft energyVisct energySurft
         
