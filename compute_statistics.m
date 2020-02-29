@@ -811,8 +811,8 @@ if g==gref
                 mYbart = mean(Ybart,1);
                 mTaubart = mean(Taubart,1);
                 
-                mYrefbar(:,:,:,t+1) = mYbart;
-                mTaurefbar(:,:,:,t+1) = mTaubart;
+                mYrefbar(ig,:,:,t+1) = mYbart;
+                mTaurefbar(ig,:,:,t+1) = mTaubart;
                 
                 Ybart = reshape(Ybart,[N,n,sx]);
                 Taubart = reshape(Taubart,[N,ntau,sx]);
