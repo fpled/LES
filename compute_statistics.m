@@ -44,7 +44,7 @@ index = 'coord'; % index for ordering ('coord', 'time')
 filterType = 'box'; % 3D filter type ('box' or 'mean' or 'average', 'linear' or 'trapz')
 
 % Spatial grid size
-gset = 2.^(4:6); % set of spatial grid sizes
+gset = 2.^(4:8); % set of spatial grid sizes
 g = gset(end); % current spatial grid size
 gref = gset(end); % reference spatial grid size
 ng = length(gset); % number of spatial grid sizes
@@ -849,10 +849,10 @@ if g==gref
         fprintf('\n');
         
         save(fullfile(gridpathname,'mean_data_filtered.mat'),'mYrefbar','time_Filter');
-        save(fullfile(gridpathname,'mean_data_tau filtered.mat'),'mTaurefbar');
+        save(fullfile(gridpathname,'mean_data_tau_filtered.mat'),'mTaurefbar');
     else
         load(fullfile(gridpathname,'mean_data_filtered.mat'),'mYrefbar','time_Filter');
-        load(fullfile(gridpathname,'mean_data_tau filtered.mat'),'mTaurefbar');
+        load(fullfile(gridpathname,'mean_data_tau_filtered.mat'),'mTaurefbar');
     end
 else
 
