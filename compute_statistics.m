@@ -3,12 +3,14 @@ clearvars
 close all
 
 performPCA = false;
+
 performPCAspace = true;
 performPCAtime = true;
 computeMean = true;
 postProcess = true;
 computeQoI = true;
 applyFilter = true;
+computeError = true;
 constructMesh = true;
 
 displayEigenvalues = false;
@@ -76,6 +78,10 @@ dt = 100*dt; % physical time step stored every 100 computing time steps
 Dt = spdiags(repmat([1 -1],p+1,1),[1 -1],p+1,p+1)/(2*dt); % Implicit central-difference time scheme (second-order accurate, unconditionally stable)
 Dt(1,[1 2]) = [-1 1]/dt; Dt(end,[end-1 end]) = [-1 1]/dt;
 
+if g<2^7
+    load(fullfile(gridpathname,'data.mat'),'Y');
+end
+
 if performPCA
 %% First reduction step in space
 if performPCAspace
@@ -83,7 +89,6 @@ if performPCAspace
     t_PCA_space = tic;
     Rinit = min(r,N);
     if g<2^7
-        load(fullfile(gridpathname,'data.mat'),'Y');
         mY = mean(Y,1);
         Yc = Y - repmat(mY,[N,1,1,1]); % Yc = Y - mY.*ones(N,1,1,1);
         V = zeros(r,Rinit,p+1);
@@ -391,7 +396,6 @@ else
         t_Mean = tic;
         
         if g<2^7
-            load(fullfile(gridpathname,'data.mat'),'Y');
             mY = mean(Y,1);
         else
             mY = zeros(1,n,m,p+1);
@@ -577,15 +581,15 @@ if postProcess
     fprintf('\nelapsed time = %f s',time_PostProcess);
     fprintf('\n');
     
-    save(fullfile(gridpathname,'data_tau.mat'),'mTau','ntau','time_PostProcess');
-    save(fullfile(gridpathname,'data_energy.mat'),'mE','ne');
+    save(fullfile(gridpathname,'mean_data_tau.mat'),'mTau','ntau');
+    save(fullfile(gridpathname,'mean_data_energy.mat'),'mE','ne');
     if g<2^7
-        save(fullfile(gridpathname,'data_tau.mat'),'Tau','-append');
-        save(fullfile(gridpathname,'data_energy.mat'),'E','-append');
+        save(fullfile(gridpathname,'data_tau.mat'),'Tau');
+        save(fullfile(gridpathname,'data_energy.mat'),'E');
     end
 else
-    load(fullfile(gridpathname,'data_tau.mat'),'mTau','ntau','time_PostProcess');
-    load(fullfile(gridpathname,'data_energy.mat'),'mE','ne');
+    load(fullfile(gridpathname,'mean_data_tau.mat'),'mTau','ntau');
+    load(fullfile(gridpathname,'mean_data_energy.mat'),'mE','ne');
     if g<2^7
         load(fullfile(gridpathname,'data_tau.mat'),'Tau');
         load(fullfile(gridpathname,'data_energy.mat'),'E');
@@ -725,14 +729,21 @@ else
 end
 
 %% Applying filter
-if applyFilter
-    if g==gref
+if g==gref
+    if applyFilter
         fprintf('\nApplying filter');
         t_Filter = tic;
         
+        mYrefbar = zeros(ng-1,n,m,p+1);
+        mTaurefbar = zeros(ng-1,ntau,m,p+1);
         for ig=1:ng-1
             gbar = gset(ng-ig);
-            fprintf(['\nFiltered Grid' num2str(gbar)]);
+            gridbarname = ['Grid' num2str(gbar)];
+            fprintf(['\nFiltered ' gridbarname]);
+            gridbarpathname = fullfile(pathname,gridbarname);
+            sxbar = [gbar+1,gbar+1,gbar+1];
+            mbar = (gbar+1)^3;
+            k = g/gbar;
             
             switch filterType
                 case {'box','mean','average'}
@@ -748,11 +759,11 @@ if applyFilter
                     h = h/prod(2*filterSize);
             end
             
-            mYbar = zeros(1,n,m,p+1);
-            mTaubar = zeros(1,ntau,m,p+1);
+            mYbar = zeros(1,n,mbar,p+1);
+            mTaubar = zeros(1,ntau,mbar,p+1);
             if g<2^7
-                Ybar = zeros(N,n,m,p+1);
-                Taubar = zeros(N,ntau,m,p+1);
+                Ybar = zeros(N,n,mbar,p+1);
+                Taubar = zeros(N,ntau,mbar,p+1);
             end
             
             for t=0:p
@@ -795,6 +806,19 @@ if applyFilter
                 
                 Ybart = YTaubart(:,1:4,:);
                 Taubart = YTaubart(:,5:end,:);
+                clear YTaubart
+                
+                mYbart = mean(Ybart,1);
+                mTaubart = mean(Taubart,1);
+                
+                mYrefbar(:,:,:,t+1) = mYbart;
+                mTaurefbar(:,:,:,t+1) = mTaubart;
+                
+                Ybart = reshape(Ybart,[N,n,sx]);
+                Taubart = reshape(Taubart,[N,ntau,sx]);
+                
+                Ybart = reshape(Ybart(:,:,1:k:end,1:k:end,1:k:end),[N,n,mbar]);
+                Taubart = reshape(Taubart(:,:,1:k:end,1:k:end,1:k:end),[N,ntau,mbar]);
                 
                 mYbart = mean(Ybart,1);
                 mTaubart = mean(Taubart,1);
@@ -802,48 +826,48 @@ if applyFilter
                 mYbar(:,:,:,t+1) = mYbart;
                 mTaubar(:,:,:,t+1) = mTaubart;
                 
-                if g<2^7
+                if gbar<2^7
                     Ybar(:,:,:,t+1) = Ybart;
                     Taubar(:,:,:,t+1) = Taubart;
                 else
-                    save(fullfile(gridpathname,['data_filtered_grid' num2str(gbar) '_t' num2str(t) '.mat']),'Ybart');
-                    save(fullfile(gridpathname,['data_tau_filtered_grid' num2str(gbar) '_t' num2str(t) '.mat']),'Taubart');
+                    save(fullfile(gridbarpathname,['data_filtered_t' num2str(t) '.mat']),'Ybart');
+                    save(fullfile(gridbarpathname,['data_tau_filtered_t' num2str(t) '.mat']),'Taubart');
                 end
             end
             fprintf('\n');
             
-            time_Filter = toc(t_Filter);
-            fprintf('\nelapsed time = %f s',time_Filter);
-            fprintf('\n');
-            
-            save(fullfile(gridpathname,['data_filtered_grid' num2str(gbar) '.mat']),'mYbar');
-            save(fullfile(gridpathname,['data_tau_filtered_grid' num2str(gbar) '.mat']),'mTaubar');
-            if g<2^7
-                save(fullfile(gridpathname,['data_filtered_grid' num2str(gbar) '.mat']),'Ybar','-append');
-                save(fullfile(gridpathname,['data_tau_filtered_grid' num2str(gbar) '.mat']),'Taubar','-append');
+            save(fullfile(gridbarpathname,'mean_data_filtered.mat'),'mYbar');
+            save(fullfile(gridbarpathname,'mean_data_tau_filtered.mat'),'mTaubar');
+            if gbar<2^7
+                save(fullfile(gridbarpathname,'data_filtered.mat'),'Ybar');
+                save(fullfile(gridbarpathname,'data_tau_filtered.mat'),'Taubar');
             end
         end
+        
+        time_Filter = toc(t_Filter);
+        fprintf('\nelapsed time = %f s',time_Filter);
+        fprintf('\n');
+        
+        save(fullfile(gridpathname,'mean_data_filtered.mat'),'mYrefbar','time_Filter');
+        save(fullfile(gridpathname,'mean_data_tau filtered.mat'),'mTaurefbar');
     else
-        fprintf('\nExtracting filtered data');
-        gridrefname = ['Grid' num2str(gref)];
-        fprintf(['\nReference ' gridrefname]);
-        gridrefpathname = fullfile(pathname,gridrefname);
-        sxref = [gref+1,gref+1,gref+1];
-        k = gref/g;
+        load(fullfile(gridpathname,'mean_data_filtered.mat'),'mYrefbar','time_Filter');
+        load(fullfile(gridpathname,'mean_data_tau filtered.mat'),'mTaurefbar');
+    end
+else
+
+    %% Computing error
+    if computeError
+        fprintf('\nComputing error between DNS and filtered data');
+        t_Error = tic;
         
-        if gref<2^7
-            load(fullfile(gridrefpathname,['data_filtered_grid' num2str(g) '.mat']),'Ybar');
-            load(fullfile(gridrefpathname,['data_tau_filtered_grid' num2str(g) '.mat']),'Taubar');
-            Ybarref = Ybar;
-            Taubarref = Taubar;
-        end
-        
-        mYbar = zeros(1,n,m,p+1);
-        mTaubar = zeros(1,ntau,m,p+1);
+        load(fullfile(gridpathname,'mean_data_filtered.mat'),'mYbar');
+        load(fullfile(gridpathname,'mean_data_tau_filtered.mat'),'mTaubar');
         if g<2^7
-            Ybar = zeros(N,n,m,p+1);
-            Taubar = zeros(N,ntau,m,p+1);
+            load(fullfile(gridpathname,'data_filtered.mat'),'Ybar');
+            load(fullfile(gridpathname,'data_tau_filtered.mat'),'Taubar');
         end
+        
         erroru = zeros(1,p+1);
         errorC = zeros(1,p+1);
         errortauTime = zeros(1,p+1);
@@ -860,30 +884,6 @@ if applyFilter
         normtauInterfbar = zeros(1,p+1);
         for t=0:p
             fprintf('\nTime %2d/%2d',t,p);
-            
-            if gref<2^7
-                Ybart = Ybarref(:,:,:,t+1);
-                Taubart = Taubarref(:,:,:,t+1);
-            else
-                load(fullfile(gridrefpathname,['data_filtered_grid' num2str(g) '_t' num2str(t) '.mat']),'Ybart');
-                load(fullfile(gridrefpathname,['data_tau_filtered_grid' num2str(g) '_t' num2str(t) '.mat']),'Taubart');
-            end
-            
-            Ybart = reshape(Ybart,[N,n,sxref]);
-            Taubart = reshape(Taubart,[N,ntau,sxref]);
-            
-            Ybart = reshape(Ybart(:,:,1:k:end,1:k:end,1:k:end),[N,n,m]);
-            Taubart = reshape(Taubart(:,:,1:k:end,1:k:end,1:k:end),[N,ntau,m]);
-            
-            ubart = Ybart(:,1:3,:);
-            Cbart = Ybart(:,4,:);
-            clear Ybart
-            tauTimebart = Taubart(:,1:3,:);
-            divtauConvbart = Taubart(:,4:6,:);
-            divtauDiffbart = Taubart(:,7:9,:);
-            tauSurfbart = Taubart(:,10:12,:);
-            tauInterfbart = Taubart(:,13,:);
-            clear Taubart
             
             if g<2^7
                 Yt = Y(:,:,:,t+1);
@@ -902,6 +902,24 @@ if applyFilter
             tauSurft = Taut(:,10:12,:);
             tauInterft = Taut(:,13,:);
             clear Taut
+            
+            if g<2^7
+                Ybart = Ybar(:,:,:,t+1);
+                Taubart = Taubar(:,:,:,t+1);
+            else
+                load(fullfile(gridpathname,['data_filtered_t' num2str(t) '.mat']),'Ybart');
+                load(fullfile(gridpathname,['data_tau_filtered_t' num2str(t) '.mat']),'Taubart');
+            end
+            
+            ubart = Ybart(:,1:3,:);
+            Cbart = Ybart(:,4,:);
+            clear Ybart
+            tauTimebart = Taubart(:,1:3,:);
+            divtauConvbart = Taubart(:,4:6,:);
+            divtauDiffbart = Taubart(:,7:9,:);
+            tauSurfbart = Taubart(:,10:12,:);
+            tauInterfbart = Taubart(:,13,:);
+            clear Taubart
             
             errorut = sqrt(mean(trapz(trapz(trapz(x,reshape(sum((ubart-ut).^2,2),[N,sx]),2),3),4),1));
             errorCt = sqrt(mean(trapz(trapz(trapz(x,reshape((Cbart-Ct).^2,[N,sx]),2),3),4),1));
@@ -934,33 +952,18 @@ if applyFilter
             normdivtauDiffbar(t+1) = normdivtauDiffbart;
             normtauSurfbar(t+1) = normtauSurfbart;
             normtauInterfbar(t+1) = normtauInterfbart;
-            
-            Ybart = cat(2,ubart,Cbart);
-            Taubart = cat(2,tauTimebart,divtauConvbart,divtauDiffbart,tauSurfbart,tauInterfbart);
-            
-            mYbart = mean(Ybart,1);
-            mTaubart = mean(Taubart,1);
-            
-            mYbar(1,:,:,t+1) = mYbart;
-            mTaubar(1,:,:,t+1) = mTaubart;
-            if g<2^7
-                Ybar(:,:,:,t+1) = Ybart;
-                Taubar(:,:,:,t+1) = Taubart;
-            else
-                save(fullfile(gridpathname,['data_filtered_t' num2str(t) '.mat']),'Ybart');
-                save(fullfile(gridpathname,['data_tau_filtered_t' num2str(t) '.mat']),'Taubart');
-            end
         end
+        fprintf('\n');
         
-        save(fullfile(gridpathname,'data_filtered.mat'),'mYbar');
-        save(fullfile(gridpathname,'data_tau_filtered.mat'),'mTaubar');
+        time_Error = toc(t_Error);
+        fprintf('\nelapsed time = %f s',time_Error);
+        fprintf('\n');
+        
         save(fullfile(gridpathname,'error_filter.mat'),'erroru','errorC','errortauTime','errordivtauConv','errordivtauDiff','errortauSurf','errortauInterf',...
-            'normubar','normCbar','normubar','normtauTimebar','normdivtauConvbar','normdivtauDiffbar','normtauSurfbar','normtauInterfbar');
-        save(fullfile(gridpathname,'error_data_tau_filtered.mat'),'mTaubar');
-        if g<2^7
-            save(fullfile(gridpathname,'data_filtered.mat'),'Ybar','-append');
-            save(fullfile(gridpathname,'data_tau_filtered.mat'),'Taubar','-append');
-        end
+            'normubar','normCbar','normubar','normtauTimebar','normdivtauConvbar','normdivtauDiffbar','normtauSurfbar','normtauInterfbar','time_Error');
+    else
+        load(fullfile(gridpathname,'error_filter.mat'),'erroru','errorC','errortauTime','errordivtauConv','errordivtauDiff','errortauSurf','errortauInterf',...
+            'normubar','normCbar','normubar','normtauTimebar','normdivtauConvbar','normdivtauDiffbar','normtauSurfbar','normtauInterfbar','time_Error');
     end
 end
 
@@ -1085,16 +1088,13 @@ if g==gref
     mtauInterfbar = zeros(ng-1,m,p+1);
     for ig=1:ng-1
         gbar = gset(ng-ig);
-        load(fullfile(gridpathname,['data_filtered_grid' num2str(gbar) '.mat']),'mYbar');
-        load(fullfile(gridpathname,['data_tau_filtered_grid' num2str(gbar) '.mat']),'mTaubar');
-        
-        mUbar(ig,:,:) = reshape(mYbar(1,1:3,:,:),[3*m,p+1]);
-        mCbar(ig,:,:) = reshape(mYbar(1,4,:,:),[m,p+1]);
-        mtauTimebar(ig,:,:) = reshape(mTaubar(1,1:3,:,:),[3*m,p+1]);
-        mdivtauConvbar(ig,:,:) = reshape(mTaubar(1,4:6,:,:),[3*m,p+1]);
-        mdivtauDiffbar(ig,:,:) = reshape(mTaubar(1,7:9,:,:),[3*m,p+1]);
-        mtauSurfbar(ig,:,:) = reshape(mTaubar(1,10:12,:,:),[3*m,p+1]);
-        mtauInterfbar(ig,:,:) = reshape(mTaubar(1,13,:,:),[m,p+1]);
+        mUbar(ig,:,:) = reshape(mYrefbar(ig,1:3,:,:),[3*m,p+1]);
+        mCbar(ig,:,:) = reshape(mYrefbar(ig,4,:,:),[m,p+1]);
+        mtauTimebar(ig,:,:) = reshape(mTaurefbar(ig,1:3,:,:),[3*m,p+1]);
+        mdivtauConvbar(ig,:,:) = reshape(mTaurefbar(ig,4:6,:,:),[3*m,p+1]);
+        mdivtauDiffbar(ig,:,:) = reshape(mTaurefbar(ig,7:9,:,:),[3*m,p+1]);
+        mtauSurfbar(ig,:,:) = reshape(mTaurefbar(ig,10:12,:,:),[3*m,p+1]);
+        mtauInterfbar(ig,:,:) = reshape(mTaurefbar(ig,13,:,:),[m,p+1]);
     end
 else
     mUbar = reshape(mYbar(1,1:3,:,:),[3*m,p+1]);
@@ -1213,7 +1213,6 @@ for t=0:p
     vtauSurf(:,t+1) = vtauSurft;
     vtauInterf(:,t+1) = vtauInterft;
 end
-fprintf('\n');
 
 % Display error between data and filtered data
 if g~=gref && displayError
@@ -1662,4 +1661,4 @@ make_pvd_file(gridpathname,['diphasic_fluids_grid' num2str(g) '_mean'],1,p+1);
 % make_pvd_file(gridpathname,['diphasic_fluids_grid' num2str(g) '_variance'],1,p+1);
 
 time_Total = toc(t_Total);
-fprintf('Elapsed time = %f s\n',time_Total);
+fprintf('\nElapsed time = %f s\n',time_Total);
