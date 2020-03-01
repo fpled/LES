@@ -564,16 +564,20 @@ if postProcess
         
         mTaut = mean(Taut,1);
         mTau(:,:,:,t+1) = mTaut;
+        clear mTaut
         
         mEt = mean(Et,1);
         mE(:,:,:,t+1) = mEt;
+        clear mEt
         
         if g<2^7
             Tau(:,:,:,t+1) = Taut;
+            E(:,:,:,t+1) = Et;
         else
             save(fullfile(gridpathname,['data_tau_t' num2str(t) '.mat']),'Taut');
             save(fullfile(gridpathname,['data_energy_t' num2str(t) '.mat']),'Et');
         end
+        clear Taut Et 
     end
     fprintf('\n');
     
