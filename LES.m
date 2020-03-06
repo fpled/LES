@@ -565,7 +565,7 @@ for t=0:p
         Taut = cat(1,tauTimet,divtauConvt,divtauDifft,tauSurft,tauInterft);
         clear tauTimet divtauConvt divtauDifft tauInterft
         if ~postProcessEnergy
-            clear ut rhot muSt tauSurft
+            clear ut rhot rhout muSt tauSurft
         end
         Taut = iperm(Taut);
         Taut = Taut(:,:,:);
