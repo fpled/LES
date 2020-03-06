@@ -715,6 +715,7 @@ if computeQoI
             Qe(:,:,:,t+1) = Qet;
             clear Et Qet
         end
+        clear Ct
     end
     fprintf('\n');
     
