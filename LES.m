@@ -688,6 +688,7 @@ if computeQoI
         Qut = cat(3,trapz(x,trapz(x,trapz(x,repmat(1-Ct,[1,3,1,1,1]).*ut,3),4),5),...
             trapz(x,trapz(x,trapz(x,repmat(Ct,[1,3,1,1,1]).*ut,3),4),5));
         Qu(:,:,:,t+1) = Qut;
+        clear ut Qut
         
         if postProcessTau
             if g<2^7
@@ -699,6 +700,7 @@ if computeQoI
             Qtaut = cat(3,trapz(x,trapz(x,trapz(x,repmat(1-Ct,[1,ntau,1,1,1]).*Taut,3),4),5),...
                 trapz(x,trapz(x,trapz(x,repmat(Ct,[1,ntau,1,1,1]).*Taut,3),4),5));
             Qtau(:,:,:,t+1) = Qtaut;
+            clear Taut Qtaut
         end
         
         if postProcessEnergy
@@ -711,6 +713,7 @@ if computeQoI
             Qet = cat(3,trapz(x,trapz(x,trapz(x,repmat(1-Ct,[1,ne,1,1,1]).*Et,3),4),5),...
                 trapz(x,trapz(x,trapz(x,repmat(Ct,[1,ne,1,1,1]).*Et,3),4),5));
             Qe(:,:,:,t+1) = Qet;
+            clear Et Qet
         end
     end
     fprintf('\n');
