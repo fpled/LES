@@ -778,6 +778,7 @@ if g==gref
                     h(:,:,3) = [1 c 1; c c^2 c; 1 c 1];
                     h = h/prod(2*filterSize);
             end
+            hg = shiftdim(h,-2);
             
             mYbar = zeros(1,n,mbar,p+1);
             mTaubar = zeros(1,ntau,mbar,p+1);
@@ -806,7 +807,8 @@ if g==gref
                 
                 Ybart = reshape(Yt,[N,n,sx]);
                 clear Yt
-                Ybart = apply_filter(Ybart,filterType,h);
+                % Ybart = apply_filter(Ybart,filterType,h);
+                Ybart = imfilter(Ybart,hg,'replicate');
                 Ybart = Ybart(:,:,:);
                 mYbart = mean(Ybart,1);
                 mYrefbar(ig,:,:,t+1) = mYbart;
@@ -830,7 +832,8 @@ if g==gref
                     end
                     Taubart = reshape(Taut,[N,ntau,sx]);
                     clear Taut
-                    Taubart = apply_filter(Taubart,filterType,h);
+                    % Taubart = apply_filter(Taubart,filterType,h);
+                    Taubart = imfilter(Taubart,hg,'replicate');
                     Taubart = Taubart(:,:,:);
                     mTaubart = mean(Taubart,1);
                     mTaurefbar(ig,:,:,t+1) = mTaubart;
