@@ -46,13 +46,13 @@ filterType = 'box'; % 3D filter type ('box' or 'mean' or 'average', 'linear' or 
 
 % Spatial grid size
 gset = 2.^(4:8); % set of spatial grid sizes
-g = gset(end); % current spatial grid size
+g = gset(1); % current spatial grid size
 gref = gset(end); % reference spatial grid size
 ng = length(gset); % number of spatial grid sizes
 
 t_Total = tic;
+fprintf('Grid %d\n',g)
 gridname = ['Grid' num2str(g)];
-fprintf([gridname '\n'])
 gridpathname = fullfile(pathname,gridname);
 load(fullfile(gridpathname,'data.mat'),'N','n','m','p');
 r = n*m;
@@ -80,7 +80,12 @@ Dt = spdiags(repmat([1 -1],p+1,1),[1 -1],p+1,p+1)/(2*dt); % Implicit central-dif
 Dt(1,[1 2]) = [-1 1]/dt; Dt(end,[end-1 end]) = [-1 1]/dt;
 
 if g<2^7
+    fprintf('\nLoading DNS data');
+    t_load = tic;
     load(fullfile(gridpathname,'data.mat'),'Y');
+    time_load = toc(t_load);
+    fprintf('\nelapsed time = %f s',time_load);
+    fprintf('\n');
 end
 
 if performPCA
@@ -104,6 +109,7 @@ if performPCAspace
     norm2Yc = zeros(1,p+1);
     R = zeros(1,p+1);
     for t=0:p
+        t_PCA_spacet = tic;
         if g<2^7
             Yct = Yc(:,:,:,t+1);
         else
@@ -130,7 +136,8 @@ if performPCAspace
         % errYct = norm(Yct_approx-Yct)/norm(Yct);
         errYct = errsvdYct(end);
         Rt = length(sigt);
-        fprintf('\nTime step %2d/%2d : rank R = %d, error = %.3e for Y',t,p,Rt,errYct);
+        time_PCA_spacet = toc(t_PCA_spacet);
+        fprintf('\nTime step %2d/%2d : rank R = %d, error = %.3e for Y, elapsed time = %f s',t,p,Rt,errYct,time_PCA_spacet);
         
         norm2Yct = sum(var(Yct,0,2));
         % norm2Yct_approx = sum(var(Yct_approx,0,2));
@@ -167,7 +174,6 @@ if performPCAspace
         err2Yc(t+1) = err2Yct;
         norm2Yc(t+1) = norm2Yct;
     end
-    fprintf('\n');
     
     ts = (0:p)*dt;
     errL2 = trapz(ts,err2Yc,2)/trapz(ts,norm2Yc,2);
@@ -191,10 +197,15 @@ if performPCAspace
         save(fullfile(gridpathname,'PCA_space.mat'),'V','-append');
     end
 else
+    fprintf('\nLoading DNS data from PCA in space');
+    t_load = tic;
     load(fullfile(gridpathname,'PCA_space.mat'),'mY','sig','Z','R','errsvdYc','time_PCA_space');
     if g<2^7
         load(fullfile(gridpathname,'PCA_space.mat'),'V');
     end
+    time_load = toc(t_load);
+    fprintf('\nelapsed time = %f s',time_load);
+    fprintf('\n');
 end
 
 %% Second reduction step in time for each coordinate
@@ -269,7 +280,6 @@ end
 %         Q(a) = Qa;
 %         errsvdZc(1:Qa,a) = errsvdZca;
 %     end
-%     fprintf('\n');
 %     
 %     Q = max(Q);
 %     s = s(1:Q,:);
@@ -283,7 +293,12 @@ end
 %     
 %     save(fullfile(gridpathname,'PCA_time.mat'),'s','W','Q','errsvdZc','time_PCA_time');
 % else
+%     fprintf('\nLoading DNS data from PCA in time');
+%     t_load = tic;
 %     load(fullfile(gridpathname,'PCA_time.mat'),'s','W','Q','errsvdZc','time_PCA_time');
+%     time_load = toc(t_load);
+%     fprintf('\nelapsed time = %f s',time_load);
+%     fprintf('\n');
 % end
     
 %% Second reduction step in time
@@ -338,7 +353,6 @@ if performPCAtime
     CZ = cov(Zc'); % CZ = 1/(N-1)*Zc*Zc';
     errCZ = norm(CZ_approx-CZ)/norm(CZ);
     fprintf('\n                          error = %.3e for CZ',errCZ);
-    fprintf('\n');
     
     if displayCovariance
         figure('Name','Covariance matrix')
@@ -389,11 +403,16 @@ if performPCAtime
     
     save(fullfile(gridpathname,'PCA_time.mat'),'s','W','Q','errsvdZc','time_PCA_time');
 else
+    fprintf('\nLoading DNS data from PCA time');
+    t_load = tic;
     load(fullfile(gridpathname,'PCA_time.mat'),'s','W','Q','errsvdZc','time_PCA_time');
+    time_load = toc(t_load);
+    fprintf('\nelapsed time = %f s',time_load);
+    fprintf('\n');
 end
 else
     if computeMean
-        fprintf('\nComputing mean');
+        fprintf('\nComputing mean DNS data');
         t_Mean = tic;
         
         if g<2^7
@@ -401,13 +420,14 @@ else
         else
             mY = zeros(1,n,m,p+1);
             for t=0:p
-                fprintf('\nTime step %2d/%2d',t,p);
+                t_Meant = tic;
                 load(fullfile(gridpathname,['data_t' num2str(t) '.mat']),'Yt');
                 mYt = mean(Yt,1);
                 mY(1,:,:,t+1) = mYt;
+                time_Meant = toc(t_Meant);
+                fprintf('\nTime step %2d/%2d : elapsed time = %f s',t,p,time_Meant);
             end
         end
-        fprintf('\n');
         
         time_Mean = toc(t_Mean);
         fprintf('\nelapsed time = %f s',time_Mean);
@@ -415,13 +435,18 @@ else
         
         save(fullfile(gridpathname,'mean_data.mat'),'mY','time_Mean');
     else
+        fprintf('\nLoading mean DNS data');
+        t_load = tic;
         load(fullfile(gridpathname,'mean_data.mat'),'mY','time_Mean');
+        time_load = toc(t_load);
+        fprintf('\nelapsed time = %f s',time_load);
+        fprintf('\n');
     end
 end
 
 if postProcess
-%% Post-processing data
-fprintf('\nPost-processing data');
+%% Post-processing DNS data
+fprintf('\nPost-processing DNS data');
 t_PostProcess = tic;
 if postProcessTau
     ntau = 13; % number of tau variables
@@ -441,7 +466,7 @@ if postProcessEnergy
 end
 
 for t=0:p
-    fprintf('\nTime step %2d/%2d',t,p);
+    t_PostProcesst = tic;
     
     if performPCA
         if g<2^7
@@ -617,8 +642,9 @@ for t=0:p
         end
         clear Et
     end
+    time_PostProcesst = toc(t_PostProcesst);
+    fprintf('\nTime step %2d/%2d : elapsed time = %f s',t,p,time_PostProcesst);
 end
-fprintf('\n');
 
 time_PostProcess = toc(t_PostProcess);
 fprintf('\nelapsed time = %f s',time_PostProcess);
@@ -638,16 +664,34 @@ if postProcessEnergy
 end
 else
     if postProcessTau
+        if g<2^7
+            fprintf('\nLoading tau data');
+        else
+            fprintf('\nLoading mean tau data');
+        end
+        t_load = tic;
         load(fullfile(gridpathname,'mean_data_tau.mat'),'mTau','ntau');
         if g<2^7
             load(fullfile(gridpathname,'data_tau.mat'),'Tau');
         end
+        time_load = toc(t_load);
+        fprintf('\nelapsed time = %f s',time_load);
+        fprintf('\n');
     end
     if postProcessEnergy
+        if g<2^7
+            fprintf('\nLoading energy data');
+        else
+            fprintf('\nLoading mean energy data');
+        end
+        t_load = tic;
         load(fullfile(gridpathname,'mean_data_energy.mat'),'mE','ne');
         if g<2^7
             load(fullfile(gridpathname,'data_energy.mat'),'E');
         end
+        time_load = toc(t_load);
+        fprintf('\nelapsed time = %f s',time_load);
+        fprintf('\n');
     end
 end
 
@@ -665,7 +709,7 @@ if computeQoI
     end
     
     for t=0:p
-        fprintf('\nTime step %2d/%2d',t,p);
+        t_QoIt = tic;
         
         if performPCA
             if g<2^7
@@ -716,8 +760,9 @@ if computeQoI
             clear Et Qet
         end
         clear Ct
+        time_QoIt = toc(t_QoIt);
+        fprintf('\nTime step %2d/%2d : elapsed time = %f s',t,p,time_QoIt);
     end
-    fprintf('\n');
     
     [mQu,stdQu,RQu,IQu] = compute_stats(Qu,dt);
     if postProcessTau
@@ -739,13 +784,18 @@ if computeQoI
         save(fullfile(gridpathname,'data_qoi_energy.mat'),'Qe','mQe','IQe');
     end
 else
+    fprintf('\nLoading quantities of interest');
+    t_load = tic;
     load(fullfile(gridpathname,'data_qoi.mat'),'Qu','mQu','IQu');
     if postProcessTau
-        load(fullfile(gridpathname,'data_qoi.mat'),'Qtau','mQtau','IQtau');
+        load(fullfile(gridpathname,'data_qoi_tau.mat'),'Qtau','mQtau','IQtau');
     end
     if postProcessEnergy
-        load(fullfile(gridpathname,'data_qoi.mat'),'Qe','mQe','IQe');
+        load(fullfile(gridpathname,'data_qoi_energy.mat'),'Qe','mQe','IQe');
     end
+    time_load = toc(t_load);
+    fprintf('\nelapsed time = %f s',time_load);
+    fprintf('\n');
 end
 
 %% Applying filter
@@ -757,9 +807,10 @@ if g==gref
         mYrefbar = zeros(ng-1,n,m,p+1);
         mTaurefbar = zeros(ng-1,ntau,m,p+1);
         for ig=1:ng-1
+            t_Filterg = tic;
             gbar = gset(ng-ig);
+            fprintf('\nFiltering on coarse grid %d',gbar);
             gridbarname = ['Grid' num2str(gbar)];
-            fprintf(['\nFiltered ' gridbarname]);
             gridbarpathname = fullfile(pathname,gridbarname);
             sxbar = [gbar+1,gbar+1,gbar+1];
             mbar = (gbar+1)^3;
@@ -788,7 +839,7 @@ if g==gref
             end
             
             for t=0:p
-                fprintf('\nTime %2d/%2d',t,p);
+                t_Filtergt = tic;
                 
                 if performPCA
                     if g<2^7
@@ -849,8 +900,12 @@ if g==gref
                     end
                     clear Taubart
                 end
+                time_Filtergt = toc(t_Filtergt);
+                fprintf('\nTime %2d/%2d : elapsed time = %f s',t,p,time_Filtergt);
             end
-            fprintf('\n');
+            
+            time_Filterg = toc(t_Filterg);
+            fprintf('\nelapsed time = %f s for coarse grid %d',time_Filterg,gbar);
             
             save(fullfile(gridbarpathname,'mean_data_filtered.mat'),'mYbar');
             if gbar<2^7
@@ -865,7 +920,7 @@ if g==gref
         end
         
         time_Filter = toc(t_Filter);
-        fprintf('\nelapsed time = %f s',time_Filter);
+        fprintf('\nelapsed time = %f s for all coarse grids',time_Filter);
         fprintf('\n');
         
         save(fullfile(gridpathname,'mean_data_filtered.mat'),'mYrefbar');
@@ -873,21 +928,58 @@ if g==gref
             save(fullfile(gridpathname,'mean_data_tau_filtered.mat'),'mTaurefbar');
         end
     else
+        fprintf('\nLoading mean filtered DNS data');
+        t_load = tic;
         load(fullfile(gridpathname,'mean_data_filtered.mat'),'mYrefbar');
+        time_load = toc(t_load);
+        fprintf('\nelapsed time = %f s',time_load);
+        fprintf('\n');
         if postProcessTau
+            fprintf('\nLoading mean filtered tau data');
+            t_load = tic;
             load(fullfile(gridpathname,'mean_data_tau_filtered.mat'),'mTaurefbar');
+            time_load = toc(t_load);
+            fprintf('\nelapsed time = %f s',time_load);
+            fprintf('\n');
         end
     end
 else
+    %% Loading filtered DNS data
+    if g<2^7
+        fprintf('\nLoading filtered DNS data');
+    else
+        fprintf('\nLoading mean filtered DNS data');
+    end
+    t_load = tic;
+    load(fullfile(gridpathname,'mean_data_filtered.mat'),'mYbar');
+    if g<2^7
+        load(fullfile(gridpathname,'data_filtered.mat'),'Ybar');
+    end
+    time_load = toc(t_load);
+    fprintf('\nelapsed time = %f s',time_load);
+    fprintf('\n');
+    
+    %% Loading filtered tau data
+    if postProcessTau
+        if g<2^7
+            fprintf('\nLoading filtered tau data');
+        else
+            fprintf('\nLoading mean filtered tau data');
+        end
+        t_load = tic;
+        load(fullfile(gridpathname,'mean_data_tau_filtered.mat'),'mTaubar');
+        if g<2^7
+            load(fullfile(gridpathname,'data_tau_filtered.mat'),'Taubar');
+        end
+        time_load = toc(t_load);
+        fprintf('\nelapsed time = %f s',time_load);
+        fprintf('\n');
+    end
+        
     %% Computing error
     if computeError
         fprintf('\nComputing error between DNS and filtered data');
         t_Error = tic;
-        
-        load(fullfile(gridpathname,'mean_data_filtered.mat'),'mYbar');
-        if g<2^7
-            load(fullfile(gridpathname,'data_filtered.mat'),'Ybar');
-        end
         
         erroru = zeros(1,p+1);
         errorC = zeros(1,p+1);
@@ -895,10 +987,6 @@ else
         normCbar = zeros(1,p+1);
         
         if postProcessTau
-            load(fullfile(gridpathname,'mean_data_tau_filtered.mat'),'mTaubar');
-            if g<2^7
-                load(fullfile(gridpathname,'data_tau_filtered.mat'),'Taubar');
-            end
             errortauTime = zeros(1,p+1);
             errordivtauConv = zeros(1,p+1);
             errordivtauDiff = zeros(1,p+1);
@@ -912,7 +1000,7 @@ else
         end
         
         for t=0:p
-            fprintf('\nTime %2d/%2d',t,p);
+            t_Errort = tic;
             
             if g<2^7
                 Yt = Y(:,:,:,t+1);
@@ -930,15 +1018,19 @@ else
             
             errorut = sqrt(mean(trapz(trapz(trapz(x,reshape(sum((ubart-ut).^2,2),[N,sx]),2),3),4),1));
             errorCt = sqrt(mean(trapz(trapz(trapz(x,reshape((Cbart-Ct).^2,[N,sx]),2),3),4),1));
+            clear ut Ct
             
             normubart = sqrt(mean(trapz(trapz(trapz(x,reshape(sum(ubart.^2,2),[N,sx]),2),3),4),1));
             normCbart = sqrt(mean(trapz(trapz(trapz(x,reshape(Cbart.^2,[N,sx]),2),3),4),1));
+            clear ubart Cbart
             
             erroru(t+1) = errorut;
             errorC(t+1) = errorCt;
+            clear errorut errorCt
             
             normubar(t+1) = normubart;
             normCbar(t+1) = normCbart;
+            clear normubart normCbart
             
             if postProcessTau
                 if g<2^7
@@ -966,27 +1058,32 @@ else
                 errordivtauDifft = sqrt(mean(trapz(trapz(trapz(x,reshape(sum((divtauDiffbart-divtauDifft).^2,2),[N,sx]),2),3),4),1));
                 errortauSurft = sqrt(mean(trapz(trapz(trapz(x,reshape(sum((tauSurfbart-tauSurft).^2,2),[N,sx]),2),3),4),1));
                 errortauInterft = sqrt(mean(trapz(trapz(trapz(x,reshape((tauInterfbart-tauInterft).^2,[N,sx]),2),3),4),1));
+                clear tauTimet divtauConvt divtauDifft tauSurft tauInterft
                 
                 normtauTimebart = sqrt(mean(trapz(trapz(trapz(x,reshape(sum(tauTimebart.^2,2),[N,sx]),2),3),4),1));
                 normdivtauConvbart = sqrt(mean(trapz(trapz(trapz(x,reshape(sum(divtauConvbart.^2,2),[N,sx]),2),3),4),1));
                 normdivtauDiffbart = sqrt(mean(trapz(trapz(trapz(x,reshape(sum(divtauDiffbart.^2,2),[N,sx]),2),3),4),1));
                 normtauSurfbart = sqrt(mean(trapz(trapz(trapz(x,reshape(sum(tauSurfbart.^2,2),[N,sx]),2),3),4),1));
                 normtauInterfbart = sqrt(mean(trapz(trapz(trapz(x,reshape(tauInterfbart.^2,[N,sx]),2),3),4),1));
+                clear tauTimebart divtauConvbart divtauDiffbart tauSurfbart tauInterfbart
                 
                 errortauTime(t+1) = errortauTimet;
                 errordivtauConv(t+1) = errordivtauConvt;
                 errordivtauDiff(t+1) = errordivtauDifft;
                 errortauSurf(t+1) = errortauSurft;
                 errortauInterf(t+1) = errortauInterft;
+                clear errortauTimet errordivtauConvt errordivtauDifft errortauSurft errortauInterft
                 
                 normtauTimebar(t+1) = normtauTimebart;
                 normdivtauConvbar(t+1) = normdivtauConvbart;
                 normdivtauDiffbar(t+1) = normdivtauDiffbart;
                 normtauSurfbar(t+1) = normtauSurfbart;
                 normtauInterfbar(t+1) = normtauInterfbart;
+                clear normtauTimebart normdivtauConvbart normdivtauDiffbart normtauSurfbart normtauInterfbart
             end
+            time_Errort = toc(t_Errort);
+            fprintf('\nTime %2d/%2d : elapsed time = %f s',t,p,time_Errort);
         end
-        fprintf('\n');
         
         time_Error = toc(t_Error);
         fprintf('\nelapsed time = %f s',time_Error);
@@ -998,11 +1095,16 @@ else
                 'normtauTimebar','normdivtauConvbar','normdivtauDiffbar','normtauSurfbar','normtauInterfbar');
         end
     else
+        fprintf('\nLoading error between DNS and filtered data');
+        t_load = tic;
         load(fullfile(gridpathname,'error_filter.mat'),'erroru','errorC','normubar','normCbar','normubar');
         if postProcessTau
             load(fullfile(gridpathname,'error_filter_tau.mat'),'errortauTime','errordivtauConv','errordivtauDiff','errortauSurf','errortauInterf',...
             'normtauTimebar','normdivtauConvbar','normdivtauDiffbar','normtauSurfbar','normtauInterfbar');
         end
+        time_load = toc(t_load);
+        fprintf('\nelapsed time = %f s',time_load);
+        fprintf('\n');
     end
 end
 
@@ -1122,34 +1224,38 @@ end
 if g==gref
     mUbar = zeros(ng-1,3*m,p+1);
     mCbar = zeros(ng-1,m,p+1);
+    for ig=1:ng-1
+        gbar = gset(ng-ig);
+        mUbar(ig,:,:) = reshape(mYrefbar(ig,1:3,:,:),[3*m,p+1]);
+        mCbar(ig,:,:) = reshape(mYrefbar(ig,4,:,:),[m,p+1]);
+    end
+    clear mYrefbar
     if postProcessTau
         mtauTimebar = zeros(ng-1,3*m,p+1);
         mdivtauConvbar = zeros(ng-1,3*m,p+1);
         mdivtauDiffbar = zeros(ng-1,3*m,p+1);
         mtauSurfbar = zeros(ng-1,3*m,p+1);
         mtauInterfbar = zeros(ng-1,m,p+1);
-    end
-    for ig=1:ng-1
-        gbar = gset(ng-ig);
-        mUbar(ig,:,:) = reshape(mYrefbar(ig,1:3,:,:),[3*m,p+1]);
-        mCbar(ig,:,:) = reshape(mYrefbar(ig,4,:,:),[m,p+1]);
-        if postProcessTau
+        for ig=1:ng-1
             mtauTimebar(ig,:,:) = reshape(mTaurefbar(ig,1:3,:,:),[3*m,p+1]);
             mdivtauConvbar(ig,:,:) = reshape(mTaurefbar(ig,4:6,:,:),[3*m,p+1]);
             mdivtauDiffbar(ig,:,:) = reshape(mTaurefbar(ig,7:9,:,:),[3*m,p+1]);
             mtauSurfbar(ig,:,:) = reshape(mTaurefbar(ig,10:12,:,:),[3*m,p+1]);
             mtauInterfbar(ig,:,:) = reshape(mTaurefbar(ig,13,:,:),[m,p+1]);
         end
+        clear mTaurefbar
     end
 else
     mUbar = reshape(mYbar(1,1:3,:,:),[3*m,p+1]);
     mCbar = reshape(mYbar(1,4,:,:),[m,p+1]);
+    clear mYbar
     if postProcessTau
         mtauTimebar = reshape(mTaubar(1,1:3,:,:),[3*m,p+1]);
         mdivtauConvbar = reshape(mTaubar(1,4:6,:,:),[3*m,p+1]);
         mdivtauDiffbar = reshape(mTaubar(1,7:9,:,:),[3*m,p+1]);
         mtauSurfbar = reshape(mTaubar(1,10:12,:,:),[3*m,p+1]);
         mtauInterfbar = reshape(mTaubar(1,13,:,:),[m,p+1]);
+        clear mTaubar
     end
 end
 
@@ -1604,7 +1710,6 @@ if constructMesh
     coord = getcoord(getnode(M));
     M = setnode(M,NODE(coord(:,[2,1,3])));
     M = final(M,DDL(DDLVECT('U',M.syscoord)));
-    fprintf('\n');
     
     time_Mesh = toc(t_Mesh);
     fprintf('\nelapsed time = %f s',time_Mesh);
@@ -1612,7 +1717,12 @@ if constructMesh
     
     save(fullfile(gridpathname,'mesh.mat'),'M','time_Mesh');
 else
+    fprintf('\nLoading spatial mesh');
+    t_load = tic;
     load(fullfile(gridpathname,'mesh.mat'),'M','time_Mesh');
+    time_load = toc(t_load);
+    fprintf('\nelapsed time = %f s',time_load);
+    fprintf('\n');
 end
 
 %% Mean
@@ -1653,8 +1763,8 @@ for t=0:p
             gbar = gset(ng-ig);
             mUbart = mUbar(ig,:,t+1);
             mCbart = mCbar(ig,:,t+1);
-            legUbart = ['velocity filtered grid ' num2str(gbar)];
-            legCbart = ['phase filtered grid ' num2str(gbar)];
+            legUbart = ['velocity filtered on grid ' num2str(gbar)];
+            legCbart = ['phase filtered on grid ' num2str(gbar)];
             fields = [fields,mUbart,mCbart];
             fieldnames = [fieldnames,legUbart,legCbart];
             if postProcessTau
@@ -1663,11 +1773,11 @@ for t=0:p
                 mdivtauDiffbart = mdivtauDiffbar(ig,:,t+1);
                 mtauSurfbart = mtauSurfbar(ig,:,t+1);
                 mtauInterfbart = mtauInterfbar(ig,:,t+1);
-                legtauTimebart = ['tauTime filtered grid ' num2str(gbar)];
-                legdivtauConvbart = ['div(tauConv) filtered grid ' num2str(gbar)];
-                legdivtauDiffbart = ['div(tauDiff) filtered grid ' num2str(gbar)];
-                legtauSurfbart = ['tauSurf filtered grid ' num2str(gbar)];
-                legtauInterfbart = ['tauInterf filtered grid ' num2str(gbar)];
+                legtauTimebart = ['tauTime filtered on grid ' num2str(gbar)];
+                legdivtauConvbart = ['div(tauConv) filtered on grid ' num2str(gbar)];
+                legdivtauDiffbart = ['div(tauDiff) filtered on grid ' num2str(gbar)];
+                legtauSurfbart = ['tauSurf filtered on grid ' num2str(gbar)];
+                legtauInterfbart = ['tauInterf filtered on grid ' num2str(gbar)];
                 fields = [fields,mtauTimebart,mdivtauConvbart,mdivtauDiffbart,mtauSurfbart,mtauInterfbart];
                 fieldnames = [fieldnames,legtauTimebart,legdivtauConvbart,legdivtauDiffbart,legtauSurfbart,legtauInterfbart];
             end
@@ -1681,15 +1791,15 @@ for t=0:p
 %                 menergyDiffbart = menergyDiffbar(ig,:,t+1);
 %                 menergyViscbart = menergyViscbar(ig,:,t+1);
 %                 menergySurfbart = menergySurfbar(ig,:,t+1);
-%                 legenergyKinTimebart = ['kinetic energy filtered grid ' num2str(gbar)];
-%                 legenergyConvbart = ['convection energy filtered grid ' num2str(gbar)];
-%                 legenergyGravbart = ['gravity energy filtered grid ' num2str(gbar)];
-%                 legenergyPresbart = ['power of external pressure forces filtered grid ' num2str(gbar)];
-%                 legenergyPresDilbart = ['pressure-dilatation energy transfer filtered grid ' num2str(gbar)];
-%                 legenergyKinSpacebart = ['transport of gradient of kinetic energy filtered grid ' num2str(gbar)];
-%                 legenergyDiffbart = ['energy exchange with kinetic energy filtered grid ' num2str(gbar)];
-%                 legenergyViscbart = ['power of external viscous stresses filtered grid ' num2str(gbar)];
-%                 legenergySurfbart = ['capillary kinetic energy filtered grid ' num2str(gbar)];
+%                 legenergyKinTimebart = ['kinetic energy filtered on grid ' num2str(gbar)];
+%                 legenergyConvbart = ['convection energy filtered on grid ' num2str(gbar)];
+%                 legenergyGravbart = ['gravity energy filtered on grid ' num2str(gbar)];
+%                 legenergyPresbart = ['power of external pressure forces filtered on grid ' num2str(gbar)];
+%                 legenergyPresDilbart = ['pressure-dilatation energy transfer filtered on grid ' num2str(gbar)];
+%                 legenergyKinSpacebart = ['transport of gradient of kinetic energy filtered on grid ' num2str(gbar)];
+%                 legenergyDiffbart = ['energy exchange with kinetic energy filtered on grid ' num2str(gbar)];
+%                 legenergyViscbart = ['power of external viscous stresses filtered on grid ' num2str(gbar)];
+%                 legenergySurfbart = ['capillary kinetic energy filtered on grid ' num2str(gbar)];
 %                 fields = [fields,menergyKinTimebart,menergyConvbart,menergyGravbart,...
 %                     menergyPresbart,menergyPresDilbart,menergyKinSpacebart,...
 %                     menergyDiffbart,menergyViscbart,menergySurfbart];
@@ -1773,8 +1883,8 @@ make_pvd_file(gridpathname,['diphasic_fluids_grid' num2str(g) '_mean'],1,p+1);
 %             gbar = gset(ng-ig);
 %             vUbart = vUbar(ig,:,t+1);
 %             vCbart = vCbar(ig,:,t+1);
-%             legUbart = ['velocity filtered grid ' num2str(gbar)];
-%             legCbart = ['phase filtered grid ' num2str(gbar)];
+%             legUbart = ['velocity filtered on grid ' num2str(gbar)];
+%             legCbart = ['phase filtered on grid ' num2str(gbar)];
 %             fields = [fields,vUbart,vCbart];
 %             fieldnames = [fieldnames,legUbart,legCbart];
 %             if postProcessTau
@@ -1783,11 +1893,11 @@ make_pvd_file(gridpathname,['diphasic_fluids_grid' num2str(g) '_mean'],1,p+1);
 %                 mdivtauDiffbart = mdivtauDiffbar(ig,:,t+1);
 %                 vtauSurfbart = vtauSurfbar(ig,:,t+1);
 %                 vtauInterfbart = vtauInterfbar(ig,:,t+1);
-%                 legtauTimebart = ['tauTime filtered grid ' num2str(gbar)];
-%                 legdivtauConvbart = ['div(tauConv) filtered grid ' num2str(gbar)];
-%                 legdivtauDiffbart = ['div(tauDiff) filtered grid ' num2str(gbar)];
-%                 legtauSurfbart = ['tauSurf filtered grid ' num2str(gbar)];
-%                 legtauInterfbart = ['tauInterf filtered grid ' num2str(gbar)];
+%                 legtauTimebart = ['tauTime filtered on grid ' num2str(gbar)];
+%                 legdivtauConvbart = ['div(tauConv) filtered on grid ' num2str(gbar)];
+%                 legdivtauDiffbart = ['div(tauDiff) filtered on grid ' num2str(gbar)];
+%                 legtauSurfbart = ['tauSurf filtered on grid ' num2str(gbar)];
+%                 legtauInterfbart = ['tauInterf filtered on grid ' num2str(gbar)];
 %                 fields = [fields,vtauTimebart,mdivtauConvbart,mdivtauDiffbart,vtauSurfbart,vtauInterfbart];
 %                 fieldnames = [fieldnames,legtauTimebart,legdivtauConvbart,legdivtauDiffbart,legtauSurfbart,legtauInterfbart];
 %             end
@@ -1801,15 +1911,15 @@ make_pvd_file(gridpathname,['diphasic_fluids_grid' num2str(g) '_mean'],1,p+1);
 % %                 venergyDiffbart = venergyDiffbar(ig,:,t+1);
 % %                 venergyViscbart = venergyViscbar(ig,:,t+1);
 % %                 venergySurfbart = venergySurfbar(ig,:,t+1);
-% %                 legenergyKinTimebart = ['kinetic energy filtered grid ' num2str(gbar)];
-% %                 legenergyConvbart = ['convection energy filtered grid ' num2str(gbar)];
-% %                 legenergyGravbart = ['gravity energy filtered grid ' num2str(gbar)];
-% %                 legenergyPresbart = ['power of external pressure forces filtered grid ' num2str(gbar)];
-% %                 legenergyPresDilbart = ['pressure-dilatation energy transfer filtered grid ' num2str(gbar)];
-% %                 legenergyKinSpacebart = ['transport of gradient of kinetic energy filtered grid ' num2str(gbar)];
-% %                 legenergyDiffbart = ['energy exchange with kinetic energy filtered grid ' num2str(gbar)];
-% %                 legenergyViscbart = ['power of external viscous stresses filtered grid ' num2str(gbar)];
-% %                 legenergySurfbart = ['capillary kinetic energy filtered grid ' num2str(gbar)];
+% %                 legenergyKinTimebart = ['kinetic energy filtered on grid ' num2str(gbar)];
+% %                 legenergyConvbart = ['convection energy filtered on grid ' num2str(gbar)];
+% %                 legenergyGravbart = ['gravity energy filtered on grid ' num2str(gbar)];
+% %                 legenergyPresbart = ['power of external pressure forces filtered on grid ' num2str(gbar)];
+% %                 legenergyPresDilbart = ['pressure-dilatation energy transfer filtered on grid ' num2str(gbar)];
+% %                 legenergyKinSpacebart = ['transport of gradient of kinetic energy filtered on grid ' num2str(gbar)];
+% %                 legenergyDiffbart = ['energy exchange with kinetic energy filtered on grid ' num2str(gbar)];
+% %                 legenergyViscbart = ['power of external viscous stresses filtered on grid ' num2str(gbar)];
+% %                 legenergySurfbart = ['capillary kinetic energy filtered on grid ' num2str(gbar)];
 % %                 fields = [fields,venergyKinTimebart,venergyConvbart,venergyGravbart,...
 % %                     venergyPresbart,venergyPresDilbart,venergyKinSpacebart,...
 % %                     venergyDiffbart,venergyViscbart,venergySurfbart];
