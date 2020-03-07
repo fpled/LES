@@ -45,8 +45,8 @@ index = 'coord'; % index for ordering ('coord', 'time')
 filterType = 'box'; % 3D filter type ('box' or 'mean' or 'average', 'linear' or 'trapz')
 
 % Spatial grid size
-gset = 2.^(4:8); % set of spatial grid sizes
-g = gset(1); % current spatial grid size
+gset = 2.^(4:5); % set of spatial grid sizes
+g = gset(end); % current spatial grid size
 gref = gset(end); % reference spatial grid size
 ng = length(gset); % number of spatial grid sizes
 
@@ -595,7 +595,7 @@ for t=0:p
         Taut = iperm(Taut);
         Taut = Taut(:,:,:);
         mTaut = mean(Taut,1);
-        mTau(:,:,:,t+1) = mTaut;
+        mTau(1,:,:,t+1) = mTaut;
         clear mTaut
         if g<2^7
             Tau(:,:,:,t+1) = Taut;
@@ -801,21 +801,9 @@ end
 %% Applying filter
 if g==gref
     if applyFilter
-        fprintf('\nApplying filter');
-        t_Filter = tic;
-        
-        mYrefbar = zeros(ng-1,n,m,p+1);
-        mTaurefbar = zeros(ng-1,ntau,m,p+1);
+        fprintf('\nConstructing filter');
+        hset = cell(1,ng-1);
         for ig=1:ng-1
-            t_Filterg = tic;
-            gbar = gset(ng-ig);
-            fprintf('\nFiltering on coarse grid %d',gbar);
-            gridbarname = ['Grid' num2str(gbar)];
-            gridbarpathname = fullfile(pathname,gridbarname);
-            sxbar = [gbar+1,gbar+1,gbar+1];
-            mbar = (gbar+1)^3;
-            k = g/gbar;
-            
             switch filterType
                 case {'box','mean','average'}
                     filterSize = [2^ig+1 2^ig+1 2^ig+1];
@@ -829,24 +817,36 @@ if g==gref
                     h(:,:,3) = [1 c 1; c c^2 c; 1 c 1];
                     h = h/prod(2*filterSize);
             end
-            hg = shiftdim(h,-2);
+            hset{ig} = h;
+        end
+        
+        fprintf('\nApplying filter for DNS data');
+        t_Filter = tic;
+        
+        mYrefbar = zeros(ng-1,n,m,p+1);
+        for ig=1:ng-1
+            gbar = gset(ng-ig);
+            gridbarname = ['Grid' num2str(gbar)];
+            gridbarpathname = fullfile(pathname,gridbarname);
+            mbar = (gbar+1)^3;
+            k = g/gbar;
+            h = hset{ig};
+            H = shiftdim(h,-2);
+            
+            fprintf('\nFiltering DNS data on coarse grid %d',gbar);
+            t_Filterg = tic;
             
             mYbar = zeros(1,n,mbar,p+1);
-            mTaubar = zeros(1,ntau,mbar,p+1);
             if g<2^7
                 Ybar = zeros(N,n,mbar,p+1);
-                Taubar = zeros(N,ntau,mbar,p+1);
             end
-            
             for t=0:p
                 t_Filtergt = tic;
-                
                 if performPCA
                     if g<2^7
                         Yt = get_reduced_order_representation_at_step(mY,sig,V,s,W,X,R,t+1,'index',index,'gridpathname',gridpathname);
                     else
                         Yt = get_reduced_order_representation_at_step(mY,sig,[],s,W,X,R,t+1,'index',index,'gridpathname',gridpathname);
-                        
                     end
                 else
                     if g<2^7
@@ -859,40 +859,86 @@ if g==gref
                 Ybart = reshape(Yt,[N,n,sx]);
                 clear Yt
                 % Ybart = apply_filter(Ybart,filterType,h);
-                Ybart = imfilter(Ybart,hg,'replicate');
-                Ybart = Ybart(:,:,:);
-                mYbart = mean(Ybart,1);
-                mYrefbar(ig,:,:,t+1) = mYbart;
-                Ybart = reshape(Ybart,[N,n,sx]);
+                Ybart = imfilter(Ybart,H,'replicate');
+                
+                time_Filtergt = toc(t_Filtergt);
+                fprintf('\nTime %2d/%2d : elapsed time = %f s',t,p,time_Filtergt);
+                
+                Yrefbart = Ybart(:,:,:);
+                mYrefbar(ig,:,:,t+1) = mean(Yrefbart,1);
+                clear Yrefbart
+                
                 Ybart = reshape(Ybart(:,:,1:k:end,1:k:end,1:k:end),[N,n,mbar]);
-                mYbart = mean(Ybart,1);
-                mYbar(:,:,:,t+1) = mYbart;
-                clear mYbart
+                mYbar(1,:,:,t+1) = mean(Ybart,1);
                 if gbar<2^7
                     Ybar(:,:,:,t+1) = Ybart;
                 else
                     save(fullfile(gridbarpathname,['data_filtered_t' num2str(t) '.mat']),'Ybart');
                 end
                 clear Ybart
+            end
+            
+            time_Filterg = toc(t_Filterg);
+            fprintf('\nelapsed time = %f s for coarse grid %d',time_Filterg,gbar);
+            
+            % save(fullfile(gridpathname,['mean_data_filtered_grid' num2str(gbar) '.mat']),'mYrefbar');
+            % clear mYrefbar
+            save(fullfile(gridbarpathname,'mean_data_filtered.mat'),'mYbar');
+            clear mYbar
+            if gbar<2^7
+                save(fullfile(gridbarpathname,'data_filtered.mat'),'Ybar');
+                clear Ybar
+            end
+        end
+        time_Filter = toc(t_Filter);
+        fprintf('\nelapsed time = %f s for all coarse grids',time_Filter);
+        fprintf('\n');
+        
+        save(fullfile(gridpathname,'mean_data_filtered.mat'),'mYrefbar');
+        
+        if postProcessTau
+            fprintf('\nApplying filter for tau data');
+            t_Filter = tic;
+            
+            mTaurefbar = zeros(ng-1,ntau,m,p+1);
+            for ig=1:ng-1
+                gbar = gset(ng-ig);
+                gridbarname = ['Grid' num2str(gbar)];
+                gridbarpathname = fullfile(pathname,gridbarname);
+                mbar = (gbar+1)^3;
+                k = g/gbar;
+                h = hset{ig};
+                H = shiftdim(h,-2);
                 
-                if postProcessTau
+                fprintf('\nFiltering tau data on coarse grid %d',gbar);
+                t_Filterg = tic;
+                
+                mTaubar = zeros(1,ntau,mbar,p+1);
+                if g<2^7
+                    Taubar = zeros(N,ntau,mbar,p+1);
+                end
+                for t=0:p
+                    t_Filtergt = tic;
                     if g<2^7
                         Taut = Tau(:,:,:,t+1);
                     else
                         load(fullfile(gridpathname,['data_tau_t' num2str(t) '.mat']),'Taut');
                     end
+                    
                     Taubart = reshape(Taut,[N,ntau,sx]);
                     clear Taut
                     % Taubart = apply_filter(Taubart,filterType,h);
-                    Taubart = imfilter(Taubart,hg,'replicate');
-                    Taubart = Taubart(:,:,:);
-                    mTaubart = mean(Taubart,1);
-                    mTaurefbar(ig,:,:,t+1) = mTaubart;
-                    Taubart = reshape(Taubart,[N,ntau,sx]);
+                    Taubart = imfilter(Taubart,H,'replicate');
+                    
+                    time_Filtergt = toc(t_Filtergt);
+                    fprintf('\nTime %2d/%2d : elapsed time = %f s',t,p,time_Filtergt);
+                    
+                    Taurefbart = Taubart(:,:,:);
+                    mTaurefbar(ig,:,:,t+1) = mean(Taurefbart,1);
+                    clear Taurefbart
+                    
                     Taubart = reshape(Taubart(:,:,1:k:end,1:k:end,1:k:end),[N,ntau,mbar]);
-                    mTaubart = mean(Taubart,1);
-                    mTaubar(:,:,:,t+1) = mTaubart;
-                    clear mTaubart
+                    mTaubar(1,:,:,t+1) = mean(Taubart,1);
                     if gbar<2^7
                         Taubar(:,:,:,t+1) = Taubart;
                     else
@@ -900,31 +946,23 @@ if g==gref
                     end
                     clear Taubart
                 end
-                time_Filtergt = toc(t_Filtergt);
-                fprintf('\nTime %2d/%2d : elapsed time = %f s',t,p,time_Filtergt);
-            end
-            
-            time_Filterg = toc(t_Filterg);
-            fprintf('\nelapsed time = %f s for coarse grid %d',time_Filterg,gbar);
-            
-            save(fullfile(gridbarpathname,'mean_data_filtered.mat'),'mYbar');
-            if gbar<2^7
-                save(fullfile(gridbarpathname,'data_filtered.mat'),'Ybar');
-            end
-            if postProcessTau
+                
+                time_Filterg = toc(t_Filterg);
+                fprintf('\nelapsed time = %f s for coarse grid %d',time_Filterg,gbar);
+                
+                % save(fullfile(gridpathname,['mean_data_tau_filtered_grid' num2str(gbar) '.mat']),'mTaurefbar');
+                % clear mTaurefbar
                 save(fullfile(gridbarpathname,'mean_data_tau_filtered.mat'),'mTaubar');
+                clear mTaubar
                 if gbar<2^7
                     save(fullfile(gridbarpathname,'data_tau_filtered.mat'),'Taubar');
+                    clear Taubar
                 end
             end
-        end
-        
-        time_Filter = toc(t_Filter);
-        fprintf('\nelapsed time = %f s for all coarse grids',time_Filter);
-        fprintf('\n');
-        
-        save(fullfile(gridpathname,'mean_data_filtered.mat'),'mYrefbar');
-        if postProcessTau
+            time_Filter = toc(t_Filter);
+            fprintf('\nelapsed time = %f s for all coarse grids',time_Filter);
+            fprintf('\n');
+            
             save(fullfile(gridpathname,'mean_data_tau_filtered.mat'),'mTaurefbar');
         end
     else
