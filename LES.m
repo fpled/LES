@@ -51,7 +51,7 @@ gref = gset(end); % reference spatial grid size
 ng = length(gset); % number of spatial grid sizes
 
 t_Total = tic;
-fprintf('Grid %d\n',g)
+fprintf('Grid %d\n',g);
 gridname = ['Grid' num2str(g)];
 gridpathname = fullfile(pathname,gridname);
 load(fullfile(gridpathname,'data.mat'),'N','n','m','p');
@@ -96,7 +96,12 @@ if performPCAspace
     Rinit = min(r,N);
     if g<2^7
         mY = mean(Y,1);
-        Yc = Y - repmat(mY,[N,1,1,1]); % Yc = Y - mY.*ones(N,1,1,1);
+        if verLessThan('matlab','9.1') % compatibility (<R2016b)
+            Yc = bsxfun(@minus,Y,mY);
+        else
+            Yc = Y - mY;
+        end
+        % Yc = Y - repmat(mY,[N,1,1,1]); % Yc = Y - mY.*ones(N,1,1,1);
         V = zeros(r,Rinit,p+1);
         clear Y
     else
@@ -116,15 +121,16 @@ if performPCAspace
             load(fullfile(gridpathname,['data_t' num2str(t) '.mat']),'Yt');
             mYt = mean(Yt,1);
             mY(1,:,:,t+1) = mYt;
-            Yct = Yt - repmat(mYt,[N,1,1]); % Yct = Yt - mYt.*ones(N,1,1);
+            if verLessThan('matlab','9.1') % compatibility (<R2016b)
+                Yct = bsxfun(@minus,Yt,mYt);
+            else
+                Yct = Yt - mYt;
+            end
+            % Yct = Yt - repmat(mYt,[N,1,1]); % Yct = Yt - mYt.*ones(N,1,1);
             clear Yt
         end
         Yct = Yct(:,:)';
-        % if t==0
-        %     [Vt,Sigt,Zt,errsvdYct] = svdtruncate(Yct,Rinit-1);
-        % else
         [Vt,Sigt,Zt,errsvdYct] = svdtruncate(Yct,tolsvdYc);
-        % end
         Sigt = Sigt/sqrt(N-1);
         sigt = diag(Sigt);
         Zt = Zt*sqrt(N-1);
@@ -373,28 +379,28 @@ if performPCAtime
         mysaveas(gridpathname,'covariance_CZ',formats,renderer);
         mymatlab2tikz(gridpathname,'covariance_CZ.tex');
         
-        %     for t=0:p
-        %         switch index
-        %             case 'coord'
-        %                 ind = t*Rmax+(1:Rmax);
-        %             case 'time'
-        %                 ind = (0:Rmax-1)*(p+1)+t+1;
-        %         end
-        %         CZt_approx = CZ_approx(ind,ind);
-        %         CZt = CZ(ind,ind);
-        %
-        %         figure('Name','Covariance matrix')
-        %         clf
-        %         imagesc(CZt)
-        %         colorbar
-        %         axis image
-        %         set(gca,'FontSize',fontsize)
-        %         xlabel('$\alpha$','Interpreter','latex')
-        %         ylabel('$\alpha''$','Interpreter','latex')
-        %         title(['Covariance matrix $[C_{\zeta}(t^k,t^k)]_{\alpha,\alpha''} = [C_{Z_k}]_{\alpha,\alpha''}$ for $k=$' num2str(t)],'Interpreter','latex')
-        %         mysaveas(gridpathname,['covariance_CZ_t' num2str(t*100)],formats,renderer);
-        %         mymatlab2tikz(gridpathname,['covariance_CZ_t' num2str(t*100) '.tex']);
-        %     end
+%         for t=0:p
+%             switch index
+%                 case 'coord'
+%                     ind = t*Rmax+(1:Rmax);
+%                 case 'time'
+%                     ind = (0:Rmax-1)*(p+1)+t+1;
+%             end
+%             CZt_approx = CZ_approx(ind,ind);
+%             CZt = CZ(ind,ind);
+%             
+%             figure('Name','Covariance matrix')
+%             clf
+%             imagesc(CZt)
+%             colorbar
+%             axis image
+%             set(gca,'FontSize',fontsize)
+%             xlabel('$\alpha$','Interpreter','latex')
+%             ylabel('$\alpha''$','Interpreter','latex')
+%             title(['Covariance matrix $[C_{\zeta}(t^k,t^k)]_{\alpha,\alpha''} = [C_{Z_k}]_{\alpha,\alpha''}$ for $k=$' num2str(t)],'Interpreter','latex')
+%             mysaveas(gridpathname,['covariance_CZ_t' num2str(t*100)],formats,renderer);
+%             mymatlab2tikz(gridpathname,['covariance_CZ_t' num2str(t*100) '.tex']);
+%         end
     end
     
     time_PCA_time = toc(t_PCA_time);
@@ -513,7 +519,12 @@ for t=0:p
     Ct = Yt(4,:,:,:,:);
     clear Yt
     rhot = Ct*rho(2) + (1-Ct)*rho(1);
-    rhout = repmat(rhot,[3,ones(1,4)]).*ut;
+    if verLessThan('matlab','9.1') % compatibility (<R2016b)
+        rhout = bsxfun(@times,rhot,ut);
+    else
+        rhout = rhot.*ut;
+    end
+    % rhout = repmat(rhot,[3,ones(1,4)]).*ut;
     if ~postProcessEnergy
         clear rhot
     end
@@ -530,7 +541,12 @@ for t=0:p
         clear Yt_old
         rhot_old = Ct_old*rho(2) + (1-Ct_old)*rho(1);
         if postProcessTau
-            rhout_old = repmat(rhot_old,[3,ones(1,4)]).*ut_old;
+            if verLessThan('matlab','9.1') % compatibility (<R2016b)
+                rhout_old = bsxfun(@times,rhot_old,ut_old);
+            else
+                rhout_old = rhot_old.*ut_old;
+            end
+            % rhout_old = repmat(rhot_old,[3,ones(1,4)]).*ut_old;
         end
         if postProcessEnergy
             Ek_old = 1/2*rhot_old.*dot(ut_old,ut_old,1);
@@ -544,7 +560,12 @@ for t=0:p
         clear Yt_new
         rhot_new = Ct_new*rho(2) + (1-Ct_new)*rho(1);
         if postProcessTau
-            rhout_new = repmat(rhot_new,[3,ones(1,4)]).*ut_new;
+            if verLessThan('matlab','9.1') % compatibility (<R2016b)
+                rhout_new = bsxfun(@times,rhot_new,ut_new);
+            else
+                rhout_new = rhot_new.*ut_new;
+            end
+            % rhout_new = repmat(rhot_new,[3,ones(1,4)]).*ut_new;
         end
         if postProcessEnergy
             Ek_new = 1/2*rhot_new.*dot(ut_new,ut_new,1);
@@ -558,7 +579,12 @@ for t=0:p
         clear gradut
     end
     mut = Ct*mu(2) + (1-Ct)*mu(1);
-    muSt = repmat(shiftdim(mut,-1),[3,3,ones(1,4)]).*St;
+    if verLessThan('matlab','9.1') % compatibility (<R2016b)
+        muSt = bsxfun(@times,shiftdim(mut,-1),St);
+    else
+        muSt = shiftdim(mut,-1).*St;
+    end
+    % muSt = repmat(shiftdim(mut,-1),[3,3,ones(1,4)]).*St;
     clear mut St
     gradCt = grad(Ct,Dx);
     clear Ct
@@ -566,7 +592,12 @@ for t=0:p
     kappa = div(ngradCt,Dx);
     clear ngradCt
     
-    tauSurft = sigma*repmat(shiftdim(kappa,-1),[3,ones(1,4)]).*gradCt;
+    if verLessThan('matlab','9.1') % compatibility (<R2016b)
+        tauSurft = sigma*bsxfun(@times,shiftdim(kappa,-1),gradCt);
+    else
+        tauSurft = sigma*shiftdim(kappa,-1).*gradCt;
+    end
+    % tauSurft = sigma*repmat(shiftdim(kappa,-1),[3,ones(1,4)]).*gradCt;
     clear kappa
     if ~postProcessTau
         clear gradCt
@@ -582,7 +613,13 @@ for t=0:p
             tauTimet = (rhout_new-rhout_old)/(2*dt);
             clear rhout_new rhout_old
         end
-        divtauConvt = squeeze(sum(grad(rhout,Dx).*repmat(shiftdim(ut,-1),[3,ones(1,5)]),2));
+        if verLessThan('matlab','9.1') % compatibility (<R2016b)
+            divtauConvt = squeeze(sum(bsxfun(@times,grad(rhout,Dx),shiftdim(ut,-1)),2));
+        else
+            divtauConvt = squeeze(sum(grad(rhout,Dx).*shiftdim(ut,-1),2));
+        end
+        % divtauConvt = squeeze(sum(grad(rhout,Dx).*repmat(shiftdim(ut,-1),[3,ones(1,5)]),2));
+        % other formulae
         % divtauConvt = div(permute(repmat(shiftdim(rhout,-1),[3,ones(1,5)]),[2,1,3:6]).*repmat(shiftdim(ut,-1),[3,ones(1,5)]),Dx);
         tauInterft = dot(ut,gradCt,1);
         clear gradCt
@@ -615,7 +652,12 @@ for t=0:p
             energyKinTimet = (Ek_new-Ek_old)/(2*dt);
             clear Ek_new Ek_old
         end
-        energyConvt = shiftdim(div(repmat(rhot.*u2t,[3,ones(1,4)]).*ut,Dx),-1);
+        if verLessThan('matlab','9.1') % compatibility (<R2016b)
+            energyConvt = shiftdim(div(bsxfun(@times,rhot,u2t).*ut,Dx),-1);
+        else
+            energyConvt = shiftdim(div((rhot.*u2t).*ut,Dx),-1);
+        end
+        % energyConvt = shiftdim(div(repmat(rhot.*u2t,[3,ones(1,4)]).*ut,Dx),-1);
         clear rhot
         energyKinSpacet = dot(rhout,grad(u2t/2,Dx),1);
         clear u2t
@@ -623,7 +665,12 @@ for t=0:p
         clear rhout
         energyPrest = zeros(1,g+1,g+1,g+1,N);
         energyPresDilt = zeros(1,g+1,g+1,g+1,N);
-        energyDifft = shiftdim(div(squeeze(dot(2*muSt,repmat(shiftdim(ut,-1),[3,ones(1,5)]),2)),Dx),-1);
+        if verLessThan('matlab','9.1') % compatibility (<R2016b)
+            energyDifft = shiftdim(div(squeeze(sum(bsxfun(@times,2*muSt,shiftdim(ut,-1)),2)),Dx),-1);
+        else
+            energyDifft = shiftdim(div(squeeze(sum(2*muSt.*shiftdim(ut,-1),2)),Dx),-1);
+        end
+        % energyDifft = shiftdim(div(squeeze(dot(2*muSt,repmat(shiftdim(ut,-1),[3,ones(1,5)]),2)),Dx),-1);
         energyVisct = shiftdim(sum(sum(2*muSt.*gradut,1),2),1);
         clear gradut muSt
         energySurft = dot(tauSurft,ut,1);
@@ -729,8 +776,15 @@ if computeQoI
         ut = Yt(:,1:3,:,:,:);
         Ct = Yt(:,4,:,:,:);
         clear Yt
-        Qut = cat(3,trapz(x,trapz(x,trapz(x,repmat(1-Ct,[1,3,1,1,1]).*ut,3),4),5),...
-            trapz(x,trapz(x,trapz(x,repmat(Ct,[1,3,1,1,1]).*ut,3),4),5));
+        if verLessThan('matlab','9.1') % compatibility (<R2016b)
+            Qut = cat(3,trapz(x,trapz(x,trapz(x,bsxfun(@times,1-Ct,ut),3),4),5),...
+                trapz(x,trapz(x,trapz(x,bsxfun(@times,Ct,ut),3),4),5));
+        else
+            Qut = cat(3,trapz(x,trapz(x,trapz(x,(1-Ct).*ut,3),4),5),...
+                trapz(x,trapz(x,trapz(x,Ct.*ut,3),4),5));
+        end
+        % Qut = cat(3,trapz(x,trapz(x,trapz(x,repmat(1-Ct,[1,3,1,1,1]).*ut,3),4),5),...
+        %     trapz(x,trapz(x,trapz(x,repmat(Ct,[1,3,1,1,1]).*ut,3),4),5));
         Qu(:,:,:,t+1) = Qut;
         clear ut Qut
         
@@ -741,8 +795,15 @@ if computeQoI
                 load(fullfile(gridpathname,['data_tau_t' num2str(t) '.mat']),'Taut');
             end
             Taut = reshape(Taut,[N,ntau,sx]);
-            Qtaut = cat(3,trapz(x,trapz(x,trapz(x,repmat(1-Ct,[1,ntau,1,1,1]).*Taut,3),4),5),...
-                trapz(x,trapz(x,trapz(x,repmat(Ct,[1,ntau,1,1,1]).*Taut,3),4),5));
+            if verLessThan('matlab','9.1') % compatibility (<R2016b)
+                Qtaut = cat(3,trapz(x,trapz(x,trapz(x,bsxfun(@times,1-Ct,Taut),3),4),5),...
+                    trapz(x,trapz(x,trapz(x,bsxfun(@times,Ct,Taut),3),4),5));
+            else
+                Qtaut = cat(3,trapz(x,trapz(x,trapz(x,(1-Ct).*Taut,3),4),5),...
+                    trapz(x,trapz(x,trapz(x,Ct.*Taut,3),4),5));
+            end
+            % Qtaut = cat(3,trapz(x,trapz(x,trapz(x,repmat(1-Ct,[1,ntau,1,1,1]).*Taut,3),4),5),...
+            %     trapz(x,trapz(x,trapz(x,repmat(Ct,[1,ntau,1,1,1]).*Taut,3),4),5));
             Qtau(:,:,:,t+1) = Qtaut;
             clear Taut Qtaut
         end
@@ -754,8 +815,15 @@ if computeQoI
                 load(fullfile(gridpathname,['data_energy_t' num2str(t) '.mat']),'Et');
             end
             Et = reshape(Et,[N,ne,sx]);
-            Qet = cat(3,trapz(x,trapz(x,trapz(x,repmat(1-Ct,[1,ne,1,1,1]).*Et,3),4),5),...
-                trapz(x,trapz(x,trapz(x,repmat(Ct,[1,ne,1,1,1]).*Et,3),4),5));
+            if verLessThan('matlab','9.1') % compatibility (<R2016b)
+                Qet = cat(3,trapz(x,trapz(x,trapz(x,bsxfun(@times,1-Ct,Et),3),4),5),...
+                    trapz(x,trapz(x,trapz(x,bsxfun(@times,Ct,Et),3),4),5));
+            else
+                Qet = cat(3,trapz(x,trapz(x,trapz(x,(1-Ct).*Et,3),4),5),...
+                    trapz(x,trapz(x,trapz(x,Ct.*Et,3),4),5));
+            end
+            % Qet = cat(3,trapz(x,trapz(x,trapz(x,repmat(1-Ct,[1,ne,1,1,1]).*Et,3),4),5),...
+            %     trapz(x,trapz(x,trapz(x,repmat(Ct,[1,ne,1,1,1]).*Et,3),4),5));
             Qe(:,:,:,t+1) = Qet;
             clear Et Qet
         end
@@ -1350,8 +1418,12 @@ for t=0:p
         else
             vYt_approx = sum((s.*Uct_approx').^2)';
         end
-        
-        indut = repmat((0:m-1)*n,[3,1])+repmat((1:3)',[1,m]);
+        if verLessThan('matlab','9.1') % compatibility (<R2016b)
+            indut = bsxfun(@plus,(0:m-1)*n,(1:3)');
+        else
+            indut = (0:m-1)*n+(1:3)';
+        end
+        % indut = repmat((0:m-1)*n,[3,1])+repmat((1:3)',[1,m]);
         indCt = (0:m-1)*n+4;
         
         vUt = vYt_approx(indut(:));
@@ -1363,7 +1435,12 @@ for t=0:p
         else
             load(fullfile(gridpathname,['data_t' num2str(t) '.mat']),'Yt');
         end
-        Yct = Yt - repmat(mYt,[N,1,1]); % Yct = Yt - mYt.*ones(N,1,1);
+        if verLessThan('matlab','9.1') % compatibility (<R2016b)
+            Yct = bsxfun(@minus,Yt,mYt);
+        else
+            Yct = Yt - mYt;
+        end
+        % Yct = Yt - repmat(mYt,[N,1,1]); % Yct = Yt - mYt.*ones(N,1,1);
         clear Yt
         
         ut = Yct(:,1:3,:);
@@ -1382,7 +1459,12 @@ for t=0:p
         else
             load(fullfile(gridpathname,['data_tau_t' num2str(t) '.mat']),'Taut');
         end
-        Tauct = Taut - repmat(mTaut,[N,1,1]); % Tauct = Taut - mTaut.*ones(N,1,1);
+        if verLessThan('matlab','9.1') % compatibility (<R2016b)
+            Tauct = bsxfun(@minus,Taut,mTaut);
+        else
+            Tauct = Taut - mTaut;
+        end
+        % Tauct = Taut - repmat(mTaut,[N,1,1]); % Tauct = Taut - mTaut.*ones(N,1,1);
         clear Taut
         
         tauTimet = Tauct(:,1:3,:);
