@@ -5,11 +5,11 @@ close all
 performPCA = false;
 performPCAspace = true;
 performPCAtime = true;
-computeMean = true;
-postProcess = true;
+computeMean = false;
+postProcess = false;
 postProcessTau = true;
 postProcessEnergy = false;
-computeQoI = true;
+computeQoI = false;
 applyFilter = true;
 computeError = true;
 constructMesh = true;
@@ -20,7 +20,7 @@ displayQoI = false;
 displayError = false;
 
 cmap = 'default';
-% cmap = 'gray';
+% cmap = flipud(gray);
 framerate = 5;
 fontsize = 16;
 interpreter = 'latex';
@@ -45,7 +45,7 @@ index = 'coord'; % index for ordering ('coord', 'time')
 filterType = 'box'; % 3D filter type ('box' or 'mean' or 'average', 'linear' or 'trapz')
 
 % Spatial grid size
-gset = 2.^(4:5); % set of spatial grid sizes
+gset = 2.^(4:8); % set of spatial grid sizes
 g = gset(end); % current spatial grid size
 gref = gset(end); % reference spatial grid size
 ng = length(gset); % number of spatial grid sizes
@@ -273,9 +273,9 @@ end
 %             colorbar
 %             axis image
 %             set(gca,'FontSize',fontsize)
-%             xlabel('$k$','Interpreter','latex')
-%             ylabel('$k''$','Interpreter','latex')
-%             title(['Covariance matrix $[C_{\zeta}(t^k,t^{k''})]_{\alpha,\alpha} = [C_{Z_{\alpha}}]_{k,k''}$ for $\alpha=$' num2str(a)],'Interpreter','latex')
+%             xlabel('$k$','Interpreter',interpreter)
+%             ylabel('$k''$','Interpreter',interpreter)
+%             title(['Covariance matrix $[C_{\zeta}(t^k,t^{k''})]_{\alpha,\alpha} = [C_{Z_{\alpha}}]_{k,k''}$ for $\alpha=$' num2str(a)],'Interpreter',interpreter)
 %             mysaveas(gridpathname,['covariance_CZ_a' num2str(a)],formats,renderer);
 %             mymatlab2tikz(gridpathname,['covariance_CZ_a' num2str(a) '.tex']);
 %         end
@@ -369,13 +369,13 @@ if performPCAtime
         set(gca,'FontSize',fontsize)
         switch index
             case 'coord'
-                xlabel('$K=(k-1)R+\alpha$','Interpreter','latex')
-                ylabel('$K''=(k''-1)R+\alpha''$','Interpreter','latex')
+                xlabel('$K=(k-1)R+\alpha$','Interpreter',interpreter)
+                ylabel('$K''=(k''-1)R+\alpha''$','Interpreter',interpreter)
             case 'time'
-                xlabel('$K=\alpha p+k$','Interpreter','latex')
-                ylabel('$K''=\alpha'' p+k''$','Interpreter','latex')
+                xlabel('$K=\alpha p+k$','Interpreter',interpreter)
+                ylabel('$K''=\alpha'' p+k''$','Interpreter',interpreter)
         end
-        title('Covariance matrix $[C_{\zeta}(t^k,t^{k''})]_{\alpha,\alpha''} = [C_Z]_{K,K''}$','Interpreter','latex')
+        title('Covariance matrix $[C_{\zeta}(t^k,t^{k''})]_{\alpha,\alpha''} = [C_Z]_{K,K''}$','Interpreter',interpreter)
         mysaveas(gridpathname,'covariance_CZ',formats,renderer);
         mymatlab2tikz(gridpathname,'covariance_CZ.tex');
         
@@ -395,9 +395,9 @@ if performPCAtime
 %             colorbar
 %             axis image
 %             set(gca,'FontSize',fontsize)
-%             xlabel('$\alpha$','Interpreter','latex')
-%             ylabel('$\alpha''$','Interpreter','latex')
-%             title(['Covariance matrix $[C_{\zeta}(t^k,t^k)]_{\alpha,\alpha''} = [C_{Z_k}]_{\alpha,\alpha''}$ for $k=$' num2str(t)],'Interpreter','latex')
+%             xlabel('$\alpha$','Interpreter',interpreter)
+%             ylabel('$\alpha''$','Interpreter',interpreter)
+%             title(['Covariance matrix $[C_{\zeta}(t^k,t^k)]_{\alpha,\alpha''} = [C_{Z_k}]_{\alpha,\alpha''}$ for $k=$' num2str(t)],'Interpreter',interpreter)
 %             mysaveas(gridpathname,['covariance_CZ_t' num2str(t*100)],formats,renderer);
 %             mymatlab2tikz(gridpathname,['covariance_CZ_t' num2str(t*100) '.tex']);
 %         end
@@ -891,7 +891,7 @@ if g==gref
         fprintf('\nApplying filter for DNS data');
         t_Filter = tic;
         
-        mYrefbar = zeros(ng-1,n,m,p+1);
+        %mYrefbar = zeros(ng-1,n,m,p+1);
         for ig=1:ng-1
             gbar = gset(ng-ig);
             gridbarname = ['Grid' num2str(gbar)];
@@ -932,9 +932,9 @@ if g==gref
                 time_Filtergt = toc(t_Filtergt);
                 fprintf('\nTime %2d/%2d : elapsed time = %f s',t,p,time_Filtergt);
                 
-                Yrefbart = Ybart(:,:,:);
-                mYrefbar(ig,:,:,t+1) = mean(Yrefbart,1);
-                clear Yrefbart
+                %Yrefbart = Ybart(:,:,:);
+                %mYrefbar(ig,:,:,t+1) = mean(Yrefbart,1);
+                %clear Yrefbart
                 
                 Ybart = reshape(Ybart(:,:,1:k:end,1:k:end,1:k:end),[N,n,mbar]);
                 mYbar(1,:,:,t+1) = mean(Ybart,1);
@@ -949,8 +949,8 @@ if g==gref
             time_Filterg = toc(t_Filterg);
             fprintf('\nelapsed time = %f s for coarse grid %d',time_Filterg,gbar);
             
-            % save(fullfile(gridpathname,['mean_data_filtered_grid' num2str(gbar) '.mat']),'mYrefbar');
-            % clear mYrefbar
+            %save(fullfile(gridpathname,['mean_data_filtered_grid' num2str(gbar) '.mat']),'mYrefbar');
+            %clear mYrefbar
             save(fullfile(gridbarpathname,'mean_data_filtered.mat'),'mYbar');
             clear mYbar
             if gbar<2^7
@@ -962,13 +962,13 @@ if g==gref
         fprintf('\nelapsed time = %f s for all coarse grids',time_Filter);
         fprintf('\n');
         
-        save(fullfile(gridpathname,'mean_data_filtered.mat'),'mYrefbar');
+        %save(fullfile(gridpathname,'mean_data_filtered.mat'),'mYrefbar');
         
         if postProcessTau
             fprintf('\nApplying filter for tau data');
             t_Filter = tic;
             
-            mTaurefbar = zeros(ng-1,ntau,m,p+1);
+            %mTaurefbar = zeros(ng-1,ntau,m,p+1);
             for ig=1:ng-1
                 gbar = gset(ng-ig);
                 gridbarname = ['Grid' num2str(gbar)];
@@ -1001,9 +1001,9 @@ if g==gref
                     time_Filtergt = toc(t_Filtergt);
                     fprintf('\nTime %2d/%2d : elapsed time = %f s',t,p,time_Filtergt);
                     
-                    Taurefbart = Taubart(:,:,:);
-                    mTaurefbar(ig,:,:,t+1) = mean(Taurefbart,1);
-                    clear Taurefbart
+                    %Taurefbart = Taubart(:,:,:);
+                    %mTaurefbar(ig,:,:,t+1) = mean(Taurefbart,1);
+                    %clear Taurefbart
                     
                     Taubart = reshape(Taubart(:,:,1:k:end,1:k:end,1:k:end),[N,ntau,mbar]);
                     mTaubar(1,:,:,t+1) = mean(Taubart,1);
@@ -1018,8 +1018,8 @@ if g==gref
                 time_Filterg = toc(t_Filterg);
                 fprintf('\nelapsed time = %f s for coarse grid %d',time_Filterg,gbar);
                 
-                % save(fullfile(gridpathname,['mean_data_tau_filtered_grid' num2str(gbar) '.mat']),'mTaurefbar');
-                % clear mTaurefbar
+                %save(fullfile(gridpathname,['mean_data_tau_filtered_grid' num2str(gbar) '.mat']),'mTaurefbar');
+                %clear mTaurefbar
                 save(fullfile(gridbarpathname,'mean_data_tau_filtered.mat'),'mTaubar');
                 clear mTaubar
                 if gbar<2^7
@@ -1031,23 +1031,23 @@ if g==gref
             fprintf('\nelapsed time = %f s for all coarse grids',time_Filter);
             fprintf('\n');
             
-            save(fullfile(gridpathname,'mean_data_tau_filtered.mat'),'mTaurefbar');
+            %save(fullfile(gridpathname,'mean_data_tau_filtered.mat'),'mTaurefbar');
         end
-    else
-        fprintf('\nLoading mean filtered DNS data');
-        t_load = tic;
-        load(fullfile(gridpathname,'mean_data_filtered.mat'),'mYrefbar');
-        time_load = toc(t_load);
-        fprintf('\nelapsed time = %f s',time_load);
-        fprintf('\n');
-        if postProcessTau
-            fprintf('\nLoading mean filtered tau data');
-            t_load = tic;
-            load(fullfile(gridpathname,'mean_data_tau_filtered.mat'),'mTaurefbar');
-            time_load = toc(t_load);
-            fprintf('\nelapsed time = %f s',time_load);
-            fprintf('\n');
-        end
+%     else
+%         fprintf('\nLoading mean filtered DNS data');
+%         t_load = tic;
+%         load(fullfile(gridpathname,'mean_data_filtered.mat'),'mYrefbar');
+%         time_load = toc(t_load);
+%         fprintf('\nelapsed time = %f s',time_load);
+%         fprintf('\n');
+%         if postProcessTau
+%             fprintf('\nLoading mean filtered tau data');
+%             t_load = tic;
+%             load(fullfile(gridpathname,'mean_data_tau_filtered.mat'),'mTaurefbar');
+%             time_load = toc(t_load);
+%             fprintf('\nelapsed time = %f s',time_load);
+%             fprintf('\n');
+%         end
     end
 else
     %% Loading filtered DNS data
@@ -1235,9 +1235,9 @@ if displayEigenvalues && performPCA
     grid on
     box on
     set(gca,'FontSize',10)
-    xlabel('$\alpha$','Interpreter','latex')
-    ylabel('$\lambda_{\alpha}(t)$','Interpreter','latex')
-    gridLegend(hdl,nCols,leg,'Location','BestOutside','Interpreter','latex');
+    xlabel('$\alpha$','Interpreter',interpreter)
+    ylabel('$\lambda_{\alpha}(t)$','Interpreter',interpreter)
+    gridLegend(hdl,nCols,leg,'Location','BestOutside','Interpreter',interpreter);
     % legend(leg{:},'Location','NorthEastOutside')
     mysaveas(gridpathname,'eigenvalues_CY_order',formats,renderer);
     mymatlab2tikz(gridpathname,'eigenvalues_CY_order.tex');
@@ -1260,9 +1260,9 @@ if displayEigenvalues && performPCA
     grid on
     box on
     set(gca,'FontSize',10)
-    xlabel('$t$ [s]','Interpreter','latex')
-    ylabel('$\lambda_{\alpha}(t)$','Interpreter','latex')
-    gridLegend(hdl,nCols,leg,'Location','BestOutside','Interpreter','latex');
+    xlabel('$t$ [s]','Interpreter',interpreter)
+    ylabel('$\lambda_{\alpha}(t)$','Interpreter',interpreter)
+    gridLegend(hdl,nCols,leg,'Location','BestOutside','Interpreter',interpreter);
     % legend(leg{:},'Location','NorthEastOutside')
     mysaveas(gridpathname,'eigenvalues_CY_time',formats,renderer);
     mymatlab2tikz(gridpathname,'eigenvalues_CY_time.tex');
@@ -1285,9 +1285,9 @@ if displayEigenvalues && performPCA
     grid on
     box on
     set(gca,'FontSize',10)
-    xlabel('$R$','Interpreter','latex')
-    ylabel('$\varepsilon_{Y}(R;t)$','Interpreter','latex')
-    gridLegend(hdl,nCols,leg,'Location','BestOutside','Interpreter','latex');
+    xlabel('$R$','Interpreter',interpreter)
+    ylabel('$\varepsilon_{Y}(R;t)$','Interpreter',interpreter)
+    gridLegend(hdl,nCols,leg,'Location','BestOutside','Interpreter',interpreter);
     % legend(leg{:},'Location','NorthEastOutside')
     mysaveas(gridpathname,'error_svdYc',formats,renderer);
     mymatlab2tikz(gridpathname,'error_svdYc.tex');
@@ -1298,8 +1298,8 @@ if displayEigenvalues && performPCA
     grid on
     box on
     set(gca,'FontSize',fontsize)
-    xlabel('$\beta$','Interpreter','latex')
-    ylabel('$\Lambda_{\beta}$','Interpreter','latex')
+    xlabel('$\beta$','Interpreter',interpreter)
+    ylabel('$\Lambda_{\beta}$','Interpreter',interpreter)
     mysaveas(gridpathname,'eigenvalues_CZ',formats,renderer);
     mymatlab2tikz(gridpathname,'eigenvalues_CZ.tex');
     
@@ -1309,8 +1309,8 @@ if displayEigenvalues && performPCA
     grid on
     box on
     set(gca,'FontSize',fontsize)
-    xlabel('$Q$','Interpreter','latex')
-    ylabel('$\varepsilon_{Z}(Q)$','Interpreter','latex')
+    xlabel('$Q$','Interpreter',interpreter)
+    ylabel('$\varepsilon_{Z}(Q)$','Interpreter',interpreter)
     mysaveas(gridpathname,'error_svdZc',formats,renderer);
     mymatlab2tikz(gridpathname,'error_svdZc.tex');
 end
@@ -1328,29 +1328,29 @@ end
 
 % Mean filtered solution
 if g==gref
-    mUbar = zeros(ng-1,3*m,p+1);
-    mCbar = zeros(ng-1,m,p+1);
-    for ig=1:ng-1
-        gbar = gset(ng-ig);
-        mUbar(ig,:,:) = reshape(mYrefbar(ig,1:3,:,:),[3*m,p+1]);
-        mCbar(ig,:,:) = reshape(mYrefbar(ig,4,:,:),[m,p+1]);
-    end
-    clear mYrefbar
-    if postProcessTau
-        mtauTimebar = zeros(ng-1,3*m,p+1);
-        mdivtauConvbar = zeros(ng-1,3*m,p+1);
-        mdivtauDiffbar = zeros(ng-1,3*m,p+1);
-        mtauSurfbar = zeros(ng-1,3*m,p+1);
-        mtauInterfbar = zeros(ng-1,m,p+1);
-        for ig=1:ng-1
-            mtauTimebar(ig,:,:) = reshape(mTaurefbar(ig,1:3,:,:),[3*m,p+1]);
-            mdivtauConvbar(ig,:,:) = reshape(mTaurefbar(ig,4:6,:,:),[3*m,p+1]);
-            mdivtauDiffbar(ig,:,:) = reshape(mTaurefbar(ig,7:9,:,:),[3*m,p+1]);
-            mtauSurfbar(ig,:,:) = reshape(mTaurefbar(ig,10:12,:,:),[3*m,p+1]);
-            mtauInterfbar(ig,:,:) = reshape(mTaurefbar(ig,13,:,:),[m,p+1]);
-        end
-        clear mTaurefbar
-    end
+%     mUbar = zeros(ng-1,3*m,p+1);
+%     mCbar = zeros(ng-1,m,p+1);
+%     for ig=1:ng-1
+%         gbar = gset(ng-ig);
+%         mUbar(ig,:,:) = reshape(mYrefbar(ig,1:3,:,:),[3*m,p+1]);
+%         mCbar(ig,:,:) = reshape(mYrefbar(ig,4,:,:),[m,p+1]);
+%     end
+%     clear mYrefbar
+%     if postProcessTau
+%         mtauTimebar = zeros(ng-1,3*m,p+1);
+%         mdivtauConvbar = zeros(ng-1,3*m,p+1);
+%         mdivtauDiffbar = zeros(ng-1,3*m,p+1);
+%         mtauSurfbar = zeros(ng-1,3*m,p+1);
+%         mtauInterfbar = zeros(ng-1,m,p+1);
+%         for ig=1:ng-1
+%             mtauTimebar(ig,:,:) = reshape(mTaurefbar(ig,1:3,:,:),[3*m,p+1]);
+%             mdivtauConvbar(ig,:,:) = reshape(mTaurefbar(ig,4:6,:,:),[3*m,p+1]);
+%             mdivtauDiffbar(ig,:,:) = reshape(mTaurefbar(ig,7:9,:,:),[3*m,p+1]);
+%             mtauSurfbar(ig,:,:) = reshape(mTaurefbar(ig,10:12,:,:),[3*m,p+1]);
+%             mtauInterfbar(ig,:,:) = reshape(mTaurefbar(ig,13,:,:),[m,p+1]);
+%         end
+%         clear mTaurefbar
+%     end
 else
     mUbar = reshape(mYbar(1,1:3,:,:),[3*m,p+1]);
     mCbar = reshape(mYbar(1,4,:,:),[m,p+1]);
@@ -1513,14 +1513,14 @@ if g~=gref && displayError
     grid on
     box on
     set(gca,'FontSize',10)
-    xlabel('$t$ [s]','Interpreter','latex')
-    ylabel('Normalized error','Interpreter','latex')
+    xlabel('$t$ [s]','Interpreter',interpreter)
+    ylabel('Normalized error','Interpreter',interpreter)
     leg = {'$||u||$','$\chi$'};
     if postProcessTau
         leg = [leg,'$||\tau_{\mathrm{time}}||$','$||\nabla \cdot \tau_{\mathrm{conv}}||$','$||\nabla \cdot \tau_{\mathrm{diff}}||$','$||\tau_{\mathrm{surf}}||$','$\tau_{\mathrm{interf}}$'];
     end
     l = legend(leg{:},'Location','NorthEast');
-    set(l,'Interpreter','latex')
+    set(l,'Interpreter',interpreter)
     mysaveas(gridpathname,'error_filter',formats,renderer);
     mymatlab2tikz(gridpathname,'error_filter.tex');
 end
@@ -1579,8 +1579,8 @@ if displayQoI
     grid on
     box on
     set(gca,'FontSize',10)
-    xlabel('$t$ [s]','Interpreter','latex')
-    ylabel('$u$','Interpreter','latex')
+    xlabel('$t$ [s]','Interpreter',interpreter)
+    ylabel('$u$','Interpreter',interpreter)
     leg = {'component 1 in phase 1','component 1 in phase 2','component 2 in phase 1','component 2 in phase 2','component 3 in phase 1','component 3 in phase 2'};
     legend(leg{:},'Location','NorthEast')
     mysaveas(gridpathname,'mean_u',formats,renderer);
@@ -1600,8 +1600,8 @@ if displayQoI
         grid on
         box on
         set(gca,'FontSize',10)
-        xlabel('$t$ [s]','Interpreter','latex')
-        ylabel('$\tau_{\mathrm{time}}$','Interpreter','latex')
+        xlabel('$t$ [s]','Interpreter',interpreter)
+        ylabel('$\tau_{\mathrm{time}}$','Interpreter',interpreter)
         leg = {'component 1 in phase 1','component 1 in phase 2','component 2 in phase 1','component 2 in phase 2','component 3 in phase 1','component 3 in phase 2'};
         legend(leg{:},'Location','NorthEast')
         mysaveas(gridpathname,'mean_tauTime',formats,renderer);
@@ -1620,8 +1620,8 @@ if displayQoI
         grid on
         box on
         set(gca,'FontSize',10)
-        xlabel('$t$ [s]','Interpreter','latex')
-        ylabel('$\nabla \cdot \tau_{\mathrm{conv}}$','Interpreter','latex')
+        xlabel('$t$ [s]','Interpreter',interpreter)
+        ylabel('$\nabla \cdot \tau_{\mathrm{conv}}$','Interpreter',interpreter)
         leg = {'component 1 in phase 1','component 1 in phase 2','component 2 in phase 1','component 2 in phase 2','component 3 in phase 1','component 3 in phase 2'};
         legend(leg{:},'Location','NorthEast')
         mysaveas(gridpathname,'mean_divtauConv',formats,renderer);
@@ -1640,8 +1640,8 @@ if displayQoI
         grid on
         box on
         set(gca,'FontSize',10)
-        xlabel('$t$ [s]','Interpreter','latex')
-        ylabel('$\nabla \cdot \tau_{\mathrm{diff}}$','Interpreter','latex')
+        xlabel('$t$ [s]','Interpreter',interpreter)
+        ylabel('$\nabla \cdot \tau_{\mathrm{diff}}$','Interpreter',interpreter)
         leg = {'component 1 in phase 1','component 1 in phase 2','component 2 in phase 1','component 2 in phase 2','component 3 in phase 1','component 3 in phase 2'};
         legend(leg{:},'Location','NorthEast')
         mysaveas(gridpathname,'mean_divtauDiff',formats,renderer);
@@ -1660,8 +1660,8 @@ if displayQoI
         grid on
         box on
         set(gca,'FontSize',10)
-        xlabel('$t$ [s]','Interpreter','latex')
-        ylabel('$\tau_{\mathrm{surf}}$','Interpreter','latex')
+        xlabel('$t$ [s]','Interpreter',interpreter)
+        ylabel('$\tau_{\mathrm{surf}}$','Interpreter',interpreter)
         leg = {'component 1 in phase 1','component 1 in phase 2','component 2 in phase 1','component 2 in phase 2','component 3 in phase 1','component 3 in phase 2'};
         legend(leg{:},'Location','NorthEast')
         mysaveas(gridpathname,'mean_tauSurf',formats,renderer);
@@ -1676,8 +1676,8 @@ if displayQoI
         grid on
         box on
         set(gca,'FontSize',10)
-        xlabel('$t$ [s]','Interpreter','latex')
-        ylabel('$\tau_{\mathrm{interf}}$','Interpreter','latex')
+        xlabel('$t$ [s]','Interpreter',interpreter)
+        ylabel('$\tau_{\mathrm{interf}}$','Interpreter',interpreter)
         leg = {'phase 1','phase 2'};
         legend(leg{:},'Location','NorthEast')
         mysaveas(gridpathname,'mean_tauInterf',formats,renderer);
@@ -1697,8 +1697,8 @@ if displayQoI
     grid on
     box on
     set(gca,'FontSize',10)
-    xlabel('$\tau$ [s]','Interpreter','latex')
-    ylabel(['$\displaystyle\frac{1}{T-\tau} \int_0^{T-\tau} {[R_Q(t+\tau,t)]}_{jj} \, dt$'],'Interpreter','latex')
+    xlabel('$\tau$ [s]','Interpreter',interpreter)
+    ylabel(['$\displaystyle\frac{1}{T-\tau} \int_0^{T-\tau} {[R_Q(t+\tau,t)]}_{jj} \, dt$'],'Interpreter',interpreter)
     leg = {'u_1 in phase 1 - u_1 in phase 1','u_1 in phase 2 - u_1 in phase 2',...
         'u_2 in phase 1 - u_2 in phase 1','u_2 in phase 2 - u_2 in phase 2',...
         'u_3 in phase 1 - u_3 in phase 1','u_3 in phase 2 - u_3 in phase 2'};
@@ -1720,13 +1720,13 @@ if displayQoI
         grid on
         box on
         set(gca,'FontSize',10)
-        xlabel('$\tau$ [s]','Interpreter','latex')
-        ylabel(['$\displaystyle\frac{1}{T-\tau} \int_0^{T-\tau} {[R_Q(t+\tau,t)]}_{jj} \, dt$'],'Interpreter','latex')
+        xlabel('$\tau$ [s]','Interpreter',interpreter)
+        ylabel(['$\displaystyle\frac{1}{T-\tau} \int_0^{T-\tau} {[R_Q(t+\tau,t)]}_{jj} \, dt$'],'Interpreter',interpreter)
         leg = {'$\tau_{\mathrm{time}\,1}$ in phase 1','$\tau_{\mathrm{time}\,1}$ in phase 2',...
             '$\tau_{\mathrm{time}\,2}$ in phase 1','$\tau_{\mathrm{time}\,2}$ in phase 2',...
             '$\tau_{\mathrm{time}\,3}$ in phase 1','$\tau_{\mathrm{time}\,3}$ in phase 2'};
         l = legend(leg{:},'Location','NorthEast');
-        set(l,'Interpreter','latex')
+        set(l,'Interpreter',interpreter)
         mysaveas(gridpathname,'power_tauTime',formats,renderer);
         mymatlab2tikz(gridpathname,'power_tauTime.tex');
         
@@ -1743,13 +1743,13 @@ if displayQoI
         grid on
         box on
         set(gca,'FontSize',10)
-        xlabel('$\tau$ [s]','Interpreter','latex')
-        ylabel(['$\displaystyle\frac{1}{T-\tau} \int_0^{T-\tau} {[R_Q(t+\tau,t)]}_{jj} \, dt$'],'Interpreter','latex')
+        xlabel('$\tau$ [s]','Interpreter',interpreter)
+        ylabel(['$\displaystyle\frac{1}{T-\tau} \int_0^{T-\tau} {[R_Q(t+\tau,t)]}_{jj} \, dt$'],'Interpreter',interpreter)
         leg = {'$(\nabla \cdot \tau_{\mathrm{conv}})_1$ in phase 1','$(\nabla \cdot \tau_{\mathrm{conv}})_1$ in phase 2',...
             '$(\nabla \cdot \tau_{\mathrm{conv}})_2$ in phase 1','$(\nabla \cdot \tau_{\mathrm{conv}})_2$ in phase 2',...
             '$(\nabla \cdot \tau_{\mathrm{conv}})_3$ in phase 1','$(\nabla \cdot \tau_{\mathrm{conv}})_3$ in phase 2'};
         l = legend(leg{:},'Location','NorthEast');
-        set(l,'Interpreter','latex')
+        set(l,'Interpreter',interpreter)
         mysaveas(gridpathname,'power_divtauConv',formats,renderer);
         mymatlab2tikz(gridpathname,'power_divtauConv.tex');
         
@@ -1766,13 +1766,13 @@ if displayQoI
         grid on
         box on
         set(gca,'FontSize',10)
-        xlabel('$\tau$ [s]','Interpreter','latex')
-        ylabel(['$\displaystyle\frac{1}{T-\tau} \int_0^{T-\tau} {[R_Q(t+\tau,t)]}_{jj} \, dt$'],'Interpreter','latex')
+        xlabel('$\tau$ [s]','Interpreter',interpreter)
+        ylabel(['$\displaystyle\frac{1}{T-\tau} \int_0^{T-\tau} {[R_Q(t+\tau,t)]}_{jj} \, dt$'],'Interpreter',interpreter)
         leg = {'$(\nabla \cdot \tau_{\mathrm{diff}})_1$ in phase 1','$(\nabla \cdot \tau_{\mathrm{diff}})_1$ in phase 2',...
             '$(\nabla \cdot \tau_{\mathrm{diff}})_2$ in phase 1','$(\nabla \cdot \tau_{\mathrm{diff}})_2$ in phase 2',...
             '$(\nabla \cdot \tau_{\mathrm{diff}})_3$ in phase 1','$(\nabla \cdot \tau_{\mathrm{diff}})_3$ in phase 2'};
         l = legend(leg{:},'Location','NorthEast');
-        set(l,'Interpreter','latex')
+        set(l,'Interpreter',interpreter)
         mysaveas(gridpathname,'power_divtauDiff',formats,renderer);
         mymatlab2tikz(gridpathname,'power_divtauDiff.tex');
         
@@ -1789,13 +1789,13 @@ if displayQoI
         grid on
         box on
         set(gca,'FontSize',10)
-        xlabel('$\tau$ [s]','Interpreter','latex')
-        ylabel(['$\displaystyle\frac{1}{T-\tau} \int_0^{T-\tau} {[R_Q(t+\tau,t)]}_{jj} \, dt$'],'Interpreter','latex')
+        xlabel('$\tau$ [s]','Interpreter',interpreter)
+        ylabel(['$\displaystyle\frac{1}{T-\tau} \int_0^{T-\tau} {[R_Q(t+\tau,t)]}_{jj} \, dt$'],'Interpreter',interpreter)
         leg = {'$\tau_{\mathrm{surf}\,1}$ in phase 1','$\tau_{\mathrm{surf}\,1}$ in phase 2',...
             '$\tau_{\mathrm{surf}\,2}$ in phase 1','$\tau_{\mathrm{surf}\,2}$ in phase 2',...
             '$\tau_{\mathrm{surf}\,3}$ in phase 1','$\tau_{\mathrm{surf}\,3}$ in phase 2'};
         l = legend(leg{:},'Location','NorthEast');
-        set(l,'Interpreter','latex')
+        set(l,'Interpreter',interpreter)
         mysaveas(gridpathname,'power_tauSurf',formats,renderer);
         mymatlab2tikz(gridpathname,'power_tauSurf.tex');
         
@@ -1808,11 +1808,11 @@ if displayQoI
         grid on
         box on
         set(gca,'FontSize',10)
-        xlabel('$\tau$ [s]','Interpreter','latex')
-        ylabel(['$\displaystyle\frac{1}{T-\tau} \int_0^{T-\tau} {[R_Q(t+\tau,t)]}_{jj} \, dt$'],'Interpreter','latex')
+        xlabel('$\tau$ [s]','Interpreter',interpreter)
+        ylabel(['$\displaystyle\frac{1}{T-\tau} \int_0^{T-\tau} {[R_Q(t+\tau,t)]}_{jj} \, dt$'],'Interpreter',interpreter)
         leg = {'$\tau_{\mathrm{interf}}$ in phase 1','$\tau_{\mathrm{interf}}$ in phase 2'};
         l = legend(leg{:},'Location','NorthEast');
-        set(l,'Interpreter','latex')
+        set(l,'Interpreter',interpreter)
         mysaveas(gridpathname,'power_tauInterf',formats,renderer);
         mymatlab2tikz(gridpathname,'power_tauInterf.tex');
     end
@@ -1879,55 +1879,55 @@ for t=0:p
 %     end
     
     if g==gref
-        for ig=1:ng-1
-            gbar = gset(ng-ig);
-            mUbart = mUbar(ig,:,t+1);
-            mCbart = mCbar(ig,:,t+1);
-            legUbart = ['velocity filtered on grid ' num2str(gbar)];
-            legCbart = ['phase filtered on grid ' num2str(gbar)];
-            fields = [fields,mUbart,mCbart];
-            fieldnames = [fieldnames,legUbart,legCbart];
-            if postProcessTau
-                mtauTimebart = mtauTimebar(ig,:,t+1);
-                mdivtauConvbart = mdivtauConvbar(ig,:,t+1);
-                mdivtauDiffbart = mdivtauDiffbar(ig,:,t+1);
-                mtauSurfbart = mtauSurfbar(ig,:,t+1);
-                mtauInterfbart = mtauInterfbar(ig,:,t+1);
-                legtauTimebart = ['tauTime filtered on grid ' num2str(gbar)];
-                legdivtauConvbart = ['div(tauConv) filtered on grid ' num2str(gbar)];
-                legdivtauDiffbart = ['div(tauDiff) filtered on grid ' num2str(gbar)];
-                legtauSurfbart = ['tauSurf filtered on grid ' num2str(gbar)];
-                legtauInterfbart = ['tauInterf filtered on grid ' num2str(gbar)];
-                fields = [fields,mtauTimebart,mdivtauConvbart,mdivtauDiffbart,mtauSurfbart,mtauInterfbart];
-                fieldnames = [fieldnames,legtauTimebart,legdivtauConvbart,legdivtauDiffbart,legtauSurfbart,legtauInterfbart];
-            end
-%             if postProcessEnergy
-%                 menergyKinTimebart = menergyKinTimebar(ig,:,t+1);
-%                 menergyConvbart = menergyConvbar(ig,:,t+1);
-%                 menergyGravbart = menergyGravbar(ig,:,t+1);
-%                 menergyPresbart = menergyPresbar(ig,:,t+1);
-%                 menergyPresDilbart = menergyPresDilbar(ig,:,t+1);
-%                 menergyKinSpacebart = menergyKinSpacebar(ig,:,t+1);
-%                 menergyDiffbart = menergyDiffbar(ig,:,t+1);
-%                 menergyViscbart = menergyViscbar(ig,:,t+1);
-%                 menergySurfbart = menergySurfbar(ig,:,t+1);
-%                 legenergyKinTimebart = ['kinetic energy filtered on grid ' num2str(gbar)];
-%                 legenergyConvbart = ['convection energy filtered on grid ' num2str(gbar)];
-%                 legenergyGravbart = ['gravity energy filtered on grid ' num2str(gbar)];
-%                 legenergyPresbart = ['power of external pressure forces filtered on grid ' num2str(gbar)];
-%                 legenergyPresDilbart = ['pressure-dilatation energy transfer filtered on grid ' num2str(gbar)];
-%                 legenergyKinSpacebart = ['transport of gradient of kinetic energy filtered on grid ' num2str(gbar)];
-%                 legenergyDiffbart = ['energy exchange with kinetic energy filtered on grid ' num2str(gbar)];
-%                 legenergyViscbart = ['power of external viscous stresses filtered on grid ' num2str(gbar)];
-%                 legenergySurfbart = ['capillary kinetic energy filtered on grid ' num2str(gbar)];
-%                 fields = [fields,menergyKinTimebart,menergyConvbart,menergyGravbart,...
-%                     menergyPresbart,menergyPresDilbart,menergyKinSpacebart,...
-%                     menergyDiffbart,menergyViscbart,menergySurfbart];
-%                 fieldnames = [fieldnames,legenergyKinTimebart,legenergyConvbart,legenergyGravbart,...
-%                     legenergyPresbart,legenergyPresDilbart,legenergyKinSpacebart,...
-%                     legenergyDiffbart,legenergyViscbart,legenergySurfbart];
+%         for ig=1:ng-1
+%             gbar = gset(ng-ig);
+%             mUbart = mUbar(ig,:,t+1);
+%             mCbart = mCbar(ig,:,t+1);
+%             legUbart = ['velocity filtered on grid ' num2str(gbar)];
+%             legCbart = ['phase filtered on grid ' num2str(gbar)];
+%             fields = [fields,mUbart,mCbart];
+%             fieldnames = [fieldnames,legUbart,legCbart];
+%             if postProcessTau
+%                 mtauTimebart = mtauTimebar(ig,:,t+1);
+%                 mdivtauConvbart = mdivtauConvbar(ig,:,t+1);
+%                 mdivtauDiffbart = mdivtauDiffbar(ig,:,t+1);
+%                 mtauSurfbart = mtauSurfbar(ig,:,t+1);
+%                 mtauInterfbart = mtauInterfbar(ig,:,t+1);
+%                 legtauTimebart = ['tauTime filtered on grid ' num2str(gbar)];
+%                 legdivtauConvbart = ['div(tauConv) filtered on grid ' num2str(gbar)];
+%                 legdivtauDiffbart = ['div(tauDiff) filtered on grid ' num2str(gbar)];
+%                 legtauSurfbart = ['tauSurf filtered on grid ' num2str(gbar)];
+%                 legtauInterfbart = ['tauInterf filtered on grid ' num2str(gbar)];
+%                 fields = [fields,mtauTimebart,mdivtauConvbart,mdivtauDiffbart,mtauSurfbart,mtauInterfbart];
+%                 fieldnames = [fieldnames,legtauTimebart,legdivtauConvbart,legdivtauDiffbart,legtauSurfbart,legtauInterfbart];
 %             end
-        end
+% %             if postProcessEnergy
+% %                 menergyKinTimebart = menergyKinTimebar(ig,:,t+1);
+% %                 menergyConvbart = menergyConvbar(ig,:,t+1);
+% %                 menergyGravbart = menergyGravbar(ig,:,t+1);
+% %                 menergyPresbart = menergyPresbar(ig,:,t+1);
+% %                 menergyPresDilbart = menergyPresDilbar(ig,:,t+1);
+% %                 menergyKinSpacebart = menergyKinSpacebar(ig,:,t+1);
+% %                 menergyDiffbart = menergyDiffbar(ig,:,t+1);
+% %                 menergyViscbart = menergyViscbar(ig,:,t+1);
+% %                 menergySurfbart = menergySurfbar(ig,:,t+1);
+% %                 legenergyKinTimebart = ['kinetic energy filtered on grid ' num2str(gbar)];
+% %                 legenergyConvbart = ['convection energy filtered on grid ' num2str(gbar)];
+% %                 legenergyGravbart = ['gravity energy filtered on grid ' num2str(gbar)];
+% %                 legenergyPresbart = ['power of external pressure forces filtered on grid ' num2str(gbar)];
+% %                 legenergyPresDilbart = ['pressure-dilatation energy transfer filtered on grid ' num2str(gbar)];
+% %                 legenergyKinSpacebart = ['transport of gradient of kinetic energy filtered on grid ' num2str(gbar)];
+% %                 legenergyDiffbart = ['energy exchange with kinetic energy filtered on grid ' num2str(gbar)];
+% %                 legenergyViscbart = ['power of external viscous stresses filtered on grid ' num2str(gbar)];
+% %                 legenergySurfbart = ['capillary kinetic energy filtered on grid ' num2str(gbar)];
+% %                 fields = [fields,menergyKinTimebart,menergyConvbart,menergyGravbart,...
+% %                     menergyPresbart,menergyPresDilbart,menergyKinSpacebart,...
+% %                     menergyDiffbart,menergyViscbart,menergySurfbart];
+% %                 fieldnames = [fieldnames,legenergyKinTimebart,legenergyConvbart,legenergyGravbart,...
+% %                     legenergyPresbart,legenergyPresDilbart,legenergyKinSpacebart,...
+% %                     legenergyDiffbart,legenergyViscbart,legenergySurfbart];
+% %             end
+%         end
         
     else
         mUbart = mUbar(:,t+1);
