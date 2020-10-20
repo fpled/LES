@@ -46,7 +46,7 @@ filterType = 'box'; % 3D filter type ('box' or 'mean' or 'average', 'linear' or 
 
 % Spatial grid size
 gset = 2.^(4:8); % set of spatial grid sizes
-g = gset(1); % current spatial grid size
+g = gset(end); % current spatial grid size
 gref = gset(end); % reference spatial grid size
 ng = length(gset); % number of spatial grid sizes
 
@@ -273,8 +273,8 @@ end
 %             colorbar
 %             axis image
 %             set(gca,'FontSize',fontsize)
-%             xlabel('$k$','Interpreter',interpreter)
-%             ylabel('$k''$','Interpreter',interpreter)
+%             xlabel('$k''$','Interpreter',interpreter)
+%             ylabel('$k$','Interpreter',interpreter)
 %             title(['Covariance matrix $[C_{\zeta}(t^k,t^{k''})]_{\alpha,\alpha} = [C_{Z_{\alpha}}]_{k,k''}$ for $\alpha=$' num2str(a)],'Interpreter',interpreter)
 %             mysaveas(gridpathname,['covariance_CZ_a' num2str(a)],formats,renderer);
 %             mymatlab2tikz(gridpathname,['covariance_CZ_a' num2str(a) '.tex']);
@@ -369,11 +369,11 @@ if performPCAtime
         set(gca,'FontSize',fontsize)
         switch index
             case 'coord'
-                xlabel('$K=(k-1)R+\alpha$','Interpreter',interpreter)
-                ylabel('$K''=(k''-1)R+\alpha''$','Interpreter',interpreter)
+                xlabel('$K''=(k''-1)R+\alpha''$','Interpreter',interpreter)
+                ylabel('$K=(k-1)R+\alpha$','Interpreter',interpreter)
             case 'time'
-                xlabel('$K=\alpha p+k$','Interpreter',interpreter)
-                ylabel('$K''=\alpha'' p+k''$','Interpreter',interpreter)
+                xlabel('$K''=\alpha'' p+k''$','Interpreter',interpreter)
+                ylabel('$K=\alpha p+k$','Interpreter',interpreter)
         end
         title('Covariance matrix $[C_{\zeta}(t^k,t^{k''})]_{\alpha,\alpha''} = [C_Z]_{K,K''}$','Interpreter',interpreter)
         mysaveas(gridpathname,'covariance_CZ',formats,renderer);
@@ -395,8 +395,8 @@ if performPCAtime
 %             colorbar
 %             axis image
 %             set(gca,'FontSize',fontsize)
-%             xlabel('$\alpha$','Interpreter',interpreter)
-%             ylabel('$\alpha''$','Interpreter',interpreter)
+%             xlabel('$\alpha''$','Interpreter',interpreter)
+%             ylabel('$\alpha$','Interpreter',interpreter)
 %             title(['Covariance matrix $[C_{\zeta}(t^k,t^k)]_{\alpha,\alpha''} = [C_{Z_k}]_{\alpha,\alpha''}$ for $k=$' num2str(t)],'Interpreter',interpreter)
 %             mysaveas(gridpathname,['covariance_CZ_t' num2str(t*100)],formats,renderer);
 %             mymatlab2tikz(gridpathname,['covariance_CZ_t' num2str(t*100) '.tex']);
