@@ -2,7 +2,7 @@ clc
 clearvars
 close all
 
-performPCA = false;
+performPCA = true;
 performPCAspace = true;
 performPCAtime = true;
 computeMean = false;
@@ -46,7 +46,7 @@ filterType = 'box'; % 3D filter type ('box' or 'mean' or 'average', 'linear' or 
 
 % Spatial grid size
 gset = 2.^(4:8); % set of spatial grid sizes
-g = gset(end); % current spatial grid size
+g = gset(1); % current spatial grid size
 gref = gset(end); % reference spatial grid size
 ng = length(gset); % number of spatial grid sizes
 
@@ -297,11 +297,11 @@ end
 %     fprintf('\nelapsed time = %f s',time_PCA_time);
 %     fprintf('\n');
 %     
-%     save(fullfile(gridpathname,'PCA_time.mat'),'s','W','Q','errsvdZc','time_PCA_time');
+%     save(fullfile(gridpathname,'PCA_time.mat'),'s','W','X','Q','errsvdZc','time_PCA_time');
 % else
 %     fprintf('\nLoading DNS data from PCA in time');
 %     t_load = tic;
-%     load(fullfile(gridpathname,'PCA_time.mat'),'s','W','Q','errsvdZc','time_PCA_time');
+%     load(fullfile(gridpathname,'PCA_time.mat'),'s','W','X','Q','errsvdZc','time_PCA_time');
 %     time_load = toc(t_load);
 %     fprintf('\nelapsed time = %f s',time_load);
 %     fprintf('\n');
@@ -407,11 +407,11 @@ if performPCAtime
     fprintf('\nelapsed time = %f s',time_PCA_time);
     fprintf('\n');
     
-    save(fullfile(gridpathname,'PCA_time.mat'),'s','W','Q','errsvdZc','time_PCA_time');
+    save(fullfile(gridpathname,'PCA_time.mat'),'s','W','X','Q','errsvdZc','time_PCA_time');
 else
     fprintf('\nLoading DNS data from PCA time');
     t_load = tic;
-    load(fullfile(gridpathname,'PCA_time.mat'),'s','W','Q','errsvdZc','time_PCA_time');
+    load(fullfile(gridpathname,'PCA_time.mat'),'s','W','X','Q','errsvdZc','time_PCA_time');
     time_load = toc(t_load);
     fprintf('\nelapsed time = %f s',time_load);
     fprintf('\n');
