@@ -28,6 +28,7 @@ formats = {'fig','epsc'};
 renderer = 'OpenGL';
 
 pathname = fileparts(mfilename('fullpath'));
+% pathname = '/mnt/usbdisk2/pled/LES';
 
 sigma = 0.45; % surface tension (N/m)
 mu = [0.1,0.1]; % dynamic viscosity of [water,oil] (Pa.s)
@@ -46,7 +47,7 @@ filterType = 'box'; % 3D filter type ('box' or 'mean' or 'average', 'linear' or 
 
 % Spatial grid size
 gset = 2.^(4:8); % set of spatial grid sizes
-g = gset(end); % current spatial grid size
+g = gset(4); % current spatial grid size
 gref = gset(end); % reference spatial grid size
 ng = length(gset); % number of spatial grid sizes
 
