@@ -17,5 +17,8 @@ for i=1:3
     divui = ipermute(divui,order);
     divu(:,:) = divu(:,:) + divui(:,:);
 end
+if s(1)~=3
+    divu = shiftdim(divu,-1);
+end
 
 end
