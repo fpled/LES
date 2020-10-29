@@ -1,5 +1,5 @@
-function Yt = get_reduced_order_representation_at_step(mY,sig,V,s,W,X,R,t,varargin)
-% function Yt = get_reduced_order_representation_at_step(mY,sig,V,s,W,X,R,t,varargin)
+function Yt = get_PCA_representation_at_step(mY,sig,V,s,W,X,R,t,varargin)
+% function Yt = get_PCA_representation_at_step(mY,sig,V,s,W,X,R,t,varargin)
 
 Rmax = max(R);
 Rt = R(t);
