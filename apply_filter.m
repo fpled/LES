@@ -2,7 +2,7 @@ function Yt = apply_filter(Yt,filterType,h,varargin)
 
 N = size(Yt,1);
 n = size(Yt,2);
-for l=1:N
+parfor l=1:N
     for i=1:n
         Ytl = squeeze(Yt(l,i,:,:,:));
         switch filterType
