@@ -5,13 +5,13 @@ close all
 PCA = false;
 PostProcessingTau = true;
 PostProcessingEnergy = false;
-Filtering = false;
+Filtering = true;
 QoI = false;
 
 performPCAspace = false;
 performPCAtime = false;
 computeMean = false;
-postProcess = true;
+postProcess = false;
 computeQoI = true;
 applyFilter = true;
 computeError = true;
@@ -52,7 +52,7 @@ filterType = 'box'; % 3D filter type ('box' or 'mean' or 'average', 'linear' or 
 
 % Spatial grid size
 gset = 2.^(4:8); % set of spatial grid sizes
-g = gset(1); % current spatial grid size
+g = gset(end); % current spatial grid size
 gref = gset(end); % reference spatial grid size
 ng = length(gset); % number of spatial grid sizes
 
@@ -78,37 +78,37 @@ x = linspace(0,L,g+1); % spatial discretization in each spatial dimension
 Dx = spdiags(repmat([-1 1],g+1,1),[-1 1],g+1,g+1)/(2*dx); % Implicit central-difference spatial scheme (second-order accurate, unconditionlly stable)
 Dx(1,[1 2]) = [-1 1]/dx; Dx(end,[end-1 end]) = [-1 1]/dx;
 Dxx = spdiags(repmat([1 -2 1],g+1,1),-1:1,g+1,g+1)/(dx^2);
-if dim==1
-    Grad = Dx;
-    Div = Dx;
-    Laplacian = Dxx;
-elseif dim==2
-    I1 = speye(g+1);
-    Ex = sparse(1,1,1,dim,1);
-    Ey = sparse(2,1,1,dim,1);
-    Gradx = kron(I1,Dx);
-    Grady = kron(Dx,I1);
-    Grad = kron(Gradx,Ex) + kron(Grady,Ey);
-    Div = kron(Gradx,Ex') + kron(Grady,Ey');
-    Laplacian = kron(I1,Dxx) + kron(Dxx,I1);
-    clear Ex Ey Gradx Grady
-elseif dim==3
-    I1 = speye(g+1);
-    I2 = speye((g+1)^2); % I2 = kron(I,I);
-    Ex = sparse(1,1,1,dim,1);
-    Ey = sparse(2,1,1,dim,1);
-    Ez = sparse(3,1,1,dim,1);
-    Gradx = kron(I1,kron(I1,Dx));
-    Grady = kron(I1,kron(Dx,I1));
-    Gradz = kron(kron(Dx,I1),I1);
-    Grad = kron(Gradx,Ex) + kron(Grady,Ey) + kron(Gradz,Ez);
-    Div = kron(Gradx,Ex') + kron(Grady,Ey') + kron(Gradz,Ez');
-    clear Ex Ey Ez Gradx Grady Gradz
-    Laplacian1 = Dxx;
-    Laplacian2 = kron(I1,Dxx) + kron(Dxx,I1);
-    Laplacian = kron(I2,Laplacian1) + kron(Laplacian2,I1);
-    clear I1 I2 Laplacian1 Laplacian2
-end
+% if dim==1
+%     Grad = Dx;
+%     Div = Dx;
+%     Laplacian = Dxx;
+% elseif dim==2
+%     I1 = speye(g+1);
+%     Ex = sparse(1,1,1,dim,1);
+%     Ey = sparse(2,1,1,dim,1);
+%     Gradx = kron(I1,Dx);
+%     Grady = kron(Dx,I1);
+%     Grad = kron(Gradx,Ex) + kron(Grady,Ey);
+%     Div = kron(Gradx,Ex') + kron(Grady,Ey');
+%     Laplacian = kron(I1,Dxx) + kron(Dxx,I1);
+%     clear Ex Ey Gradx Grady
+% elseif dim==3
+%     I1 = speye(g+1);
+%     I2 = speye((g+1)^2); % I2 = kron(I,I);
+%     Ex = sparse(1,1,1,dim,1);
+%     Ey = sparse(2,1,1,dim,1);
+%     Ez = sparse(3,1,1,dim,1);
+%     Gradx = kron(I1,kron(I1,Dx));
+%     Grady = kron(I1,kron(Dx,I1));
+%     Gradz = kron(kron(Dx,I1),I1);
+%     Grad = kron(Gradx,Ex) + kron(Grady,Ey) + kron(Gradz,Ez);
+%     Div = kron(Gradx,Ex') + kron(Grady,Ey') + kron(Gradz,Ez');
+%     clear Ex Ey Ez Gradx Grady Gradz
+%     Laplacian1 = Dxx;
+%     Laplacian2 = kron(I1,Dxx) + kron(Dxx,I1);
+%     Laplacian = kron(I2,Laplacian1) + kron(Laplacian2,I1);
+%     clear I1 I2 Laplacian1 Laplacian2
+% end
 
 % Time scheme
 dt = 5e-3; % computing time step (s)
@@ -530,7 +530,7 @@ if postProcess && (PostProcessingTau || PostProcessingEnergy)
 fprintf('\nPost-processing DNS data');
 t_PostProcess = tic;
 if PostProcessingTau
-    ntau = 4*dim+2; % number of tau variables
+    ntau = 4*dim+1; % number of tau variables
     fprintf('\nn = %d tau variables',ntau);
     mTau = zeros(1,ntau,m,p+1);
     if g<2^7
@@ -696,33 +696,34 @@ for t=0:p
         tauInterft = dot(ut,gradCt,1);
         clear gradCt
         divtauDifft = div(2*muSt,Dx);
-        if verLessThan('matlab','9.1') % compatibility (<R2016b)
-            b = div(dt*bsxfun(@rdivide,-divtauConvt+divtauDifft+tauSurft,rhot),Dx);
-        else
-            b = div(dt*(-divtauConvt+divtauDifft+tauSurft)./rhot,Dx);
-        end
-        % b = div(dt*(-divtauConvt+divtauDifft+tauSurft)./repmat(rhot,[dim,ones(1,dim+1)]),Dx);
-        b = reshape(b,[m,N]);
-        Rhot = reshape(repmat(rhot,[dim,ones(1,dim+1)]),[dim*m,N]);
-        prest = zeros(m,N);
-        parfor l=1:N
-            bl = b(:,l);
-            Rhotl = Rhot(:,l);
-            if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                Al = Div*(dt*bsxfun(@rdivide,Grad,Rhotl));
-            else
-                Al = Div*(dt./Rhotl.*Grad);
-            end
-            % Al = Div*(dt./repmat(Rhotl,[1,m]).*Grad);
-            prestl = Al\bl;
-            prest(:,l) = prestl;
-        end
-        clear Rhot
-        Taut = cat(1,tauTimet,divtauConvt,divtauDifft,tauSurft,tauInterft,prest);
-        clear tauTimet divtauConvt divtauDifft tauInterft prest
+%         if verLessThan('matlab','9.1') % compatibility (<R2016b)
+%             b = div(dt*bsxfun(@rdivide,-divtauConvt+divtauDifft+tauSurft,rhot),Dx);
+%         else
+%             b = div(dt*(-divtauConvt+divtauDifft+tauSurft)./rhot,Dx);
+%         end
+%         % b = div(dt*(-divtauConvt+divtauDifft+tauSurft)./repmat(rhot,[dim,ones(1,dim+1)]),Dx);
+%         b = reshape(b,[m,N]);
+%         Rhot = reshape(repmat(rhot,[dim,ones(1,dim+1)]),[dim*m,N]);
+        Taut = cat(1,tauTimet,divtauConvt,divtauDifft,tauSurft,tauInterft);
+        clear tauTimet divtauConvt divtauDifft tauInterft
         if ~PostProcessingEnergy
             clear ut rhot rhout muSt tauSurft
         end
+%         prest = zeros(m,N);
+%         parfor l=1:N
+%             bl = b(:,l);
+%             Rhotl = Rhot(:,l);
+%             if verLessThan('matlab','9.1') % compatibility (<R2016b)
+%                 Al = Div*(dt*bsxfun(@rdivide,Grad,Rhotl));
+%             else
+%                 Al = Div*(dt./Rhotl.*Grad);
+%             end
+%             % Al = Div*(dt./repmat(Rhotl,[1,m]).*Grad);
+%             prestl = Al\bl;
+%             prest(:,l) = prestl;
+%         end
+%         Taut = cat(1,Taut,prest);
+%         clear Rhot prest
         Taut = iperm(Taut);
         Taut = Taut(:,:,:);
         mTaut = mean(Taut,1);
@@ -1186,13 +1187,11 @@ else
             errordivtauDiff = zeros(1,p+1);
             errortauSurf = zeros(1,p+1);
             errortauInterf = zeros(1,p+1);
-            errorpres = zeros(1,p+1);
             normtauTimebar = zeros(1,p+1);
             normdivtauConvbar = zeros(1,p+1);
             normdivtauDiffbar = zeros(1,p+1);
             normtauSurfbar = zeros(1,p+1);
             normtauInterfbar = zeros(1,p+1);
-            normpresbar = zeros(1,p+1);
         end
         
         for t=0:p
@@ -1241,14 +1240,12 @@ else
                 divtauDifft = Taut(:,2*dim+(1:dim),:);
                 tauSurft = Taut(:,3*dim+(1:dim),:);
                 tauInterft = Taut(:,4*dim+1,:);
-                prest = Taut(:,4*dim+2,:);
                 clear Taut
                 tauTimebart = Taubart(:,1:dim,:);
                 divtauConvbart = Taubart(:,dim+(1:dim),:);
                 divtauDiffbart = Taubart(:,2*dim+(1:dim),:);
                 tauSurfbart = Taubart(:,3*dim+(1:dim),:);
                 tauInterfbart = Taubart(:,4*dim+1,:);
-                presbart = Taubart(:,4*dim+2,:);
                 clear Taubart
                 
                 errortauTimet = compute_norm(x,reshape(sum((tauTimebart-tauTimet).^2,2),[N,sx]),dim);
@@ -1256,32 +1253,28 @@ else
                 errordivtauDifft = compute_norm(x,reshape(sum((divtauDiffbart-divtauDifft).^2,2),[N,sx]),dim);
                 errortauSurft = compute_norm(x,reshape(sum((tauSurfbart-tauSurft).^2,2),[N,sx]),dim);
                 errortauInterft = compute_norm(x,reshape((tauInterfbart-tauInterft).^2,[N,sx]),dim);
-                errorprest = compute_norm(x,reshape((presbart-prest).^2,[N,sx]),dim);
-                clear tauTimet divtauConvt divtauDifft tauSurft tauInterft prest
+                clear tauTimet divtauConvt divtauDifft tauSurft tauInterft
                 
                 normtauTimebart = compute_norm(x,reshape(sum(tauTimebart.^2,2),[N,sx]),dim);
                 normdivtauConvbart = compute_norm(x,reshape(sum(divtauConvbart.^2,2),[N,sx]),dim);
                 normdivtauDiffbart = compute_norm(x,reshape(sum(divtauDiffbart.^2,2),[N,sx]),dim);
                 normtauSurfbart = compute_norm(x,reshape(sum(tauSurfbart.^2,2),[N,sx]),dim);
                 normtauInterfbart = compute_norm(x,reshape(tauInterfbart.^2,[N,sx]),dim);
-                normpresbart = compute_norm(x,reshape(presbart.^2,[N,sx]),dim);
-                clear tauTimebart divtauConvbart divtauDiffbart tauSurfbart tauInterfbart presbart
+                clear tauTimebart divtauConvbart divtauDiffbart tauSurfbart tauInterfbart
                 
                 errortauTime(t+1) = errortauTimet;
                 errordivtauConv(t+1) = errordivtauConvt;
                 errordivtauDiff(t+1) = errordivtauDifft;
                 errortauSurf(t+1) = errortauSurft;
                 errortauInterf(t+1) = errortauInterft;
-                errorpres(t+1) = errorprest;
-                clear errortauTimet errordivtauConvt errordivtauDifft errortauSurft errortauInterft errorprest
+                clear errortauTimet errordivtauConvt errordivtauDifft errortauSurft errortauInterft
                 
                 normtauTimebar(t+1) = normtauTimebart;
                 normdivtauConvbar(t+1) = normdivtauConvbart;
                 normdivtauDiffbar(t+1) = normdivtauDiffbart;
                 normtauSurfbar(t+1) = normtauSurfbart;
                 normtauInterfbar(t+1) = normtauInterfbart;
-                normpresbar(t+1) = normpresbart;
-                clear normtauTimebart normdivtauConvbart normdivtauDiffbart normtauSurfbart normtauInterfbart normpresbart
+                clear normtauTimebart normdivtauConvbart normdivtauDiffbart normtauSurfbart normtauInterfbart
             end
             time_Errort = toc(t_Errort);
             fprintf('\nTime %2d/%2d : elapsed time = %f s',t,p,time_Errort);
@@ -1293,16 +1286,16 @@ else
         
         save(fullfile(gridpathname,'error_filter.mat'),'erroru','errorC','normubar','normCbar','normubar');
         if PostProcessingTau
-            save(fullfile(gridpathname,'error_filter_tau.mat'),'errortauTime','errordivtauConv','errordivtauDiff','errortauSurf','errortauInterf','errorpres',...
-                'normtauTimebar','normdivtauConvbar','normdivtauDiffbar','normtauSurfbar','normtauInterfbar','normpresbar');
+            save(fullfile(gridpathname,'error_filter_tau.mat'),'errortauTime','errordivtauConv','errordivtauDiff','errortauSurf','errortauInterf',...
+                'normtauTimebar','normdivtauConvbar','normdivtauDiffbar','normtauSurfbar','normtauInterfbar');
         end
     else
         fprintf('\nLoading error between DNS and filtered data');
         t_load = tic;
         load(fullfile(gridpathname,'error_filter.mat'),'erroru','errorC','normubar','normCbar','normubar');
         if PostProcessingTau
-            load(fullfile(gridpathname,'error_filter_tau.mat'),'errortauTime','errordivtauConv','errordivtauDiff','errortauSurf','errortauInterf','errorpres',...
-            'normtauTimebar','normdivtauConvbar','normdivtauDiffbar','normtauSurfbar','normtauInterfbar','normpresbar');
+            load(fullfile(gridpathname,'error_filter_tau.mat'),'errortauTime','errordivtauConv','errordivtauDiff','errortauSurf','errortauInterf',...
+            'normtauTimebar','normdivtauConvbar','normdivtauDiffbar','normtauSurfbar','normtauInterfbar');
         end
         time_load = toc(t_load);
         fprintf('\nelapsed time = %f s',time_load);
@@ -1421,7 +1414,6 @@ if PostProcessingTau
     mdivtauDiff = reshape(mTau(1,2*dim+(1:dim),:,:),[dim*m,p+1]);
     mtauSurf = reshape(mTau(1,3*dim+(1:dim),:,:),[dim*m,p+1]);
     mtauInterf = reshape(mTau(1,4*dim+1,:,:),[m,p+1]);
-    mpres = reshape(mTau(1,4*dim+2,:,:),[m,p+1]);
 end
 
 if Filtering
@@ -1441,14 +1433,12 @@ if g==gref
 %         mdivtauDiffbar = zeros(ng-1,dim*m,p+1);
 %         mtauSurfbar = zeros(ng-1,dim*m,p+1);
 %         mtauInterfbar = zeros(ng-1,m,p+1);
-%         mpresbar = zeros(ng-1,m,p+1);
 %         for ig=1:ng-1
 %             mtauTimebar(ig,:,:) = reshape(mTaurefbar(ig,1:dim,:,:),[dim*m,p+1]);
 %             mdivtauConvbar(ig,:,:) = reshape(mTaurefbar(ig,dim+(1:dim),:,:),[dim*m,p+1]);
 %             mdivtauDiffbar(ig,:,:) = reshape(mTaurefbar(ig,2*dim+(1:dim),:,:),[dim*m,p+1]);
 %             mtauSurfbar(ig,:,:) = reshape(mTaurefbar(ig,3*dim+(1:dim),:,:),[dim*m,p+1]);
 %             mtauInterfbar(ig,:,:) = reshape(mTaurefbar(ig,4*dim+1,:,:),[m,p+1]);
-%             mpresbar(ig,:,:) = reshape(mTaurefbar(ig,4*dim+2,:,:),[m,p+1]);
 %         end
 %         clear mTaurefbar
 %     end
@@ -1462,7 +1452,6 @@ else
         mdivtauDiffbar = reshape(mTaubar(1,2*dim+(1:dim),:,:),[dim*m,p+1]);
         mtauSurfbar = reshape(mTaubar(1,3*dim+(1:dim),:,:),[dim*m,p+1]);
         mtauInterfbar = reshape(mTaubar(1,4*dim+1,:,:),[m,p+1]);
-        mpresbar = reshape(mTaubar(1,4*dim+2,:,:),[m,p+1]);
         clear mTaubar
     end
 end
@@ -1477,7 +1466,6 @@ if PostProcessingTau
     vdivtauDiff = zeros(dim*m,p+1);
     vtauSurf = zeros(dim*m,p+1);
     vtauInterf = zeros(m,p+1);
-    vpres = zeros(m,p+1);
 end
 
 if PCA
@@ -1576,7 +1564,6 @@ for t=0:p
         divtauDifft = Tauct(:,2*dim+(1:dim),:);
         tauSurft = Tauct(:,3*dim+(1:dim),:);
         tauInterft = Tauct(:,4*dim+1,:);
-        prest = Tauct(:,4*dim+2,:);
         clear Tauct
         
         vtauTimet = 1/(N-1)*sum(tauTimet(:,:).^2)';
@@ -1584,8 +1571,7 @@ for t=0:p
         vdivtauDifft = 1/(N-1)*sum(divtauDifft(:,:).^2)';
         vtauSurft = 1/(N-1)*sum(tauSurft(:,:).^2)';
         vtauInterft = 1/(N-1)*sum(tauInterft(:,:).^2)';
-        vprest = 1/(N-1)*sum(prest(:,:).^2)';
-        clear tauTimet divtauConvt divtauDifft tauSurft tauInterft prest
+        clear tauTimet divtauConvt divtauDifft tauSurft tauInterft
     end
     
     vU(:,t+1) = vUt;
@@ -1596,7 +1582,6 @@ for t=0:p
         vdivtauDiff(:,t+1) = vdivtauDifft;
         vtauSurf(:,t+1) = vtauSurft;
         vtauInterf(:,t+1) = vtauInterft;
-        vpres(:,t+1) = vprest;
     end
 end
 
@@ -1615,7 +1600,6 @@ if g~=gref && displayError && Filtering
         hdl(5) = plot(ts,errordivtauDiff./normdivtauDiffbar,'LineStyle','-','Color','c','LineWidth',1);
         hdl(6) = plot(ts,errortauSurf./normtauSurfbar,'LineStyle','-','Color','y','LineWidth',1);
         hdl(7) = plot(ts,errortauInterf./normtauInterfbar,'LineStyle','-','Color','k','LineWidth',1);
-        hdl(8) = plot(ts,errorpres./normpresbar,'LineStyle','--','Color','b','LineWidth',1);
     end
     hold off
     grid on
@@ -1643,14 +1627,12 @@ if displayQoI && QoI
         mQdivtauDiff = reshape(mQtau(1,2*dim+(1:dim),:,:),[3,2,p+1]);
         mQtauSurf = reshape(mQtau(1,3*dim+(1:dim),:,:),[3,2,p+1]);
         mQtauInterf = reshape(mQtau(1,4*dim+1,:,:),[1,2,p+1]);
-        mQpresf = reshape(mQtau(1,4*dim+2,:,:),[1,2,p+1]);
         % Correlation
         IQtauTime = IQtau(1:dim,:,1:dim,:,:);
         IQdivtauConv = IQtau(dim+(1:dim),:,dim+(1:dim),:,:);
         IQdivtauDiff = IQtau(2*dim+(1:dim),:,2*dim+(1:dim),:,:);
         IQtauSurf = IQtau(3*dim+(1:dim),:,3*dim+(1:dim),:,:);
         IQtauInterf = IQtau(4*dim+1,:,4*dim+1,:,:);
-        IQpres = IQtau(4*dim+2,:,4*dim+2,:,:);
     end
     if PostProcessingEnergy
         mQenergyKinTime = reshape(mQe(1,1,:,:),[1,2,p+1]);
@@ -1695,6 +1677,22 @@ if displayQoI && QoI
     legend(leg{:},'Location','NorthEast')
     mysaveas(gridpathname,'mean_u',formats,renderer);
     mymatlab2tikz(gridpathname,'mean_u.tex');
+    
+%     figure('Name','Mean of spatial average of pressure p')
+%     clf
+%     hdl(1) = plot(ts,squeeze(mQpres(1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
+%     hold on
+%     hdl(2) = plot(ts,squeeze(mQpres(1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
+%     hold off
+%     grid on
+%     box on
+%     set(gca,'FontSize',10)
+%     xlabel('$t$ [s]','Interpreter',interpreter)
+%     ylabel('$p$','Interpreter',interpreter)
+%     leg = {'phase 1','phase 2'};
+%     legend(leg{:},'Location','NorthEast')
+%     mysaveas(gridpathname,'mean_p',formats,renderer);
+%     mymatlab2tikz(gridpathname,'mean_p.tex');
     
     if PostProcessingTau
         figure('Name','Mean of spatial average of tauTime')
@@ -1792,22 +1790,6 @@ if displayQoI && QoI
         legend(leg{:},'Location','NorthEast')
         mysaveas(gridpathname,'mean_tauInterf',formats,renderer);
         mymatlab2tikz(gridpathname,'mean_tauInterf.tex');
-        
-        figure('Name','Mean of spatial average of pressure p')
-        clf
-        hdl(1) = plot(ts,squeeze(mQpres(1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
-        hold on
-        hdl(2) = plot(ts,squeeze(mQpres(1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
-        hold off
-        grid on
-        box on
-        set(gca,'FontSize',10)
-        xlabel('$t$ [s]','Interpreter',interpreter)
-        ylabel('$p$','Interpreter',interpreter)
-        leg = {'phase 1','phase 2'};
-        legend(leg{:},'Location','NorthEast')
-        mysaveas(gridpathname,'mean_p',formats,renderer);
-        mymatlab2tikz(gridpathname,'mean_p.tex');
     end
     
     figure('Name','Power of velocity u')
@@ -1831,6 +1813,23 @@ if displayQoI && QoI
     legend(leg{:},'Location','NorthEast')
     mysaveas(gridpathname,'power_u',formats,renderer);
     mymatlab2tikz(gridpathname,'power_u.tex');
+    
+%     figure('Name','Power of pressure p')
+%     clf
+%     hdl(1) = plot(ts,squeeze(IQpres(1,1,1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
+%     hold on
+%     hdl(2) = plot(ts,squeeze(IQpres(1,2,1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
+%     hold off
+%     grid on
+%     box on
+%     set(gca,'FontSize',10)
+%     xlabel('$p$ [Pa]','Interpreter',interpreter)
+%     ylabel(['$\displaystyle\frac{1}{T-\tau} \int_0^{T-\tau} {[R_Q(t+\tau,t)]}_{jj} \, dt$'],'Interpreter',interpreter)
+%     leg = {'$p$ in phase 1','$p$ in phase 2'};
+%     l = legend(leg{:},'Location','NorthEast');
+%     set(l,'Interpreter',interpreter)
+%     mysaveas(gridpathname,'power_p',formats,renderer);
+%     mymatlab2tikz(gridpathname,'power_p.tex');
     
     if PostProcessingTau
         figure('Name','Power of tauTime')
@@ -1941,23 +1940,6 @@ if displayQoI && QoI
         set(l,'Interpreter',interpreter)
         mysaveas(gridpathname,'power_tauInterf',formats,renderer);
         mymatlab2tikz(gridpathname,'power_tauInterf.tex');
-        
-        figure('Name','Power of pressure p')
-        clf
-        hdl(1) = plot(ts,squeeze(IQpres(1,1,1,1,:)),'LineStyle','-','Color','b','LineWidth',1);
-        hold on
-        hdl(2) = plot(ts,squeeze(IQpres(1,2,1,2,:)),'LineStyle','--','Color','b','LineWidth',1);
-        hold off
-        grid on
-        box on
-        set(gca,'FontSize',10)
-        xlabel('$p$ [Pa]','Interpreter',interpreter)
-        ylabel(['$\displaystyle\frac{1}{T-\tau} \int_0^{T-\tau} {[R_Q(t+\tau,t)]}_{jj} \, dt$'],'Interpreter',interpreter)
-        leg = {'$p$ in phase 1','$p$ in phase 2'};
-        l = legend(leg{:},'Location','NorthEast');
-        set(l,'Interpreter',interpreter)
-        mysaveas(gridpathname,'power_p',formats,renderer);
-        mymatlab2tikz(gridpathname,'power_p.tex');
     end
 end
 
@@ -1992,17 +1974,18 @@ end
 for t=0:p
     mUt = mU(:,t+1);
     mCt = mC(:,t+1);
+%     mprest = mpres(:,t+1);
     fields = {mUt,mCt};
-    fieldnames = {'velocity','phase'};
+    fieldnames = {'velocity','phase'...%,'pressure'...
+        };
     if PostProcessingTau
         mtauTimet = mtauTime(:,t+1);
         mdivtauConvt = mdivtauConv(:,t+1);
         mdivtauDifft = mdivtauDiff(:,t+1);
         mtauSurft = mtauSurf(:,t+1);
         mtauInterft = mtauInterf(:,t+1);
-        mprest = mpres(:,t+1);
-        fields = [fields,mtauTimet,mdivtauConvt,mdivtauDifft,mtauSurft,mtauInterft,mprest];
-        fieldnames = [fieldnames,'tauTime','div(tauConv)','div(tauDiff)','tauSurf','tauInterf','pressure'];
+        fields = [fields,mtauTimet,mdivtauConvt,mdivtauDifft,mtauSurft,mtauInterft];
+        fieldnames = [fieldnames,'tauTime','div(tauConv)','div(tauDiff)','tauSurf','tauInterf'];
     end
 %     if PostProcessingEnergy
 %         menergyKinTimet = menergyKinTime(:,t+1);
@@ -2028,25 +2011,27 @@ for t=0:p
 %             gbar = gset(ng-ig);
 %             mUbart = mUbar(ig,:,t+1);
 %             mCbart = mCbar(ig,:,t+1);
+%             % mpresbart = mpresbar(ig,:,t+1);
 %             legUbart = ['velocity filtered on grid ' num2str(gbar)];
 %             legCbart = ['phase filtered on grid ' num2str(gbar)];
-%             fields = [fields,mUbart,mCbart];
-%             fieldnames = [fieldnames,legUbart,legCbart];
+%             % legpresbart = ['pressure filtered on grid ' num2str(gbar)];
+%             fields = [fields,mUbart,mCbart...%,mpresbart...
+%                 ];
+%             fieldnames = [fieldnames,legUbart,legCbart...%,legpresbart...
+%                 ];
 %             if PostProcessingTau
 %                 mtauTimebart = mtauTimebar(ig,:,t+1);
 %                 mdivtauConvbart = mdivtauConvbar(ig,:,t+1);
 %                 mdivtauDiffbart = mdivtauDiffbar(ig,:,t+1);
 %                 mtauSurfbart = mtauSurfbar(ig,:,t+1);
 %                 mtauInterfbart = mtauInterfbar(ig,:,t+1);
-%                 mpresbart = mpresbar(ig,:,t+1);
 %                 legtauTimebart = ['tauTime filtered on grid ' num2str(gbar)];
 %                 legdivtauConvbart = ['div(tauConv) filtered on grid ' num2str(gbar)];
 %                 legdivtauDiffbart = ['div(tauDiff) filtered on grid ' num2str(gbar)];
 %                 legtauSurfbart = ['tauSurf filtered on grid ' num2str(gbar)];
 %                 legtauInterfbart = ['tauInterf filtered on grid ' num2str(gbar)];
-%                 legpresbart = ['pressure filtered on grid ' num2str(gbar)];
-%                 fields = [fields,mtauTimebart,mdivtauConvbart,mdivtauDiffbart,mtauSurfbart,mtauInterfbart,mpresbart];
-%                 fieldnames = [fieldnames,legtauTimebart,legdivtauConvbart,legdivtauDiffbart,legtauSurfbart,legtauInterfbart,legpresbart];
+%                 fields = [fields,mtauTimebart,mdivtauConvbart,mdivtauDiffbart,mtauSurfbart,mtauInterfbart];
+%                 fieldnames = [fieldnames,legtauTimebart,legdivtauConvbart,legdivtauDiffbart,legtauSurfbart,legtauInterfbart];
 %             end
 % %             if PostProcessingEnergy
 % %                 menergyKinTimebart = menergyKinTimebar(ig,:,t+1);
@@ -2079,17 +2064,19 @@ for t=0:p
     else
         mUbart = mUbar(:,t+1);
         mCbart = mCbar(:,t+1);
-        fields = [fields,mUbart,mCbart];
-        fieldnames = [fieldnames,'velocity filtered','phase filtered'];
+%         mpresbart = mpresbar(:,t+1);
+        fields = [fields,mUbart,mCbart...%,mpresbart...
+            ];
+        fieldnames = [fieldnames,'velocity filtered','phase filtered'...%,'pressure filtered'...
+            ];
         if PostProcessingTau
             mtauTimebart = mtauTimebar(:,t+1);
             mdivtauConvbart = mdivtauConvbar(:,t+1);
             mdivtauDiffbart = mdivtauDiffbar(:,t+1);
             mtauSurfbart = mtauSurfbar(:,t+1);
             mtauInterfbart = mtauInterfbar(:,t+1);
-            mpresbart = mpresbar(:,t+1);
-            fields = [fields,mtauTimebart,mdivtauConvbart,mdivtauDiffbart,mtauSurfbart,mtauInterfbart,mpresbart];
-            fieldnames = [fieldnames,'tauTime filtered','div(tauConv) filtered','div(tauDiff) filtered','tauSurf filtered','tauInterf filtered','pressure filtered'];
+            fields = [fields,mtauTimebart,mdivtauConvbart,mdivtauDiffbart,mtauSurfbart,mtauInterfbart];
+            fieldnames = [fieldnames,'tauTime filtered','div(tauConv) filtered','div(tauDiff) filtered','tauSurf filtered','tauInterf filtered'];
         end
 %         if PostProcessingEnergy
 %             menergyKinTimebart = menergyKinTimebar(:,t+1);
@@ -2118,17 +2105,19 @@ make_pvd_file(gridpathname,['diphasic_fluids_grid' num2str(g) '_mean'],1,p+1);
 % for t=0:p
 %     vUt = vU(:,t+1);
 %     vCt = vC(:,t+1);
-%     fields = {vUt,vCt};
-%     fieldnames = {'velocity','phase'};
+% %     vprest = vpres(:,t+1);
+%     fields = {vUt,vCt...%,vprest...
+%         };
+%     fieldnames = {'velocity','phase'...%,'pressure'...
+%         };
 %     if PostProcessingTau
 %         vtauTimet = vtauTime(:,t+1);
 %         vdivtauConvt = vdivtauConv(:,t+1);
 %         vdivtauDifft = vdivtauDiff(:,t+1);
 %         vtauSurft = vtauSurf(:,t+1);
 %         vtauInterft = vtauInterf(:,t+1);
-%         vprest = vpres(:,t+1);
-%         fields = [fields,vtauTimet,vdivtauConvt,vdivtauDifft,vtauSurft,vtauInterft,vprest];
-%         fieldnames = [fieldnames,'tauTime','div(tauConv)','div(tauDiff)','tauSurf','tauInterf','pressure'];
+%         fields = [fields,vtauTimet,vdivtauConvt,vdivtauDifft,vtauSurft,vtauInterft];
+%         fieldnames = [fieldnames,'tauTime','div(tauConv)','div(tauDiff)','tauSurf','tauInterf'];
 %     end
 % %     if PostProcessingEnergy
 % %         venergyKinTimet = venergyKinTime(:,t+1);
@@ -2154,25 +2143,27 @@ make_pvd_file(gridpathname,['diphasic_fluids_grid' num2str(g) '_mean'],1,p+1);
 %             gbar = gset(ng-ig);
 %             vUbart = vUbar(ig,:,t+1);
 %             vCbart = vCbar(ig,:,t+1);
+% %             vpresbart = vpresbar(ig,:,t+1);
 %             legUbart = ['velocity filtered on grid ' num2str(gbar)];
 %             legCbart = ['phase filtered on grid ' num2str(gbar)];
-%             fields = [fields,vUbart,vCbart];
-%             fieldnames = [fieldnames,legUbart,legCbart];
+% %             legpresbart = ['pressure filtered on grid ' num2str(gbar)];
+%             fields = [fields,vUbart,vCbart...%,vpresbart...
+%                 ];
+%             fieldnames = [fieldnames,legUbart,legCbart...%,legpresbart...
+%                 ];
 %             if PostProcessingTau
 %                 vtauTimebart = vtauTimebar(ig,:,t+1);
 %                 mdivtauConvbart = mdivtauConvbar(ig,:,t+1);
 %                 mdivtauDiffbart = mdivtauDiffbar(ig,:,t+1);
 %                 vtauSurfbart = vtauSurfbar(ig,:,t+1);
 %                 vtauInterfbart = vtauInterfbar(ig,:,t+1);
-%                 vpresbart = vpresbar(ig,:,t+1);
 %                 legtauTimebart = ['tauTime filtered on grid ' num2str(gbar)];
 %                 legdivtauConvbart = ['div(tauConv) filtered on grid ' num2str(gbar)];
 %                 legdivtauDiffbart = ['div(tauDiff) filtered on grid ' num2str(gbar)];
 %                 legtauSurfbart = ['tauSurf filtered on grid ' num2str(gbar)];
 %                 legtauInterfbart = ['tauInterf filtered on grid ' num2str(gbar)];
-%                 legpresbart = ['pressure filtered on grid ' num2str(gbar)];
-%                 fields = [fields,vtauTimebart,mdivtauConvbart,mdivtauDiffbart,vtauSurfbart,vtauInterfbart,vpresbart];
-%                 fieldnames = [fieldnames,legtauTimebart,legdivtauConvbart,legdivtauDiffbart,legtauSurfbart,legtauInterfbart,legpresbart];
+%                 fields = [fields,vtauTimebart,mdivtauConvbart,mdivtauDiffbart,vtauSurfbart,vtauInterfbart];
+%                 fieldnames = [fieldnames,legtauTimebart,legdivtauConvbart,legdivtauDiffbart,legtauSurfbart,legtauInterfbart];
 %             end
 % %             if PostProcessingEnergy
 % %                 venergyKinTimebart = venergyKinTimebar(ig,:,t+1);
@@ -2205,17 +2196,19 @@ make_pvd_file(gridpathname,['diphasic_fluids_grid' num2str(g) '_mean'],1,p+1);
 %     else
 %         vUbart = vUbar(:,t+1);
 %         vCbart = vCbar(:,t+1);
-%         fields = [fields,mUbart,mCbart];
-%         fieldnames = [fieldnames,'velocity filtered','phase filtered'];
+% %         vpresbart = vpresbar(:,t+1);
+%         fields = [fields,mUbart,mCbart...%,vpresbart...
+%             ];
+%         fieldnames = [fieldnames,'velocity filtered','phase filtered'...%,'pressure filtered'...
+%             ];
 %         if PostProcessingTau
 %             vtauTimebart = vtauTimebar(:,t+1);
 %             vdivtauConvbart = vdivtauConvbar(:,t+1);
 %             vdivtauDiffbart = vdivtauDiffbar(:,t+1);
 %             vtauSurfbart = vtauSurfbar(:,t+1);
 %             vtauInterfbart = vtauInterfbar(:,t+1);
-%             vpresbart = vpresbar(:,t+1);
-%             fields = [fields,vtauTimebart,vdivtauConvbart,vdivtauDiffbart,vtauSurfbart,vtauInterfbart,vpresbart];
-%             fieldnames = [fieldnames,'tauTime filtered','div(tauConv) filtered','div(tauDiff) filtered','tauSurf filtered','tauInterf filtered','pressure filtered'];
+%             fields = [fields,vtauTimebart,vdivtauConvbart,vdivtauDiffbart,vtauSurfbart,vtauInterfbart];
+%             fieldnames = [fieldnames,'tauTime filtered','div(tauConv) filtered','div(tauDiff) filtered','tauSurf filtered','tauInterf filtered'];
 %         end
 % %         if PostProcessingEnergy
 % %             venergyKinTimebart = venergyKinTimebar(:,t+1);
