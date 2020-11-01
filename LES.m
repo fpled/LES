@@ -6,16 +6,16 @@ PCA = false;
 PostProcessingTau = true;
 PostProcessingEnergy = false;
 Filtering = true;
-QoI = false;
+QoI = true;
 
 performPCAspace = false;
 performPCAtime = false;
 computeMean = false;
 postProcess = false;
-computeQoI = true;
+computeQoI = false;
 applyFilter = true;
 computeError = true;
-constructMesh = true;
+constructMesh = false;
 
 displayEigenvalues = false;
 displayCovariance = false;
@@ -32,8 +32,8 @@ interpreter = 'latex';
 formats = {'fig','epsc'};
 renderer = 'OpenGL';
 
-pathname = fileparts(mfilename('fullpath'));
-% pathname = '/mnt/usbdisk2/pled/LES';
+% pathname = fileparts(mfilename('fullpath'));
+pathname = '/mnt/usbdisk2/pled/LES';
 
 sigma = 0.45; % surface tension (N/m)
 mu = [0.1,0.1]; % dynamic viscosity of [water,oil] (Pa.s)
@@ -1008,8 +1008,8 @@ if g==gref
                 if useGPU
                     Ybart = gpuArray(Ybart);
                 end
-                % Ybart = apply_filter(Ybart,filterType,h);
-                Ybart = imfilter(Ybart,H,'replicate');
+                Ybart = apply_filter(Ybart,filterType,h);
+                % Ybart = imfilter(Ybart,H,'replicate');
                 if useGPU
                     Ybart = gather(Ybart);
                 end
@@ -1082,8 +1082,8 @@ if g==gref
                     if useGPU
                         Taubart = gpuArray(Taubart);
                     end
-                    % Taubart = apply_filter(Taubart,filterType,h);
-                    Taubart = imfilter(Taubart,H,'replicate');
+                    Taubart = apply_filter(Taubart,filterType,h);
+                    % Taubart = imfilter(Taubart,H,'replicate');
                     if useGPU
                         Taubart = gather(Taubart);
                     end
