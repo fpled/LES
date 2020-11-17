@@ -14,8 +14,5 @@ for i=1:3
     gradui = ipermute(gradui,order);
     gradu(i,:) = gradui(:);
 end
-if s(1)~=1
-    gradu = permute(gradu,[2,1,3:ndims(gradu)]);
-end
 
 end
