@@ -1,8 +1,10 @@
 function [Xs,Xa,Xb] = scaling(X)
 % function [Xs,Xa,Xb] = scaling(X)
+% returns the scaled normalized data Xs = (X-Xb)/Xa from the
+% initial data X with Xa = Xmax-Xmin and Xb = Xmin
 
-Xmin = min(X);
-Xmax = max(X);
+Xmin = min(X,[],2);
+Xmax = max(X,[],2);
 Xa = Xmax - Xmin;
 clear Xmax
 Xb = Xmin;
@@ -26,7 +28,7 @@ if verLessThan('matlab','9.1') % compatibility (<R2016b)
 else
     Xs = (X-Xb).*ratio;
 end
-Xs(:,isunscaled) = X(:,isunscaled);
+Xs(isunscaled,:) = X(isunscaled,:);
 
 end
 

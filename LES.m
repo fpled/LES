@@ -1,6 +1,8 @@
 clc
-% clearvars
+clearvars
 close all
+rng('default');
+myparallel('start');
 
 usePCA = 'single'; % 'no', 'single', 'double'
 PostProcessingTau = true;
@@ -22,7 +24,7 @@ applyFilter = true;
 computeError = true;
 constructMesh = true;
 
-displayEigenvalues = false;
+displayEigenvalues = true;
 displayCovariance = false;
 displayQoI = false;
 displayError = false;
@@ -48,11 +50,6 @@ gravity = 9.81; % gravity (m/s2)
 perm = @(u) permute(u,[2,3,4,5,1]);
 iperm = @(u) ipermute(u,[2,3,4,5,1]);
 
-tolsvdYc = eps; % relative precision for truncated SVD of Yc
-tolsvdZc = eps; % relative precision for truncated SVD of Zc
-
-filterType = 'box'; % 3D filter type ('box' or 'mean' or 'average', 'linear' or 'trapz')
-
 % Spatial grid size
 gset = 2.^(4:8); % set of spatial grid sizes
 g = gset(1); % current spatial grid size
@@ -70,6 +67,12 @@ fprintf('\nN = %d samples',N);
 fprintf('\nm = %d spatial points',m);
 fprintf('\np+1 = %d time steps',p+1);
 fprintf('\n');
+
+s = PrincipalComponentAnalysis('tol',eps,'maxRank',Inf,'checkOrthonormality',false);
+sSpace = PrincipalComponentAnalysis('tol',eps,'maxRank',Inf,'checkOrthonormality',false);
+sTime = PrincipalComponentAnalysis('tol',eps,'maxRank',Inf,'checkOrthonormality',false);
+
+filterType = 'box'; % 3D filter type ('box' or 'mean' or 'average', 'linear' or 'trapz')
 
 % Spatial scheme
 dim = 3; % spatial dimension
@@ -152,19 +155,12 @@ if g<2^7
     fprintf('\n');
 end
 
-% Y = Y(1:5,1:dim,:,2:5:end);
-% N = size(Y,1);
-% n = size(Y,2);
-% p = size(Y,4)-1;
-
-% Y = rand(size(Y));
-
+%% Statistical reduction of DNS data
 switch usePCA
     case 'no'
         if computeMean
             fprintf('\nComputing mean DNS data');
             t_Mean = tic;
-            
             if g<2^7
                 mY = mean(Y,1);
             else
@@ -178,7 +174,6 @@ switch usePCA
                     fprintf('\nTime step %2d/%2d : elapsed time = %f s',t,p,time_Meant);
                 end
             end
-            
             time_Mean = toc(t_Mean);
             fprintf('\nelapsed time = %f s',time_Mean);
             fprintf('\n');
@@ -195,9 +190,6 @@ switch usePCA
     case 'single'
         if performPCA
             fprintf('\nPerforming PCA');
-            t_PCA = tic;
-            r = n*m*(p+1);
-            % Rinit = min(r,N);
             if g>=2^7
                 Y = zeros(N,n,m,p+1);
                 for t=0:p
@@ -206,77 +198,46 @@ switch usePCA
                     clear Yt
                 end
             end
-            [Y,Ya,Yb] = scaling(Y);
-            mY = mean(Y,1);
-            if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                Yc = bsxfun(@minus,Y,mY);
-            else
-                Yc = Y - mY;
-            end
-            % Yc = Y - repmat(mY,[N,1,1,1]); % Yc = Y - mY.*ones(N,1,1,1);
-%             clear Y
-            
-            Yc = Yc(:,:)';
-            [Phi,Sig,X,errsvdYc] = svdtruncate(Yc,tolsvdYc);
-            Sig = Sig/sqrt(N-1);
-            sig = diag(Sig);
-            X = X*sqrt(N-1);
-            % if verLessThan('matlab','9.1') % compatibility (<R2016b)
-            %     Yc_approx = Phi*Sig*X';
-            % else
-            %     Yc_approx = Phi*(sig.*X');
-            % end
-            
-            % [coeff,score,latent] = pca(Yc');
-            % Phi = coeff;
-            % sig = sqrt(latent);
-            % Sig = diag(sig);
-            % if verLessThan('matlab','9.1') % compatibility (<R2016b)
-            %     X = score*diag(1./sig);
-            % else
-            %     X = score./sig';
-            % end
-            % % Yc_approx = coeff*score';
-            
-            % errYc = norm(Yc_approx-Yc)/norm(Yc);
-            errYc = errsvdYc(end);
-            R = length(sig);
-            fprintf('\nrank R = %d, error = %.3e for Y',R,errYc);
-            
-            % norm2Yc = sum(var(Yc,0,2));
-            % norm2Yc_approx = sum(var(Yc_approx,0,2));
-            % err2Yc = errYc^2*norm2Yc;
-            % err2Yc = norm2Yc-norm2Yc_approx;
-            % sigf = svdtruncate(Yc,eps);
-            % sigf = sigf/sqrt(N-1);
-            % err2Yc = sum(sigf.^2)-sum(sig.^2);
-            
-            % mX = mean(X,1)';
-            % CX = cov(X); % CX = 1/(N-1)*X'*X;
-            % norm(mX)
-            % norm(CX-eye(R))
-            % norm(Phi'*Phi-eye(R))
-            
-            %if verLessThan('matlab','9.1') % compatibility (<R2016b)
-            %    CY_approx = Phi*Sig.^2*Phi';
-            %else
-            %    CY_approx = Phi*(sig.^2.*Phi');
-            %end
-            %CY = cov(Yc'); % CY = 1/(N-1)*Yc*Yc';
-            %errCY = norm(CY_approx-CY)/norm(CY);
-            %fprintf('\n                          error = %.3e for CY',errCY);
-            
+            t_PCA = tic;
+            Y = Y(:,:)';
+            [Y,Ya,Yb] = s.scaling(Y);
+            [V,sv,X,errsvdY,mY] = s.principalComponents(Y);
+            errY = errsvdY(end);
+            R = length(sv);
             time_PCA = toc(t_PCA);
+            fprintf('\nrank R = %d, error = %.3e for Y',R,errY);
             fprintf('\nelapsed time = %f s',time_PCA);
             fprintf('\n');
             
-            save(fullfile(gridpathname,'scaling.mat'),'Ya','Yb');
-            save(fullfile(gridpathname,'data_PCA.mat'),'mY','Phi','sig','X','R','errsvdYc','time_PCA');
+            %CY = cov(Y');
+            %CY_approx = s.cov(V,sv);
+            %errCY = norm(CY_approx-CY)/norm(CY);
+            %fprintf('\n                          error = %.3e for CY',errCY);
+            
+            Ya = reshape(Ya,[n*m,p+1]);
+            Yb = reshape(Yb,[n*m,p+1]);
+            Y = reshape(Y,[n*m,p+1,N]);
+            norm2Y = sum(var(Y,0,3));
+            % Y_approx = s.reconstruction(mY,V,sv,X);
+            % Y_approx = reshape(Y_approx,[n*m,p+1,N]);
+            % norm2Y_approx = sum(var(Y_approx,0,3));
+            mY = reshape(mY,[n*m,1,p+1]);
+            V = permute(reshape(V',[R,n*m,p+1]),[2 1 3]);
+            norm2Y_approx = arrayfun(@(t) sum(sSpace.var(V(:,:,t+1),sv)),0:p);
+            err2Y = abs(norm2Y-norm2Y_approx);
+            
+            ts = (0:p)*dt;
+            errL2 = trapz(ts,err2Y,2)/trapz(ts,norm2Y,2);
+            fprintf('\nL2-error = %.3e for Y',errL2);
+            fprintf('\n');
+            
+            save(fullfile(gridpathname,'scaling_PCA.mat'),'Ya','Yb');
+            save(fullfile(gridpathname,'data_PCA.mat'),'s','mY','V','sv','X','R','errsvdY','errL2','time_PCA');
         else
             fprintf('\nLoading DNS data from PCA');
             t_load = tic;
-            load(fullfile(gridpathname,'scaling.mat'),'Ya','Yb');
-            load(fullfile(gridpathname,'data_PCA.mat'),'mY','Phi','sig','X','R','errsvdYc','time_PCA');
+            load(fullfile(gridpathname,'scaling_PCA.mat'),'Ya','Yb');
+            load(fullfile(gridpathname,'data_PCA.mat'),'s','mY','V','sv','X','R','errsvdY','errL2','time_PCA');
             time_load = toc(t_load);
             fprintf('\nelapsed time = %f s',time_load);
             fprintf('\n');
@@ -289,142 +250,91 @@ switch usePCA
             t_PCA_space = tic;
             r = n*m;
             Rinit = min(r,N);
-            if g<2^7
-                [Y,Ya,Yb] = scaling(Y);
-                mY = mean(Y,1);
-                if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                    Yc = bsxfun(@minus,Y,mY);
-                else
-                    Yc = Y - mY;
-                end
-                % Yc = Y - repmat(mY,[N,1,1,1]); % Yc = Y - mY.*ones(N,1,1,1);
-                clear Y
-            else
-                Ya = zeros(1,n,m,p+1);
-                Yb = zeros(1,n,m,p+1);
-                mY = zeros(1,n,m,p+1);
-            end
+            Ya = zeros(r,p+1);
+            Yb = zeros(r,p+1);
+            mY = zeros(r,1,p+1);
             if g<2^7
                 V = zeros(r,Rinit,p+1);
             end
-            sig = zeros(Rinit,p+1);
+            sv = zeros(Rinit,p+1);
             Z = zeros(N,Rinit,p+1);
-            errsvdYc = zeros(Rinit,p+1);
-            err2Yc = zeros(1,p+1);
-            norm2Yc = zeros(1,p+1);
+            errsvdY = zeros(Rinit,p+1);
+            err2Y = zeros(1,p+1);
+            norm2Y = zeros(1,p+1);
             R = zeros(1,p+1);
             for t=0:p
-                t_PCA_spacet = tic;
                 if g<2^7
-                    Yct = Yc(:,:,:,t+1);
+                    Yt = Y(:,:,:,t+1);
                 else
                     load(fullfile(gridpathname,['data_t' num2str(t) '.mat']),'Yt');
-                    [Yt,Yat,Ybt] = scaling(Yt);
-                    Ya(1,:,:,t+1) = Yat;
-                    Yb(1,:,:,t+1) = Ybt;
-                    clear Yat Ybt
-                    mYt = mean(Yt,1);
-                    mY(1,:,:,t+1) = mYt;
-                    if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                        Yct = bsxfun(@minus,Yt,mYt);
-                    else
-                        Yct = Yt - mYt;
-                    end
-                    % Yct = Yt - repmat(mYt,[N,1,1]); % Yct = Yt - mYt.*ones(N,1,1);
-                    clear Yt mYt
                 end
-                Yct = Yct(:,:)';
-                [Vt,Sigt,Zt,errsvdYct] = svdtruncate(Yct,tolsvdYc);
-                Sigt = Sigt/sqrt(N-1);
-                sigt = diag(Sigt);
-                Zt = Zt*sqrt(N-1);
-                % if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                %     Yct_approx = Vt*Sigt*Zt';
-                % else
-                %     Yct_approx = Vt*(sigt.*Zt');
-                % end
-                
-                % [coefft,scoret,latentt] = pca(Yct');
-                % Vt = coefft;
-                % sigt = sqrt(latentt);
-                % Sigt = diag(sigt);
-                % if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                %     Zt = scoret*diag(1./sigt);
-                % else
-                %     Zt = scoret./sigt';
-                % end
-                % % Yct_approx = coefft*scoret';
-                
-                % errYct = norm(Yct_approx-Yct)/norm(Yct);
-                errYct = errsvdYct(end);
-                Rt = length(sigt);
+                Yt = Yt(:,:)';
+                t_PCA_spacet = tic;
+                [Yt,Yat,Ybt] = sSpace.scaling(Yt);
+                [Vt,svt,Zt,errsvdYt,mYt] = sSpace.principalComponents(Yt);
+                errYt = errsvdYt(end);
+                Rt = length(svt);
                 time_PCA_spacet = toc(t_PCA_spacet);
-                fprintf('\nTime step %2d/%2d : rank R = %d, error = %.3e for Y, elapsed time = %f s',t,p,Rt,errYct,time_PCA_spacet);
+                fprintf('\nTime step %2d/%2d : rank R = %d, error = %.3e for Y, elapsed time = %f s',t,p,Rt,errYt,time_PCA_spacet);
                 
-                norm2Yct = sum(var(Yct,0,2));
-                % norm2Yct_approx = sum(var(Yct_approx,0,2));
-                err2Yct = errYct^2*norm2Yct;
-                % err2Yct = norm2Yct-norm2Yct_approx;
-                % sigtf = svdtruncate(Yct,eps);
-                % sigtf = sigtf/sqrt(N-1);
-                % err2Yct = sum(sigtf.^2)-sum(sigt.^2);
-                
-                % mZt = mean(Zt,1)';
-                % CZt = cov(Zt); % CZt = 1/(N-1)*Zt'*Zt;
-                % norm(mZt)
-                % norm(CZt-eye(Rt))
-                % norm(Vt'*Vt-eye(Rt))
-                
-                %if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                %    CYt_approx = Vt*Sigt.^2*Vt';
-                %else
-                %    CYt_approx = Vt*(sigt.^2.*Vt');
-                %end
-                %CYt = cov(Yct'); % CYt = 1/(N-1)*Yct*Yct';
+                %CYt = cov(Yt');
+                %CYt_approx = sSpace.cov(Vt,svt);
                 %errCYt = norm(CYt_approx-CYt)/norm(CYt);
-                %fprintf('\n                                           error = %.3e for CY',errCYt);
+                %fprintf('\n                          error = %.3e for CY',errCYt);
                 
+                norm2Yt = sum(var(Yt,0,2));
+                err2Yt = errYt^2*norm2Yt;
+                % Yt_approx = sSpace.reconstruction(mYt,Vt,svt,Zt);
+                % norm2Yt_approx = sum(var(Yt_approx,0,2));
+                % norm2Yt_approx = sum(sSpace.var(Vt,svt));
+                % err2Yt = norm2Yt-norm2Yt_approx;
+                % svft = sSpace.singularValues(Yt);
+                % err2Yt = sum(svft.^2)-sum(svt.^2);
+                
+                mY(:,1,t+1) = mYt;
+                Ya(:,t+1) = Yat;
+                Yb(:,t+1) = Ybt;
                 if g<2^7
                     V(:,1:Rt,t+1) = Vt;
                 else
                     save(fullfile(gridpathname,['data_PCA_space_t' num2str(t) '.mat']),'Vt');
                 end
-                sig(1:Rt,t+1) = sigt;
+                sv(1:Rt,t+1) = svt;
                 Z(:,1:Rt,t+1) = Zt;
                 R(t+1) = Rt;
-                errsvdYc(1:Rt,t+1) = errsvdYct;
-                err2Yc(t+1) = err2Yct;
-                norm2Yc(t+1) = norm2Yct;
-                clear Yct Vt sigt Zt Rt errsvdYct err2Yct norm2Yct
+                errsvdY(1:Rt,t+1) = errsvdYt;
+                err2Y(t+1) = err2Yt;
+                norm2Y(t+1) = norm2Yt;
+                clear Yt mYt Yat Ybt Vt svt Zt Rt errsvdYt err2Yt norm2Yt
             end
             
             ts = (0:p)*dt;
-            errL2 = trapz(ts,err2Yc,2)/trapz(ts,norm2Yc,2);
-            fprintf('\nL2-error = %.3e for Y',errL2);
+            errL2Y = trapz(ts,err2Y,2)/trapz(ts,norm2Y,2);
+            fprintf('\nL2-error = %.3e for Y',errL2Y);
             fprintf('\n');
             
             Rmax = max(R);
             if g<2^7
                 V = V(:,1:Rmax,:);
             end
-            sig = sig(1:Rmax,:);
+            sv = sv(1:Rmax,:);
             Z = Z(:,1:Rmax,:);
-            errsvdYc = errsvdYc(1:Rmax,:);
+            errsvdY = errsvdY(1:Rmax,:);
             
             time_PCA_space = toc(t_PCA_space);
             fprintf('\nelapsed time = %f s',time_PCA_space);
             fprintf('\n');
             
-            save(fullfile(gridpathname,'scaling.mat'),'Ya','Yb');
-            save(fullfile(gridpathname,'data_PCA_space.mat'),'mY','sig','Z','R','errsvdYc','time_PCA_space');
+            save(fullfile(gridpathname,'scaling_PCA_space.mat'),'Ya','Yb');
+            save(fullfile(gridpathname,'data_PCA_space.mat'),'sSpace','mY','sv','Z','R','errsvdY','errL2Y','time_PCA_space');
             if g<2^7
                 save(fullfile(gridpathname,'data_PCA_space.mat'),'V','-append');
             end
         else
             fprintf('\nLoading DNS data from PCA in space');
             t_load = tic;
-            load(fullfile(gridpathname,'scaling.mat'),'Ya','Yb');
-            load(fullfile(gridpathname,'data_PCA_space.mat'),'mY','sig','Z','R','errsvdYc','time_PCA_space');
+            load(fullfile(gridpathname,'scaling_PCA_space.mat'),'Ya','Yb');
+            load(fullfile(gridpathname,'data_PCA_space.mat'),'sSpace','mY','sv','Z','R','errsvdY','errL2Y','time_PCA_space');
             Rmax = max(R);
             if g<2^7
                 load(fullfile(gridpathname,'data_PCA_space.mat'),'V');
@@ -434,238 +344,80 @@ switch usePCA
             fprintf('\n');
         end
         
-        %% Second reduction step in time for each coordinate
-%         if performPCAtime
-%             fprintf('\nPCA in time');
-%             t_PCA_time = tic;
-%             Q = min(p+1,N);
-%             Rmax = max(R);
-%             mZ = zeros(p+1,Rmax);
-%             W = zeros(p+1,Q,Rmax);
-%             s = zeros(Q,Rmax);
-%             X = zeros(N,Q,Rmax);
-%             errsvdZc = zeros(Q,Rmax);
-%             err2Zc = zeros(Rmax,1);
-%             Q = zeros(1,Rmax);
-%             for a=1:Rmax
-%                 Za = Z(:,a,:);
-%                 Za = Za(:,:)';
-%                 mZa = mean(Za,2);
-%                 if verLessThan('matlab','9.1') % compatibility (<R2016b)
-%                     Zac = bsxfun(@minus,Za,mZa);
-%                 else
-%                     Zac = Za - mZa;
-%                 end
-%                 % Zac = Za - repmat(mZa,[1,N]); % Zac = Za - mZa.*ones(1,N);
-%                 [Wa,Sa,Xa,errsvdZac] = svdtruncate(Zac,tolsvdZc);
-%                 Sa = Sa/sqrt(N-1);
-%                 sa = diag(Sa);
-%                 Xa = Xa*sqrt(N-1);
-%                 % if verLessThan('matlab','9.1') % compatibility (<R2016b)
-%                 %     Zac_approx = Wa*Sa*Xa';
-%                 % else
-%                 %     Zac_approx = Wa*(sa.*Xa');
-%                 % end
-%                 
-%                 % [coeffa,scorea,latenta] = pca(Zac');
-%                 % Wa = coeffa;
-%                 % sa = sqrt(latenta);
-%                 % Sa = diag(sa);
-%                 % if verLessThan('matlab','9.1') % compatibility (<R2016b)
-%                 %     Xa = scorea*diag(1./sa);
-%                 %     % norm(scorea'-Sa*Xa')
-%                 % else
-%                 %     Xa = scorea./sa';
-%                 %     % norm(scorea'-sa.*Xa')
-%                 % end
-%                 % % Zac_approx = coeffa*scorea';
-%                 
-%                 % errZac = norm(Zac_approx-Zac)/norm(Zac);
-%                 errZac = errsvdZac(end);
-%                 Qa = length(sa);
-%                 fprintf('\nCoordinate alpha = %2d/%2d : rank Q = %d, error = %.3e for Z',a,Rmax,Qa,errZac);
-%                 
-%                 % norm2Zac = sum(var(Zac,0,2));
-%                 % norm2Zac_approx = sum(var(Zac_approx,0,2));
-%                 % err2Zac = errZac^2*norm2Zac;
-%                 % err2Zac = norm2Zac-norm2Zac_approx;
-%                 % saf = svdtruncate(Zac,eps);
-%                 % saf = saf/sqrt(N-1);
-%                 % err2Zac = sum(saf.^2)-sum(sa.^2);
-%                 
-%                 % mXa = mean(Xa,1)';
-%                 % CXa = cov(Xa); % CXa = 1/(N-1)*Xa'*Xa;
-%                 % norm(mXa)
-%                 % norm(CXa-eye(Qa))
-%                 % norm(Wa'*Wa-eye(Qa))
-%                 
-%                 if verLessThan('matlab','9.1') % compatibility (<R2016b)
-%                     CZa_approx = Wa*Sa.^2*Wa';
-%                 else
-%                     CZa_approx = Wa*(sa.^2.*Wa');
-%                 end
-%                 CZa = cov(Zac'); % CZa = 1/(N-1)*Zac*Zac';
-%                 errCZa = norm(CZa_approx-CZa)/norm(CZa);
-%                 fprintf('\n                                        error = %.3e for CZ',errCZa);
-%                 
-%                 if displayCovariance
-%                     figure('Name','Covariance matrix')
-%                     clf
-%                     imagesc(CZa)
-%                     colorbar
-%                     axis image
-%                     set(gca,'FontSize',fontsize)
-%                     xlabel('$k''$','Interpreter',interpreter)
-%                     ylabel('$k$','Interpreter',interpreter)
-%                     title(['Covariance matrix $[C_{\zeta}(t^k,t^{k''})]_{\alpha,\alpha} = [C_{Z_{\alpha}}]_{k,k''}$ for $\alpha=$' num2str(a)],'Interpreter',interpreter)
-%                     mysaveas(gridpathname,['covariance_CZ_a' num2str(a)],formats,renderer);
-%                     mymatlab2tikz(gridpathname,['covariance_CZ_a' num2str(a) '.tex']);
-%                 end
-%                 
-%                 mZ(:,a) = mZa;
-%                 W(:,1:Qa,a) = Wa;
-%                 s(1:Qa,a) = sa;
-%                 X(:,1:Qa,a) = Xa;
-%                 Q(a) = Qa;
-%                 errsvdZc(1:Qa,a) = errsvdZac;
-%                 clear Zac mZa Wa sa Xa Qa errsvdZac
-%             end
-%             
-%             Q = max(Q);
-%             W = W(:,1:Q,:);
-%             s = s(1:Q,:);
-%             X = X(:,1:Q,:);
-%             errsvdZc = errsvdZc(1:Q,:);
-%             
-%             time_PCA_time = toc(t_PCA_time);
-%             fprintf('\nelapsed time = %f s',time_PCA_time);
-%             fprintf('\n');
-%             
-%             save(fullfile(gridpathname,'data_PCA_time.mat'),'mZ','W','s','X','Q','errsvdZc','time_PCA_time');
-%         else
-%             fprintf('\nLoading DNS data from PCA in time');
-%             t_load = tic;
-%             load(fullfile(gridpathname,'data_PCA_time.mat'),'mZ','W','s','X','Q','errsvdZc','time_PCA_time');
-%             time_load = toc(t_load);
-%             fprintf('\nelapsed time = %f s',time_load);
-%             fprintf('\n');
-%         end
-        
         %% Second reduction step in time
         if performPCAtime
             fprintf('\nPerforming PCA in time');
-            t_PCA_time = tic;
             Rmax = max(R);
             q = (p+1)*Rmax;
-            Zr = Z(:,:)';
-            mZ = mean(Zr,2);
-            if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                Zc = bsxfun(@minus,Zr,mZ);
-            else
-                Zc = Zr - mZ;
-            end
-            % Zc = Zr - repmat(mZ,[1,N]); % Zc = Zr - mZ.*ones(1,N);
-            [W,S,X,errsvdZc] = svdtruncate(Zc,tolsvdZc);
-            S = S/sqrt(N-1);
-            s = diag(S);
-            X = X*sqrt(N-1);
-            % if verLessThan('matlab','9.1') % compatibility (<R2016b)
-            %     Zc_approx = W*S*X';
-            % else
-            %     Zc_approx = W*(s.*X');
-            % end
+            t_PCA_time = tic;
+            Z = Z(:,:)';
+            [W,sw,X,errsvdZ,mZ] = sTime.principalComponents(Z);
+            errZ = errsvdZ(end);
+            Q = length(sw);
+            time_PCA_time = toc(t_PCA_time);
+            fprintf('\nrank R = %d, rank Q = %d, error = %.3e for Z',Rmax,Q,errZ);
             
-            % [coeff,score,latent] = pca(Zc');
-            % W = coeff;
-            % s = sqrt(latent);
-            % S = diag(s);
-            % if verLessThan('matlab','9.1') % compatibility (<R2016b)
-            %     X = score*diag(1./s);
-            %     % norm(score'-S*X')
-            % else
-            %     X = score./s';
-            %     % norm(score'-s.*X')
-            % end
-            % % Zc_approx = coeff*score';
-            
-            % errZc = norm(Zc_approx-Zc)/norm(Zc);
-            errZc = errsvdZc(end);
-            Q = length(s);
-            fprintf('\nrank R = %d, rank Q = %d, error = %.3e for Z',Rmax,Q,errZc);
-            
-            % norm2Zc = sum(var(Zc,0,2));
-            % norm2Zc_approx = sum(var(Zc_approx,0,2));
-            % err2Zc = errZc^2*norm2Zc;
-            % err2Zc = norm2Zc-norm2Zc_approx;
-            % sf = svdtruncate(Zc,eps);
-            % sf = sf/sqrt(N-1);
-            % err2Zc = sum(sf.^2)-sum(s.^2);
-            
-            % mX = mean(X,1)';
-            % CX = cov(X); % CX = 1/(N-1)*X'*X;
-            % norm(mX)
-            % norm(CX-eye(Q))
-            % norm(W'*W-eye(Q))
-            % norm(CZ_approx*W-(p+1)*W)
-            % norm(abs(s.^2-(p+1)))
-            
-            if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                CZ_approx = W*S.^2*W';
-            else
-                CZ_approx = W*(s.^2.*W');
-            end
-            CZ = cov(Zc'); % CZ = 1/(N-1)*Zc*Zc';
+            CZ = cov(Z');
+            CZ_approx = sTime.cov(W,sw);
             errCZ = norm(CZ_approx-CZ)/norm(CZ);
             fprintf('\n                          error = %.3e for CZ',errCZ);
             
-            if displayCovariance
-                figure('Name','Covariance matrix')
-                clf
-                imagesc(CZ)
-                colorbar
-                axis image
-                set(gca,'FontSize',fontsize)
-                xlabel('$K''=(k''-1)R+\alpha''$','Interpreter',interpreter)
-                ylabel('$K=(k-1)R+\alpha$','Interpreter',interpreter)
-                title('Covariance matrix $[C_{\zeta}(t^k,t^{k''})]_{\alpha,\alpha''} = [C_Z]_{K,K''}$','Interpreter',interpreter)
-                mysaveas(gridpathname,'covariance_CZ',formats,renderer);
-                mymatlab2tikz(gridpathname,'covariance_CZ.tex');
-                
-%                 for t=0:p
-%                     ind = t*Rmax+(1:Rmax);
-%                     CZt_approx = CZ_approx(ind,ind);
-%                     CZt = CZ(ind,ind);
-%                     
-%                     figure('Name','Covariance matrix')
-%                     clf
-%                     imagesc(CZt)
-%                     colorbar
-%                     axis image
-%                     set(gca,'FontSize',fontsize)
-%                     xlabel('$\alpha''$','Interpreter',interpreter)
-%                     ylabel('$\alpha$','Interpreter',interpreter)
-%                     title(['Covariance matrix $[C_{\zeta}(t^k,t^k)]_{\alpha,\alpha''} = [C_{Z_k}]_{\alpha,\alpha''}$ for $k=$' num2str(t)],'Interpreter',interpreter)
-%                     mysaveas(gridpathname,['covariance_CZ_t' num2str(t*100)],formats,renderer);
-%                     mymatlab2tikz(gridpathname,['covariance_CZ_t' num2str(t*100) '.tex']);
-%                 end
+            Z = reshape(Z,[Rmax,p+1,N]);
+            norm2Z = sum(var(Z,0,3));
+            % Z_approx = sTime.reconstruction(mZ,W,sw,X);
+            % Z_approx = reshape(Z_approx,[Rmax,p+1,N]);
+            % norm2Z_approx = sum(var(Z_approx,0,3));
+            W = reshape(W',[Q,Rmax,p+1]);
+            norm2Z_approx = arrayfun(@(t) sum(sTime.var(W(:,1:R(t+1),t+1)',sw)),0:p);
+            err2Z = abs(norm2Z-norm2Z_approx);
+            
+            ts = (0:p)*dt;
+            errL2Z = trapz(ts,err2Z,2)/trapz(ts,norm2Z,2);
+            fprintf('\nL2-error = %.3e for Z',errL2Z);
+            clear Z
+            
+            mZ = reshape(mZ,[1,Rmax,p+1]);
+            err2Y = zeros(1,p+1);
+            for t=0:p
+                Rt = R(t+1);
+                if g<2^7
+                    Vt = V(:,1:Rt,t+1);
+                else
+                    save(fullfile(gridpathname,['data_PCA_space_t' num2str(t) '.mat']),'Vt');
+                end
+                svt = sv(1:Rt,t+1);
+                Wt = W(:,1:Rt,t+1);
+                norm2Yt_approx = sum(sSpace.varDouble(Vt,svt,Wt,sw));
+                % mYt = mY(:,:,t+1);
+                % mZt = mZ(1,1:Rt,t+1);
+                % Zt = sTime.reconstruction(mZt',Wt',sw,X);
+                % Yt_approx = sSpace.reconstruction(mYt,Vt,svt,Zt');
+                % norm2Yt_approx = sum(var(Yt_approx,0,2));
+                norm2Yt = norm2Y(:,t+1);
+                err2Yt = abs(norm2Yt-norm2Yt_approx);
+                err2Y(:,t+1) = err2Yt;
             end
             
-            time_PCA_time = toc(t_PCA_time);
+            ts = (0:p)*dt;
+            errL2Y = trapz(ts,err2Y,2)/trapz(ts,norm2Y,2);
+            fprintf('\nL2-error = %.3e for Y',errL2Y);
+            fprintf('\n');
+            
             fprintf('\nelapsed time = %f s',time_PCA_time);
             fprintf('\n');
             
-            save(fullfile(gridpathname,'data_PCA_time.mat'),'mZ','W','s','X','Q','errsvdZc','time_PCA_time');
+            save(fullfile(gridpathname,'data_PCA_time.mat'),'sTime','mZ','W','sw','X','Q','errsvdZ','errL2Z','errL2Y','time_PCA_time');
         else
             fprintf('\nLoading DNS data from PCA time');
             t_load = tic;
-            load(fullfile(gridpathname,'data_PCA_time.mat'),'mZ','W','s','X','Q','errsvdZc','time_PCA_time');
+            load(fullfile(gridpathname,'data_PCA_time.mat'),'sTime','mZ','W','sw','X','Q','errsvdZ','errL2Z','time_PCA_time');
             time_load = toc(t_load);
             fprintf('\nelapsed time = %f s',time_load);
             fprintf('\n');
         end
         
     otherwise
-        error('Wrong')
+        error('Method not implemented.')
 end
 
 if postProcess && (PostProcessingTau || PostProcessingPressure || PostProcessingEnergy)
@@ -700,7 +452,7 @@ if PostProcessingEnergy
         end
     end
     ne = 9; % number of energy variables
-    fprintf('\n  = %d energy variables',ne);
+    fprintf('\nn = %d energy variables',ne);
     mE = zeros(1,ne,m,p+1);
     if g<2^7
         E = zeros(N,ne,m,p+1);
@@ -734,64 +486,39 @@ for t=0:p
             
         case 'single'
             if t>0
-                Yt_old = get_single_PCA_at_step(mY,Phi,sig,X,p,t,'gridpathname',gridpathname);
+                Yt_old = s.reconstructionAtStep(mY,V,sv,X,t);
+                Yt_old = s.unscaling(Yt_old,Ya(:,t),Yb(:,t))';
             end
             if t<p
-                Yt_new = get_single_PCA_at_step(mY,Phi,sig,X,p,t+2,'gridpathname',gridpathname);
+                Yt_new = s.reconstructionAtStep(mY,V,sv,X,t+2);
+                Yt_new = s.unscaling(Yt_new,Ya(:,t+2),Yb(:,t+2))';
             end
-            Yt = get_single_PCA_at_step(mY,Phi,sig,X,p,t+1,'gridpathname',gridpathname);
-            if t>0
-                Yat_old = Ya(1,:,:,t);
-                Ybt_old = Yb(1,:,:,t);
-                Yt_old = unscaling(Yt_old,Yat_old,Ybt_old);
-                clear Yat_old Ybt_old
-            end
-            if t<p
-                Yat_new = Ya(1,:,:,t+2);
-                Ybt_new = Yb(1,:,:,t+2);
-                Yt_new = unscaling(Yt_new,Yat_new,Ybt_new);
-                clear Yat_new Ybt_new
-            end
-            Yat = Ya(1,:,:,t+1);
-            Ybt = Yb(1,:,:,t+1);
-            Yt = unscaling(Yt,Yat,Ybt);
-            clear Yat Ybt
+            Yt = s.reconstructionAtStep(mY,V,sv,X,t+1);
+            Yt = s.unscaling(Yt,Ya(:,t+1),Yb(:,t+1))';
             
         case 'double'
-            if g<2^7
-                if t>0
-                    Yt_old = get_double_PCA_at_step(mY,V,sig,mZ,W,s,X,R,t,'gridpathname',gridpathname);
-                end
-                if t<p
-                    Yt_new = get_double_PCA_at_step(mY,V,sig,mZ,W,s,X,R,t+2,'gridpathname',gridpathname);
-                end
-                Yt = get_double_PCA_at_step(mY,V,sig,mZ,W,s,X,R,t+1,'gridpathname',gridpathname);
-            else
-                if t>0
-                    Yt_old = get_double_PCA_at_step(mY,[],sig,mZ,W,s,X,R,t,'gridpathname',gridpathname);
-                end
-                if t<p
-                    Yt_new = get_double_PCA_at_step(mY,[],sig,mZ,W,s,X,R,t+2,'gridpathname',gridpathname);
-                end
-                Yt = get_double_PCA_at_step(mY,[],sig,mZ,W,s,X,R,t+1,'gridpathname',gridpathname);
-            end
             if t>0
-                Yat_old = Ya(1,:,:,t);
-                Ybt_old = Yb(1,:,:,t);
-                Yt_old = unscaling(Yt_old,Yat_old,Ybt_old);
-                clear Yat_old Ybt_old
+                if g<2^7
+                    Yt_old = sSpace.reconstructionDoubleAtStep(mY,V,sv,mZ,W,sw,X,R,t,'pathname',gridpathname,'filename',['PCAspace_t' num2str(t-1) '.mat']);
+                else
+                    Yt_old = sSpace.reconstructionDoubleAtStep(mY,[],sv,mZ,W,sw,X,R,t,'pathname',gridpathname,'filename',['PCAspace_t' num2str(t-1) '.mat']);
+                end
+                Yt_old = sSpace.unscaling(Yt_old,Ya(:,t),Yb(:,t))';
             end
             if t<p
-                Yat_new = Ya(1,:,:,t+2);
-                Ybt_new = Yb(1,:,:,t+2);
-                Yt_new = unscaling(Yt_new,Yat_new,Ybt_new);
-                clear Yat_new Ybt_new
+                if g<2^7
+                    Yt_new = sSpace.reconstructionDoubleAtStep(mY,V,sv,mZ,W,sw,X,R,t+2,'pathname',gridpathname,'filename',['PCAspace_t' num2str(t+1) '.mat']);
+                else
+                    Yt_new = sSpace.reconstructionDoubleAtStep(mY,[],sv,mZ,W,sw,X,R,t+2,'pathname',gridpathname,'filename',['PCAspace_t' num2str(t+1) '.mat']);
+                end
+                Yt_new = sSpace.unscaling(Yt_new,Ya(:,t+2),Yb(:,t+2))';
             end
-            Yat = Ya(1,:,:,t+1);
-            Ybt = Yb(1,:,:,t+1);
-            Yt = unscaling(Yt,Yat,Ybt);
-            clear Yat Ybt
-        
+            if g<2^7
+                Yt = sSpace.reconstructionDoubleAtStep(mY,V,sv,mZ,W,sw,X,R,t+1,'pathname',gridpathname,'filename',['PCAspace_t' num2str(t) '.mat']);
+            else
+                Yt = sSpace.reconstructionDoubleAtStep(mY,[],sv,mZ,W,sw,X,R,t+1,'pathname',gridpathname,'filename',['PCAspace_t' num2str(t) '.mat']);
+            end
+            Yt = sSpace.unscaling(Yt,Ya(:,t+1),Yb(:,t+1))';
     end
     
     Yt = perm(reshape(Yt,[N,n,sx]));
@@ -804,7 +531,7 @@ for t=0:p
     else
         rhout = rhot.*ut;
     end
-%     % rhout = repmat(rhot,[dim,ones(1,dim+1)]).*ut;
+    % rhout = repmat(rhot,[dim,ones(1,dim+1)]).*ut;
     if PostProcessingEnergy
         u2t = dot(ut,ut,1);
         if t==0 || t==p
@@ -1166,23 +893,16 @@ if computeQoI
                 end
                 
             case 'single'
-                Yt = get_single_PCA_at_step(mY,Phi,sig,X,p,t+1,'gridpathname',gridpathname);
-                Yat = Ya(1,:,:,t+1);
-                Ybt = Yb(1,:,:,t+1);
-                Yt = unscaling(Yt,Yat,Ybt);
-                clear Yat Ybt
+                Yt = s.reconstructionAtStep(mY,V,sv,X,t+1);
+                Yt = s.unscaling(Yt,Ya(:,t+1),Yb(:,t+1))';
                 
             case 'double'
                 if g<2^7
-                    Yt = get_double_PCA_at_step(mY,V,sig,mZ,W,s,X,R,t+1,'gridpathname',gridpathname);
+                    Yt = sSpace.reconstructionDoubleAtStep(mY,V,sv,mZ,W,sw,X,R,t+1,'pathname',gridpathname,'filename',['PCAspace_t' num2str(t) '.mat']);
                 else
-                    Yt = get_double_PCA_at_step(mY,[],sig,mZ,W,s,X,R,t+1,'gridpathname',gridpathname);
+                    Yt = sSpace.reconstructionDoubleAtStep(mY,[],sv,mZ,W,sw,X,R,t+1,'pathname',gridpathname,'filename',['PCAspace_t' num2str(t) '.mat']);
                 end
-                Yat = Ya(1,:,:,t+1);
-                Ybt = Yb(1,:,:,t+1);
-                Yt = unscaling(Yt,Yat,Ybt);
-                clear Yat Ybt
-                
+                Yt = sSpace.unscaling(Yt,Ya(:,t+1),Yb(:,t+1))';
         end
         
         Yt = reshape(Yt,[N,n,sx]);
@@ -1330,23 +1050,16 @@ if g==gref && applyFilter
                     end
                     
                 case 'single'
-                    Yt = get_single_PCA_at_step(mY,Phi,sig,X,p,t+1,'gridpathname',gridpathname);
-                    Yat = Ya(1,:,:,t+1);
-                    Ybt = Yb(1,:,:,t+1);
-                    Yt = unscaling(Yt,Yat,Ybt);
-                    clear Yat Ybt
+                    Yt = s.reconstructionAtStep(mY,V,sv,X,t+1);
+                    Yt = s.unscaling(Yt,Ya(:,t+1),Yb(:,t+1))';
                     
                 case 'double'
                     if g<2^7
-                        Yt = get_double_PCA_at_step(mY,V,sig,mZ,W,s,X,R,t+1,'gridpathname',gridpathname);
+                        Yt = sSpace.reconstructionDoubleAtStep(mY,V,sv,mZ,W,sw,X,R,t+1,'pathname',gridpathname,'filename',['PCAspace_t' num2str(t) '.mat']);
                     else
-                        Yt = get_double_PCA_at_step(mY,[],sig,mZ,W,s,X,R,t+1,'gridpathname',gridpathname);
+                        Yt = sSpace.reconstructionDoubleAtStep(mY,[],sv,mZ,W,sw,X,R,t+1,'pathname',gridpathname,'filename',['PCAspace_t' num2str(t) '.mat']);
                     end
-                    Yat = Ya(1,:,:,t+1);
-                    Ybt = Yb(1,:,:,t+1);
-                    Yt = unscaling(Yt,Yat,Ybt);
-                    clear Yat Ybt
-                    
+                    Yt = sSpace.unscaling(Yt,Ya(:,t+1),Yb(:,t+1))';
             end
             
             Ybart = reshape(Yt,[N,n,sx]);
@@ -1965,8 +1678,8 @@ if displayEigenvalues
         case 'single'
             figure('Name','Evolution of eigenvalues w.r.t order')
             clf
-            R = length(sig);
-            hdl = semilogy(1:R,sig(:).^2,'LineStyle','-','Color','b','LineWidth',1);
+            R = length(sv);
+            semilogy(1:R,sv(:).^2,'LineStyle','-','Color','b','LineWidth',1);
             grid on
             box on
             set(gca,'FontSize',10)
@@ -1977,15 +1690,15 @@ if displayEigenvalues
             
             figure('Name','Evolution of errors')
             clf
-            R = length(sig);
-            hdl = semilogy(1:R,errsvdYc.^2,'LineStyle','-','Color',color(c,:),'LineWidth',1);
+            R = length(sv);
+            semilogy(1:R,errsvdY.^2,'LineStyle','-','Color','b','LineWidth',1);
             grid on
             box on
             set(gca,'FontSize',10)
             xlabel('$R$','Interpreter',interpreter)
             ylabel('$\varepsilon_{Y}(R)$','Interpreter',interpreter)
             mysaveas(gridpathname,'error_svdYc',formats,renderer);
-            mymatlab2tikz(gridpathname,'error_svdYc_single_PCA.tex');
+            mymatlab2tikz(gridpathname,'error_svdY_single_PCA.tex');
             
         case 'double'
             figure('Name','Evolution of eigenvalues w.r.t order at each time')
@@ -1998,7 +1711,7 @@ if displayEigenvalues
             for t=0:p
                 c = c+1;
                 Rt = R(t+1);
-                hdl(c) = semilogy(1:Rt,sig(1:Rt,t+1).^2,'LineStyle','-','Color',color(c,:),'LineWidth',1);
+                hdl(c) = semilogy(1:Rt,sv(1:Rt,t+1).^2,'LineStyle','-','Color',color(c,:),'LineWidth',1);
                 leg{c} = ['$t = ' num2str(t*dt) '$ s'];
                 hold on
             end
@@ -2024,7 +1737,7 @@ if displayEigenvalues
             t = 0:p;
             for r=1:Rmax
                 c = c+1;
-                hdl(c) = semilogy(t*dt,sig(r,t+1).^2,'LineStyle','-','Color',color(c,:),'LineWidth',1);
+                hdl(c) = semilogy(t*dt,sv(r,t+1).^2,'LineStyle','-','Color',color(c,:),'LineWidth',1);
                 leg{c} = ['$\alpha = ' num2str(r) '$'];
                 hold on
             end
@@ -2049,7 +1762,7 @@ if displayEigenvalues
             for t=0:p
                 c = c+1;
                 Rt = R(t+1);
-                hdl(c) = semilogy(1:Rt,errsvdYc(1:Rt,t+1).^2,'LineStyle','-','Color',color(c,:),'LineWidth',1);
+                hdl(c) = semilogy(1:Rt,errsvdY(1:Rt,t+1).^2,'LineStyle','-','Color',color(c,:),'LineWidth',1);
                 leg{c} = ['$t = ' num2str(t*dt) '$ s'];
                 hold on
             end
@@ -2062,11 +1775,11 @@ if displayEigenvalues
             gridLegend(hdl,nCols,leg,'Location','BestOutside','Interpreter',interpreter);
             % legend(leg{:},'Location','NorthEastOutside')
             mysaveas(gridpathname,'error_svdYc',formats,renderer);
-            mymatlab2tikz(gridpathname,'error_svdYc_double_PCA.tex');
+            mymatlab2tikz(gridpathname,'error_svdY_double_PCA.tex');
             
             figure('Name','Evolution of eigenvalues')
             clf
-            semilogy(1:Q,s(:).^2,'LineStyle','-','Color','b','LineWidth',1);
+            semilogy(1:Q,sw(:).^2,'LineStyle','-','Color','b','LineWidth',1);
             grid on
             box on
             set(gca,'FontSize',fontsize)
@@ -2077,14 +1790,14 @@ if displayEigenvalues
             
             figure('Name','Evolution of errors')
             clf
-            semilogy(1:Q,errsvdZc(:).^2,'LineStyle','-','Color','b','LineWidth',1);
+            semilogy(1:Q,errsvdZ(:).^2,'LineStyle','-','Color','b','LineWidth',1);
             grid on
             box on
             set(gca,'FontSize',fontsize)
             xlabel('$Q$','Interpreter',interpreter)
             ylabel('$\varepsilon_{Z}(Q)$','Interpreter',interpreter)
             mysaveas(gridpathname,'error_svdZc',formats,renderer);
-            mymatlab2tikz(gridpathname,'error_svdZc_double_PCA.tex');
+            mymatlab2tikz(gridpathname,'error_svdZ_double_PCA.tex');
             
     end
 end
@@ -2491,8 +2204,9 @@ else
 end
 
 %% Mean solution
-mU = reshape(mY(1,1:dim,:,:),[dim*m,p+1]);
-mC = reshape(mY(1,dim+1,:,:),[m,p+1]);
+mYr = reshape(mY,[1,n,m,p+1]);
+mU = reshape(mYr(1,1:dim,:,:),[dim*m,p+1]);
+mC = reshape(mYr(1,dim+1,:,:),[m,p+1]);
 if PostProcessingTau
     mtauTime = reshape(mTau(1,1:dim,:,:),[dim*m,p+1]);
     mdivtauConv = reshape(mTau(1,dim+(1:dim),:,:),[dim*m,p+1]);
@@ -2637,47 +2351,14 @@ for t=0:p
             stdCt = std(Ct(:,:))';
             clear ut Ct
             
-%             mYt = mY(:,:,:,t+1);
-%             if verLessThan('matlab','9.1') % compatibility (<R2016b)
-%                 Yct = bsxfun(@minus,Yt,mYt);
-%             else
-%                 Yct = Yt - mYt;
-%             end
-%             % Yct = Yt - repmat(mYt,[N,1,1]); % Yct = Yt - mYt.*ones(N,1,1);
-%             clear Yt
-%             uct = Yct(:,1:dim,:);
-%             Cct = Yct(:,dim+1,:);
-%             clear Yct
-%             stdUt = sqrt(1/(N-1)*sum(uct(:,:).^2))'; % vUt = std(uct(:,:))';
-%             stdCt = sqrt(1/(N-1)*sum(Cct(:,:).^2))'; % vCt = std(Cct(:,:))';
-%             clear uct Cct
-            
         case 'single'
-            Yct = get_single_PCA_at_step([],Phi,sig,X,p,t+1,'gridpathname',gridpathname);
-%             Yat = Ya(1,:,:,t+1);
-%             Ybt = zeros(size(Yat));
-%             Yct = unscaling(Yct,Yat(:),Ybt(:));
-%             clear Yat Ybt
-            
-            r = n*m;
-            Phit = Phi(r*t+(1:r),:);
-            
-            %CYt = cov(Yct'); % CYt_approx = 1/(N-1)*Yct*Yct';
-            %if verLessThan('matlab','9.1') % compatibility (<R2016b)
-            %    CYt = Phit*diag(sig).^2*Phit';
-            %else
-            %    CYt = Phit*(sig.^2.*Phit');
-            %end
+            [Yt,mYt,Vt] = s.reconstructionAtStep(mY,V,sv,X,t+1);
+            %CYt = cov(Yt');
+            %CYt = s.cov(Vt,sv);
             %stdYt = sqrt(diag(CYt));
-            % stdYt = std(Yct,0,2); % stdYt = sqrt(1/(N-1)*sum(Yct.^2,2));
-            if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                stdYt = sqrt(sum((diag(sig)*Phit').^2))';
-            else
-                stdYt = sqrt(sum((sig.*Phit').^2))';
-            end
-            Yat = Ya(1,:,:,t+1);
-            Ybt = zeros(size(Yat));
-            stdYt = unscaling(stdYt,Yat(:),Ybt(:));
+            % stdYt = std(Yt,0,2);
+            stdYt = s.std(Vt,sv);
+            stdYt = s.unscaling(stdYt,Ya(:,t+1),zeros(size(Yb(:,t+1))))';
             stdYt = reshape(stdYt,[n,m]);
             stdUt = stdYt(1:dim,:);
             stdCt = stdYt(dim+1,:);
@@ -2686,43 +2367,16 @@ for t=0:p
             stdCt = stdCt(:);
             
         case 'double'
-%             if g<2^7
-%                 Yct = get_double_PCA_at_step([],V,sig,mZ,W,s,X,R,t+1,'gridpathname',gridpathname);
-%             else
-%                 Yct = get_double_PCA_at_step([],[],sig,mZ,W,s,X,R,t+1,'gridpathname',gridpathname);
-%             end
-            
-            Rt = R(t+1);
             if g<2^7
-                Vt = V(:,1:Rt,t+1);
+                [Yt,mYt,Vt,svt,mZt,Wt,Rt] = sSpace.reconstructionDoubleAtStep(mY,V,sv,mZ,W,sw,X,R,t+1,'pathname',gridpathname,'filename',['PCAspace_t' num2str(t) '.mat']);
             else
-                load(fullfile(gridpathname,['PCA_representation_space_t' num2str(t) '.mat']),'Vt');
+                [Yt,mYt,Vt,svt,mZt,Wt,Rt] = sSpace.reconstructionDoubleAtStep(mY,[],sv,mZ,W,sw,X,R,t+1,'pathname',gridpathname,'filename',['PCAspace_t' num2str(t) '.mat']);
             end
-            sigt = sig(1:Rt,t+1);
-            % mZt = mZ(Rmax*t+(1:Rt),:);
-            Wt = W(Rmax*t+(1:Rt),:);
-            if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                Uct = Vt*diag(sigt)*Wt;
-            else
-                Uct = Vt*(sigt.*Wt);
-            end
-            
-            %CYt = cov(Yct'); % CYt = 1/(N-1)*Yct*Yct';
-            %if verLessThan('matlab','9.1') % compatibility (<R2016b)
-            %    CYt = Uct*diag(s).^2*Uct';
-            %else
-            %    CYt = Uct*(s.^2.*Uct');
-            %end
+            %CYt = cov(Yt');
             %stdYt = sqrt(diag(CYt));
-            % stdYt = std(Yct,0,2); % stdYt = sqrt(1/(N-1)*sum(Yct.^2,2));
-            if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                stdYt = sqrt(sum((diag(s)*Uct').^2))';
-            else
-                stdYt = sqrt(sum((s.*Uct').^2))';
-            end
-            Yat = Ya(1,:,:,t+1);
-            Ybt = zeros(size(Yat));
-            stdYt = unscaling(stdYt,Yat(:),Ybt(:));
+            % stdYt = std(Yt,0,2);
+            stdYt = sSpace.stdDouble(Vt,svt,Wt,sw);
+            stdYt = s.unscaling(stdYt,Ya(:,t+1),zeros(size(Yb(:,t+1))))';
             stdYt = reshape(stdYt,[n,m]);
             clear Yat Ybt
             stdUt = stdYt(1:dim,:);
@@ -2730,7 +2384,6 @@ for t=0:p
             clear stdYt
             stdUt = stdUt(:);
             stdCt = stdCt(:);
-            
     end
     
     if PostProcessingTau
@@ -2751,27 +2404,6 @@ for t=0:p
         stdtauSurft = std(tauSurft(:,:))';
         stdtauInterft = std(tauInterft(:,:))';
         clear tauTimet divtauConvt divtauDifft tauSurft tauInterft
-        
-%         mTaut = mTau(:,:,:,t+1);
-%         if verLessThan('matlab','9.1') % compatibility (<R2016b)
-%             Tauct = bsxfun(@minus,Taut,mTaut);
-%         else
-%             Tauct = Taut - mTaut;
-%         end
-%         % Tauct = Taut - repmat(mTaut,[N,1,1]); % Tauct = Taut - mTaut.*ones(N,1,1);
-%         clear Taut
-%         tauTimect = Tauct(:,1:dim,:);
-%         divtauConvct = Tauct(:,dim+(1:dim),:);
-%         divtauDiffct = Tauct(:,2*dim+(1:dim),:);
-%         tauSurfct = Tauct(:,3*dim+(1:dim),:);
-%         tauInterfct = Tauct(:,4*dim+1,:);
-%         clear Tauct
-%         stdtauTimet = sqrt(1/(N-1)*sum(tauTimect(:,:).^2))'; % stdtauTimet = std(tauTimect(:,:))';
-%         stddivtauConvt = sqrt(1/(N-1)*sum(divtauConvct(:,:).^2))'; % stddivtauConvt = std(divtauConvct(:,:))';
-%         stddivtauDifft = sqrt(1/(N-1)*sum(divtauDiffct(:,:).^2))'; % stddivtauDifft = std(divtauDiffct(:,:))';
-%         stdtauSurft = sqrt(1/(N-1)*sum(tauSurfct(:,:).^2))'; % stdtauSurft = std(tauSurfct(:,:))';
-%         stdtauInterft = sqrt(1/(N-1)*sum(tauInterfct(:,:).^2))'; % stdtauInterft = std(tauInterfct(:,:))';
-%         clear tauTimect divtauConvct divtauDiffct tauSurfct tauInterfct
     end
     
     if PostProcessingPressure
@@ -2780,23 +2412,8 @@ for t=0:p
         else
             load(fullfile(gridpathname,['data_pressure_t' num2str(t) '.mat']),'Prest');
         end
-        prest = Prest(:,1,:);
+        stdprest = std(Prest(:,:))';
         clear Prest
-        stdprest = std(prest(:,:))';
-        clear prest
-        
-%         mPrest = mPres(:,:,:,t+1);
-%         if verLessThan('matlab','9.1') % compatibility (<R2016b)
-%             Presct = bsxfun(@minus,Prest,mPrest);
-%         else
-%             Presct = Prest - mPrest;
-%         end
-%         % Presct = Prest - repmat(mPrest,[N,1,1]); % Presct = Prest - mPrest.*ones(N,1,1);
-%         clear Prest
-%         presct = Presct(:,1,:);
-%         clear Presct
-%         stdprest = sqrt(1/(N-1)*sum(presct(:,:).^2)'); % stdprest = std(presct(:,:))';
-%         clear presct
     end
     
     stdU(:,t+1) = stdUt;
@@ -2835,23 +2452,6 @@ for t=0:p
         fields = [fields,stdprest];
         fieldnames = [fieldnames,'pressure'];
     end
-%     if PostProcessingEnergy
-%         stdenergyKinTimet = stdenergyKinTime(:,t+1);
-%         stdenergyConvt = stdenergyConv(:,t+1);
-%         stdenergyGravt = stdenergyGrav(:,t+1);
-%         stdenergyPrest = stdenergyPres(:,t+1);
-%         stdenergyPresDilt = stdenergyPresDil(:,t+1);
-%         stdenergyKinSpacet = stdenergyKinSpace(:,t+1);
-%         stdenergyDifft = stdenergyDiff(:,t+1);
-%         stdenergyVisct = stdenergyVisc(:,t+1);
-%         stdenergySurft = stdenergySurf(:,t+1);
-%         fields = [fields,stdenergyKinTimet,stdenergyConvt,stdenergyGravt,...
-%             stdenergyPrest,stdenergyPresDilt,stdenergyKinSpacet,...
-%             stdenergyDifft,stdenergyVisct,stdenergySurft];
-%         fieldnames = [fieldnames,'kinetic energy','convection energy','gravity energy',...
-%             'power of external pressure forces','pressure-dilatation energy transfer','transport of gradient of kinetic energy',...
-%             'energy exchange with kinetic energy','power of external viscous stresses','capillary kinetic energy'];
-%     end
     
     if g~=gref && Filtering
         stdUbart = stdUbar(:,t+1);
@@ -2872,23 +2472,6 @@ for t=0:p
             fields = [fields,stdpresbart];
             fieldnames = [fieldnames,'pressure implicit filtered'];
         end
-%         if PostProcessingEnergy
-%             stdenergyKinTimebart = stdenergyKinTimebar(:,t+1);
-%             stdenergyConvbart = stdenergyConvbar(:,t+1);
-%             stdenergyGravbart = stdenergyGravbar(:,t+1);
-%             stdenergyPresbart = stdenergyPresbar(:,t+1);
-%             stdenergyPresDilbart = stdenergyPresDilbar(:,t+1);
-%             stdenergyKinSpacebart = stdenergyKinSpacebar(:,t+1);
-%             stdenergyDiffbart = stdenergyDiffbar(:,t+1);
-%             stdenergyViscbart = stdenergyViscbar(:,t+1);
-%             stdenergySurfbart = stdenergySurfbar(:,t+1);
-%             fields = [fields,stdenergyKinTimebart,stdenergyConvbart,stdenergyGravbart,...
-%                 stdenergyPresbart,stdenergyPresDilbart,stdenergyKinSpacebart,...
-%                 stdenergyDiffbart,stdenergyViscbart,stdenergySurfbart];
-%             fieldnames = [fieldnames,'kinetic energy filtered','convection energy filtered','gravity energy filtered',...
-%                 'power of external pressure forces filtered','pressure-dilatation energy transfer filtered','transport of gradient of kinetic energy filtered',...
-%                 'energy exchange with kinetic energy filtered','power of external viscous stresses filtered','capillary kinetic energy filtered'];
-%         end
     end
     write_vtk_mesh(M,fields,[],fieldnames,[],gridpathname,['diphasic_fluids_grid' num2str(g) '_std'],1,t);
 end
@@ -2913,23 +2496,16 @@ for t=0:p
             end
             
         case 'single'
-            Yt = get_single_PCA_at_step(mY,Phi,sig,X,p,t+1,'gridpathname',gridpathname);
-            Yat = Ya(1,:,:,t+1);
-            Ybt = Yb(1,:,:,t+1);
-            Yt = unscaling(Yt,Yat,Ybt);
-            clear Yat Ybt
+            Yt = s.reconstructionAtStep(mY,V,sv,X,t+1);
+            Yt = s.unscaling(Yt,Ya(:,t+1),Yb(:,t+1))';
             
         case 'double'
             if g<2^7
-                Yt = get_double_PCA_at_step(mY,V,sig,mZ,W,s,X,R,t+1,'gridpathname',gridpathname);
+                Yt = sSpace.reconstructionDoubleAtStep(mY,V,sv,mZ,W,sw,X,R,t+1,'pathname',gridpathname,'filename',['PCAspace_t' num2str(t) '.mat']);
             else
-                Yt = get_double_PCA_at_step(mY,[],sig,mZ,W,s,X,R,t+1,'gridpathname',gridpathname);
+                Yt = sSpace.reconstructionDoubleAtStep(mY,[],sv,mZ,W,sw,X,R,t+1,'pathname',gridpathname,'filename',['PCAspace_t' num2str(t) '.mat']);
             end
-            Yat = Ya(1,:,:,t+1);
-            Ybt = Yb(1,:,:,t+1);
-            Yt = unscaling(Yt,Yat,Ybt);
-            clear Yat Ybt
-            
+            Yt = sSpace.unscaling(Yt,Ya(:,t+1),Yb(:,t+1))';
     end
     
     Ut = reshape(Yt(:,1:dim,:),[N,dim*m]);
@@ -2945,9 +2521,7 @@ for t=0:p
         clear Taut
     end
     if PostProcessingPressure
-        Prest = Pres(:,1,:,t+1);
-        prest = reshape(Prest,[N,m]);
-        clear Prest
+        Prest = reshape(Pres(:,1,:,t+1),[N,m]);
     end
     
     for l=1:N
@@ -2969,23 +2543,6 @@ for t=0:p
             fields = [fields,preslt];
             fieldnames = [fieldnames,'pressure'];
         end
-%         if PostProcessingEnergy
-%             energyKinTimelt = energyKinTimet(l,:);
-%             energyConvlt = energyConvt(l,:);
-%             energyGravlt = energyGravt(l,:);
-%             energyPreslt = energyPrest(l,:);
-%             energyPresDillt = energyPresDilt(l,:);
-%             energyKinSpacelt = energyKinSpacet(l,:);
-%             energyDifflt = energyDifft(l,:);
-%             energyVisclt = energyVisct(l,:);
-%             energySurflt = energySurft(l,:);
-%             fields = [fields,energyKinTimelt,energyConvlt,energyGravlt,...
-%                 energyPreslt,energyPresDillt,energyKinSpacelt,...
-%                 energyDifflt,energyVisclt,energySurflt];
-%             fieldnames = [fieldnames,'kinetic energy','convection energy','gravity energy',...
-%                 'power of external pressure forces','pressure-dilatation energy transfer','transport of gradient of kinetic energy',...
-%                 'energy exchange with kinetic energy','power of external viscous stresses','capillary kinetic energy'];
-%         end
         write_vtk_mesh(M,fields,[],fieldnames,[],gridpathname,['diphasic_fluids_grid' num2str(g) '_sample_' num2str(l)],1,t);
     end
     time_savet = toc(t_savet);
@@ -3001,3 +2558,5 @@ end
 
 time_Total = toc(t_Total);
 fprintf('\nElapsed time = %f s\n',time_Total);
+
+myparallel('stop');
