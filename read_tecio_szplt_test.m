@@ -24,7 +24,7 @@ end
 
 varnames = {'U','V','W','sca01','sca02','sca04'}; % variable names
 n = length(varnames); % number of variables
-p = 20; % number of time steps
+p = 17; % number of time steps
 N = 6; % number of samples
 
 % pathname = fileparts(mfilename('fullpath'));
@@ -52,9 +52,6 @@ for g=2^5
             filename = ['PhaseInv3D_ramdom_i' num2str(t,'%06d00') '.szplt'];
             
             file = fullfile(pathname,gridname,foldername,filename);
-            if ~exist(file)
-                break
-            end
             [isok,~,handle] = calllib('tecio','tecFileReaderOpen',file,[]);
             
             title = libpointer('stringPtrPtr',cell(1,1));
