@@ -4,10 +4,12 @@ import os
 
 for g in [32]:
     print "grid",g
-    for l in range(1,6):
-        print "sample",l
-        os.system('tec360 -convert ./Grid'+str(g)+'/Set'+str(l)+'/PhaseInv3D_random_i00000000.plt -o ./Grid'+str(g)+'/Set-'+str(l)+'/PhaseInv3D_random_i00000000.szplt')
-        os.system('tec360 -convert ./Grid'+str(g)+'/Set-'+str(l)+'/PhaseInv3D_random_i00001300.plt -o ./Grid'+str(g)+'/Set-'+str(l)+'/PhaseInv3D_random_i00001300.szplt')
+    for s in range(2,4):
+        print "std",s
+        for l in range(1,6):
+            print "sample",l
+            for t in range(0,20):
+                os.system('tec360 -convert ./Grid'+str(g)+'/EC010-'+str(s)+'/Set'+str(l)+'/PhaseInv3D_ramdom_i0000'+str(t)+'00.plt -o ./Grid'+str(g)+'/EC010-'+str(s)+'/Set'+str(l)+'/PhaseInv3D_random_i0000'+str(t)+'00.szplt')
 
 
 
