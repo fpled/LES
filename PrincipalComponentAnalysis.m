@@ -76,7 +76,7 @@ classdef PrincipalComponentAnalysis
             % else
             %     Z = score./sv';
             % end
-            % % Yc = coeff*score';
+            % % Yc = coeff*score'; % Yc = V*(Z*S)' = V*S*Z'; % score = Z*S;
             
             if s.checkOrthonormality
                 r = length(sv);
@@ -180,6 +180,51 @@ classdef PrincipalComponentAnalysis
             end
         end
         
+        function [Yt,mYt,Vt,svt,mZt,Wt,Rt] = reconstructionDoubleAtStep(s,mY,V,sv,mZ,W,sw,X,R,t,varargin)
+            % function [Yt,mYt,Vt,svt,mZt,Wt,Rt] = reconstructionDoubleAtStep(s,mY,V,sv,mZ,W,sw,X,R,t,varargin)
+            % reconstructs the double PCA representation Y(t) = mY(t) + V(t)*diag(sv(t))*Z(t)' 
+            % with Z(t) = mZ(t) + W(t)*diag(sw)*X' at step t
+            
+            % N = size(X,1);
+            [Vt,svt,Wt,Rt] = s.getPrincipalComponentsDoubleAtStep(V,sv,W,R,t,varargin{:});
+            if verLessThan('matlab','9.1') % compatibility (<R2016b)
+                Zct = Wt*diag(sw)*X';
+            else
+                Zct = Wt*(sw.*X');
+            end
+            if isempty(mZ)
+                mZt  = [];
+                Zt = Zct;
+            else
+                mZt = mZ(:,1:Rt,t)';
+                if verLessThan('matlab','9.1') % compatibility (<R2016b)
+                    Zt = bsxfun(@plus,mZt,Zct);
+                else
+                    Zt = mZt + Zct;
+                end
+                % Zt = repmat(mZt,[1,N]) + Zct;
+            end
+            
+            if verLessThan('matlab','9.1') % compatibility (<R2016b)
+                Yct = Vt*diag(svt)*Zt;
+            else
+                Yct = Vt*(svt.*Zt);
+            end
+            
+            if isempty(mY)
+                mYt = [];
+                Yt = Yct;
+            else
+                mYt = mY(:,:,t);
+                if verLessThan('matlab','9.1') % compatibility (<R2016b)
+                    Yt = bsxfun(@plus,mYt,Yct);
+                else
+                    Yt = mYt + Yct;
+                end
+                % Yt = repmat(mYt,[1,N]) + Yct;
+            end
+        end
+        
         function [Xc,mu] = center(s,X)
             % function [Xc,mu] = center(X)
             % computes the centered matrix Xc = X - mu of X 
@@ -191,6 +236,22 @@ classdef PrincipalComponentAnalysis
             else
                 Xc = X - mu;
             end
+        end
+        
+        function sig = std(s,V,sv)
+            % function sig = std(V,sv)
+            % returns the estimated standard deviation of the PCA representation
+            
+            v = s.var(V,sv);
+            sig = sqrt(v);
+        end
+        
+        function sig = stdDouble(s,V,sv,W,sw)
+            % function sig = stdDouble(s,V,sv,W,sw)
+            % returns the estimated standard deviation of a double PCA representation
+            
+            v = s.varDouble(V,sv,W,sw);
+            sig = sqrt(v);
         end
         
     end
@@ -225,18 +286,6 @@ classdef PrincipalComponentAnalysis
             end
         end
         
-        function s = std(V,sv)
-            % function sig = std(V,sv)
-            % returns the estimated standard deviation of the PCA representation
-            
-            if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                v = sum((diag(sv)*V').^2)';
-            else
-                v = sum((sv.*V').^2)';
-            end
-            s = sqrt(v);
-        end
-        
         function v = varDouble(V,sv,W,sw)
             % function v = varDouble(V,sv,W,sw)
             % returns the estimated variance of a double PCA representation
@@ -247,19 +296,6 @@ classdef PrincipalComponentAnalysis
                U = V*(sv.*W');
             end
             v = sum((sw.*U').^2)';
-        end
-        
-        function s = stdDouble(V,sv,W,sw)
-            % function s = stdDouble(V,sv,W,sw)
-            % returns the estimated standard deviation of a double PCA representation
-            
-            if verLessThan('matlab','9.1') % compatibility (<R2016b)
-               U = V*diag(sv)*W';
-            else
-               U = V*(sv.*W');
-            end
-            v = sum((sw.*U').^2)';
-            s = sqrt(v);
         end
         
         function Y = reconstruction(mY,V,sv,Z,r)
@@ -319,15 +355,14 @@ classdef PrincipalComponentAnalysis
             end
         end
         
-        function [Yt,mYt,Vt,svt,mZt,Wt,Rt] = reconstructionDoubleAtStep(mY,V,sv,mZ,W,sw,X,R,t,varargin)
-            % function [Yt,mYt,Vt,svt,mZt,Wt,Rt] = reconstructionDoubleAtStep(mY,V,sv,mZ,W,sw,X,R,t,varargin)
-            % reconstructs the double PCA representation Y(t) = mY(t) + V(t)*diag(sv(t))*Z(t)' 
-            % with Z(t) = mZ(t) + W(t)*diag(sw)*X' at step t
+        function [Vt,svt,Wt,Rt] = getPrincipalComponentsDoubleAtStep(V,sv,W,R,t,varargin)
+            % function [Vt,svt,Wt,Rt] = getPrincipalComponentsDoubleAtStep(V,sv,W,R,t,varargin)
+            % gets the principal component coefficients V(t), corresponding singular values sv(t) and rank R(t) of the first PCA, 
+            % and the principal component coefficients W(t) of the second PCA at step t
             
-            % N = size(X,1);
             Rt = R(t);
             pathname = getcharin('pathname',varargin,'.');
-            filename = getcharin('filename',varargin,['PCA_t' num2str(t-1) '.mat']);
+            filename = getcharin('filename',varargin,['double_PCA_space_data_t' num2str(t-1) '.mat']);
             if isempty(V)
                 load(fullfile(pathname,filename),'Vt');
             else
@@ -335,42 +370,6 @@ classdef PrincipalComponentAnalysis
             end
             svt = sv(1:Rt,t);
             Wt = W(:,1:Rt,t)';
-            if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                Zct = Wt*diag(sw)*X';
-            else
-                Zct = Wt*(sw.*X');
-            end
-            if isempty(mZ)
-                mZt  = [];
-                Zt = Zct;
-            else
-                mZt = mZ(:,1:Rt,t)';
-                if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                    Zt = bsxfun(@plus,mZt,Zct);
-                else
-                    Zt = mZt + Zct;
-                end
-                % Zt = repmat(mZt,[1,N]) + Zct;
-            end
-            
-            if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                Yct = Vt*diag(svt)*Zt;
-            else
-                Yct = Vt*(svt.*Zt);
-            end
-            
-            if isempty(mY)
-                mYt = [];
-                Yt = Yct;
-            else
-                mYt = mY(:,:,t);
-                if verLessThan('matlab','9.1') % compatibility (<R2016b)
-                    Yt = bsxfun(@plus,mYt,Yct);
-                else
-                    Yt = mYt + Yct;
-                end
-                % Yt = repmat(mYt,[1,N]) + Yct;
-            end
         end
         
         function [Xs,Xa,Xb] = scaling(X)
