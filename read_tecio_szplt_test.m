@@ -24,7 +24,7 @@ end
 
 varnames = {'U','V','W','sca01','sca02','sca04'}; % variable names
 n = length(varnames); % number of variables
-p = 17; % number of time steps
+p = 20; % number of time steps
 N = 6; % number of samples
 
 % pathname = fileparts(mfilename('fullpath'));
@@ -36,11 +36,12 @@ for g=2^5
     disp(gridname)
     
     m = (g+1)^3; % number of spatial points
-    for s=2:4
+    sList = {'10-1','510-1','10-2'};
+    for s=1:numel(sList)
     % Y = zeros(N,m*n,p+1);
     Y = zeros(N,n,m,p+1);
     for l=1:N
-        foldername = fullfile(['EC010-' num2str(s)],['Set' num2str(l)]);
+        foldername = fullfile(['EC0' sList{s}],['Set' num2str(l)]);
         disp(foldername)
         
         % Yl = zeros(m*n,p+1);
@@ -110,7 +111,7 @@ for g=2^5
         
     end
     fprintf('\n');
-    save(fullfile(pathname,gridname,['data_' num2str(s) '.mat']),'Y','N','n','m','p');
+    save(fullfile(pathname,gridname,['data_' sList{s} '.mat']),'Y','N','n','m','p');
     end
     toc
 end
