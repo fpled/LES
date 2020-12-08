@@ -25,7 +25,7 @@ end
 varnames = {'U','V','W','sca01','sca02','sca04'}; % variable names
 n = length(varnames); % number of variables
 p = 20; % number of time steps
-N = 6; % number of samples
+N = 100; % number of samples
 
 % pathname = fileparts(mfilename('fullpath'));
 pathname = '/mnt/tcm13/SV_FP/';
@@ -36,7 +36,7 @@ for g=2^5
     disp(gridname)
     
     m = (g+1)^3; % number of spatial points
-    sList = {'10-1','510-1','10-2'};
+    sList = {'10-1','510-2','10-2'};
     for s=1:numel(sList)
     % Y = zeros(N,m*n,p+1);
     Y = zeros(N,n,m,p+1);
