@@ -971,7 +971,7 @@ if computeStatistics
         save(fullfile(gridpathname,[prefix 'statistics_tau.mat']),'norm2Tau','norm2mTau');
     end
     if PostProcessingPressure
-        save(fullfile(gridpathname,[prefix 'statistics_pressure.mat']),'norm2Pres','norm2mPres');
+        save(fullfile(gridpathname,[prefix 'statistics_pressure.mat']),'norm2pres','norm2mpres');
     end
     if PostProcessingEnergy
         save(fullfile(gridpathname,[prefix 'statistics_energy.mat']),'norm2E','norm2mE');
@@ -984,7 +984,7 @@ else
         load(fullfile(gridpathname,[prefix 'statistics_tau.mat']),'norm2Tau','norm2mTau');
     end
     if PostProcessingPressure
-        load(fullfile(gridpathname,[prefix 'statistics_pressure.mat']),'norm2Pres','norm2mPres');
+        load(fullfile(gridpathname,[prefix 'statistics_pressure.mat']),'norm2pres','norm2mpres');
     end
     if PostProcessingEnergy
         load(fullfile(gridpathname,[prefix 'statistics_energy.mat']),'norm2E','norm2mE');
