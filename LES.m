@@ -18,12 +18,12 @@ saveSamples = true;
 performPCA = true;
 performPCAspace = true;
 performPCAtime = true;
-computeMean = false;
-postProcess = false;
+computeMean = true;
+postProcess = true;
 computeQoI = true;
 applyFilter = true;
 computeError = true;
-constructMesh = false;
+constructMesh = true;
 
 displayEigenvalues = false;
 displayCovariance = false;
