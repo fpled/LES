@@ -27,6 +27,7 @@ constructMesh = true;
 
 displayEigenvalues = false;
 displayCovariance = false;
+displayStatistics = false;
 displayQoI = false;
 displayError = false;
 
@@ -916,7 +917,7 @@ if computeStatistics
         
         if PostProcessingTau
             components = {1:dim,dim+(1:dim),2*dim+(1:dim),3*dim+(1:dim),4*dim+1};
-            mTaut = reshape(mTau(1,:,:,t+1),[n,m]);
+            mTaut = reshape(mTau(1,:,:,t+1),[ntau,m]);
             norm2mTau(:,t+1) = arrayfun(@(i) sum(sum(mTaut(components{i},:).^2)),1:5); % norm2mTau(:,t+1) = arrayfun(@(i) norm(mTaut(components{i},:),'fro')^2,1:5);
             clear mTaut
             if g<2^7
