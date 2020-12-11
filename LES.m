@@ -18,8 +18,8 @@ saveSamples = true;
 performPCA = true;
 performPCAspace = true;
 performPCAtime = true;
-computeMean = true;
-postProcess = true;
+computeMean = false;
+postProcess = false;
 computeQoI = true;
 applyFilter = true;
 computeError = true;
@@ -855,6 +855,8 @@ if computeStatistics
     t_Stat = tic;
     norm2Y = zeros(3,p+1);
     norm2mY = zeros(3,p+1);
+    mI = zeros(1,p+1);
+    vI = zeros(1,p+1);
     if PostProcessingTau
         norm2Tau = zeros(5,p+1);
         norm2mTau = zeros(5,p+1);
@@ -882,12 +884,18 @@ if computeStatistics
                 else
                     load(fullfile(gridpathname,['data_t' num2str(t) '.mat']),'Yt');
                 end
+                Ct = Yt(:,dim+2,:);
                 vYt = var(Yt);
                 clear Yt
                 
             case 'single'
+                Yt = s.reconstructionAtStep(mY,V,sv,X,t+1);
+                Yt = s.unscaling(Yt,Ya(:,t+1),Yb(:,t+1))';
+                Yt = reshape(Yt,[N,n,m]);
+                Ct = Yt(:,dim+2,:);
+                clear Yt
+                
                 % Yt = s.reconstructionAtStep(mY,V,sv,X,t+1);
-                % % Yt = s.unscaling(Yt,Ya(:,t+1),Yb(:,t+1))';
                 % vYt = var(Yt,0,2);
                 % vYt = s.unscaling(vYt,Ya(:,t+1).^2,zeros(size(Yb(:,t+1))))';
                 Vt = V(:,:,t+1);
@@ -896,6 +904,16 @@ if computeStatistics
                 clear Vt
                 
             case 'double'
+                if g<2^7
+                    Yt = sSpace.reconstructionDoubleAtStep(mY,V,sv,mZ,W,sw,X,R,t+1,'pathname',gridpathname,'filename',[prefix 'space_data_t' num2str(t) '.mat']);
+                else
+                    Yt = sSpace.reconstructionDoubleAtStep(mY,[],sv,mZ,W,sw,X,R,t+1,'pathname',gridpathname,'filename',[prefix 'space_data_t' num2str(t) '.mat']);
+                end
+                Yt = sSpace.unscaling(Yt,Ya(:,t+1),Yb(:,t+1))';
+                Yt = reshape(Yt,[N,n,m]);
+                Ct = Yt(:,dim+2,:);
+                clear Yt
+                
                 % if g<2^7
                 %     Yt = sSpace.reconstructionDoubleAtStep(mY,V,sv,mZ,W,sw,X,R,t+1,'pathname',gridpathname,'filename',[prefix 'space_data_t' num2str(t) '.mat']);
                 % else
@@ -914,6 +932,18 @@ if computeStatistics
         end
         vYt = reshape(vYt,[n,m]);
         norm2Y(:,t+1) = arrayfun(@(i) sum(sum(vYt(components{i},:))),1:3);
+        
+        It = arrayfun(@(i) numel(find(Ct(i,:)>0 & Ct(i,:)<1)),(1:N)');
+        clear Ct
+        if t==0
+            It0 = It;
+            It = ones(size(It));
+        else
+            It = It./It0;
+        end
+        mI(t+1) = mean(It);
+        vI(t+1) = var(It);
+        clear It
         
         if PostProcessingTau
             components = {1:dim,dim+(1:dim),2*dim+(1:dim),3*dim+(1:dim),4*dim+1};
@@ -966,7 +996,7 @@ if computeStatistics
     fprintf('\nelapsed time = %f s',time_Stat);
     fprintf('\n');
     
-    save(fullfile(gridpathname,[prefix 'statistics.mat']),'norm2Y','norm2mY');
+    save(fullfile(gridpathname,[prefix 'statistics.mat']),'norm2Y','norm2mY','mI','vI');
     if PostProcessingTau
         save(fullfile(gridpathname,[prefix 'statistics_tau.mat']),'norm2Tau','norm2mTau');
     end
@@ -979,7 +1009,7 @@ if computeStatistics
 else
     fprintf('\nLoading statistics of stochastic processes');
     t_load = tic;
-    load(fullfile(gridpathname,[prefix 'statistics.mat']),'norm2Y','norm2mY');
+    load(fullfile(gridpathname,[prefix 'statistics.mat']),'norm2Y','norm2mY','mI','vI');
     if PostProcessingTau
         load(fullfile(gridpathname,[prefix 'statistics_tau.mat']),'norm2Tau','norm2mTau');
     end
@@ -1714,6 +1744,8 @@ if displayStatistics
     fprintf('\nL2-norm = %.3e for velocity U',errL2Y(1));
     fprintf('\nL2-norm = %.3e for pressure p',errL2Y(2));
     fprintf('\nL2-norm = %.3e for phase C',errL2Y(3));
+    errL2I = trapz(ts,vI,2)/trapz(ts,mI.^2,2);
+    fprintf('\nL2-norm = %.3e for interface indicator',errL2I);
     if PostProcessingTau
         errL2Tau = trapz(ts,norm2Tau,2)/trapz(ts,norm2mTau,2);
         fprintf('\nL2-norm = %.3e for tauTime',errL2Tau(1));
@@ -1742,13 +1774,13 @@ if displayStatistics
     
     figure('Name','Dispersion fot DNS data')
     clf
-    hdl(1) = plot(ts(2:end),norm2Y(1,2:end)./norm2mY(1,2:end),'LineStyle','-','Color','b','LineWidth',1);
+    hdl(1) = plot(ts(2:end),vI(2:end)./(mI(2:end).^2),'LineStyle','-','Color','k','LineWidth',1);
+    hdl(2) = plot(ts(2:end),norm2Y(1,2:end)./norm2mY(1,2:end),'LineStyle','-','Color','b','LineWidth',1);
     hold on
-    hdl(2) = plot(ts(2:end),norm2Y(2,2:end)./norm2mY(2,2:end),'LineStyle','-','Color','g','LineWidth',1);
-    hdl(3) = plot(ts(2:end),norm2Y(3,2:end)./norm2mY(3,2:end),'LineStyle','-','Color','r','LineWidth',1);
+    hdl(3) = plot(ts(2:end),norm2Y(2,2:end)./norm2mY(2,2:end),'LineStyle','-','Color','g','LineWidth',1);
+    hdl(4) = plot(ts(2:end),norm2Y(3,2:end)./norm2mY(3,2:end),'LineStyle','-','Color','r','LineWidth',1);
     if PostProcessingPressure
-        hdl(4) = plot(ts(2:end),norm2pres(:,2:end)./norm2mpres(:,2:end),'LineStyle','--','Color','g','LineWidth',1);
-        cpt = cpt+1;
+        hdl(5) = plot(ts(2:end),norm2pres(:,2:end)./norm2mpres(:,2:end),'LineStyle','--','Color','g','LineWidth',1);
     end
     hold off
     grid on
@@ -1756,7 +1788,7 @@ if displayStatistics
     set(gca,'FontSize',10)
     xlabel('$t$ [s]','Interpreter',interpreter)
     ylabel('Dispersion','Interpreter',interpreter)
-    leg = {'$||u||$','$p$','$\chi$'};
+    leg = {'$\iota_{\mathrm{interf}}$','$||u||$','$p$','$\chi$'};
     if PostProcessingPressure
         leg = [leg,'$p_{\mathrm{post}}$'];
     end
@@ -1768,18 +1800,19 @@ if displayStatistics
     if PostProcessingTau
         figure('Name','Dispersion for tau data')
         clf
-        hdl(1) = plot(ts(2:end),norm2Tau(1,2:end)./norm2mTau(1,2:end),'LineStyle','-','Color','b','LineWidth',1);
-        hdl(2) = plot(ts(2:end),norm2Tau(2,2:end)./norm2mTau(2,2:end),'LineStyle','-','Color','r','LineWidth',1);
-        hdl(3) = plot(ts(2:end),norm2Tau(3,2:end)./norm2mTau(3,2:end),'LineStyle','-','Color','g','LineWidth',1);
-        hdl(4) = plot(ts(2:end),norm2Tau(4,2:end)./norm2mTau(4,2:end),'LineStyle','-','Color','m','LineWidth',1);
-        hdl(5) = plot(ts(2:end),norm2Tau(5,2:end)./norm2mTau(5,2:end),'LineStyle','-','Color','c','LineWidth',1);
+        hdl(1) = plot(ts(2:end),vI(2:end)./(mI(2:end).^2),'LineStyle','-','Color','k','LineWidth',1);
+        hdl(2) = plot(ts(2:end),norm2Tau(1,2:end)./norm2mTau(1,2:end),'LineStyle','-','Color','b','LineWidth',1);
+        hdl(3) = plot(ts(2:end),norm2Tau(2,2:end)./norm2mTau(2,2:end),'LineStyle','-','Color','r','LineWidth',1);
+        hdl(4) = plot(ts(2:end),norm2Tau(3,2:end)./norm2mTau(3,2:end),'LineStyle','-','Color','g','LineWidth',1);
+        hdl(5) = plot(ts(2:end),norm2Tau(4,2:end)./norm2mTau(4,2:end),'LineStyle','-','Color','m','LineWidth',1);
+        hdl(6) = plot(ts(2:end),norm2Tau(5,2:end)./norm2mTau(5,2:end),'LineStyle','-','Color','c','LineWidth',1);
         hold off
         grid on
         box on
         set(gca,'FontSize',10)
         xlabel('$t$ [s]','Interpreter',interpreter)
         ylabel('Dispersion','Interpreter',interpreter)
-        leg = {'$||\tau_{\mathrm{time}}||$','$||\nabla \cdot \tau_{\mathrm{conv}}||$','$||\nabla \cdot \tau_{\mathrm{diff}}||$','$||\tau_{\mathrm{surf}}||$','$\tau_{\mathrm{interf}}$'};
+        leg = {'$\iota_{\mathrm{interf}}$','$||\tau_{\mathrm{time}}||$','$||\nabla \cdot \tau_{\mathrm{conv}}||$','$||\nabla \cdot \tau_{\mathrm{diff}}||$','$||\tau_{\mathrm{surf}}||$','$\tau_{\mathrm{interf}}$'};
         l = legend(leg{:},'Location','NorthEast');
         set(l,'Interpreter',interpreter)
         mysaveas(gridpathname,[prefix 'dispersion_tau'],formats,renderer);
@@ -1788,27 +1821,27 @@ if displayStatistics
     
     if PostProcessingEnergy
         figure('Name','Dispersion for energy data')
-        hdl(1) = plot(ts(2:end),norm2E(1,2:end)./norm2mE(1,2:end),'LineStyle','--','Color','b','LineWidth',1);
-        hdl(2) = plot(ts(2:end),norm2E(2,2:end)./norm2mE(2,2:end),'LineStyle','--','Color','r','LineWidth',1);
-        hdl(3) = plot(ts(2:end),norm2E(3,2:end)./norm2mE(3,2:end),'LineStyle','-','Color','g','LineWidth',1);
-        hdl(4) = plot(ts(2:end),norm2E(4,2:end)./norm2mE(4,2:end),'LineStyle','-','Color','m','LineWidth',1);
-        hdl(5) = plot(ts(2:end),norm2E(5,2:end)./norm2mE(5,2:end),'LineStyle','-','Color','c','LineWidth',1);
-        hdl(6) = plot(ts(2:end),norm2E(6,2:end)./norm2mE(6,2:end),'LineStyle','-','Color',[1 0.5 0],'LineWidth',1);
-        hdl(7) = plot(ts(2:end),norm2E(7,2:end)./norm2mE(7,2:end),'LineStyle','-','Color','k','LineWidth',1);
-        hdl(8) = plot(ts(2:end),norm2E(8,2:end)./norm2mE(8,2:end),'LineStyle','-','Color',([1 0 1]+[1 0 0])/2,'LineWidth',1);
-        hdl(9) = plot(ts(2:end),norm2E(9,2:end)./norm2mE(9,2:end),'LineStyle','-','Color',([1 0 1]+[0 0 1])/2,'LineWidth',1);
-    
-    hold off
-    grid on
-    box on
-    set(gca,'FontSize',10)
-    xlabel('$t$ [s]','Interpreter',interpreter)
-    ylabel('Dispersion','Interpreter',interpreter)
-    leg = {'$e_{\mathrm{kin time}}$','$e_{\mathrm{conv}}$','$e_{\mathrm{grav}}$','$e_{\mathrm{pres}}$','$e_{\mathrm{pres-dil transfer}}$','$e_{\mathrm{grad kin}}$','$e_{\mathrm{diff}}$','$e_{\mathrm{visc}}$','$e_{\mathrm{surf}}$'};
-    l = legend(leg{:},'Location','NorthEast');
-    set(l,'Interpreter',interpreter)
-    mysaveas(gridpathname,[prefix 'dispersion_energy'],formats,renderer);
-    mymatlab2tikz(gridpathname,[prefix 'dispersion_energy.tex']);
+        hdl(1) = plot(ts(2:end),vI(2:end)./(mI(2:end).^2),'LineStyle','-','Color','k','LineWidth',1);
+        hdl(2) = plot(ts(2:end),norm2E(1,2:end)./norm2mE(1,2:end),'LineStyle','-','Color','b','LineWidth',1);
+        hdl(3) = plot(ts(2:end),norm2E(2,2:end)./norm2mE(2,2:end),'LineStyle','-','Color','r','LineWidth',1);
+        hdl(4) = plot(ts(2:end),norm2E(3,2:end)./norm2mE(3,2:end),'LineStyle','-','Color','g','LineWidth',1);
+        hdl(5) = plot(ts(2:end),norm2E(4,2:end)./norm2mE(4,2:end),'LineStyle','-','Color','m','LineWidth',1);
+        hdl(6) = plot(ts(2:end),norm2E(5,2:end)./norm2mE(5,2:end),'LineStyle','-','Color','c','LineWidth',1);
+        hdl(7) = plot(ts(2:end),norm2E(6,2:end)./norm2mE(6,2:end),'LineStyle','-','Color','y','LineWidth',1);
+        hdl(8) = plot(ts(2:end),norm2E(7,2:end)./norm2mE(7,2:end),'LineStyle','-','Color',[1 0.5 0],'LineWidth',1);
+        hdl(9) = plot(ts(2:end),norm2E(8,2:end)./norm2mE(8,2:end),'LineStyle','-','Color',([1 0 1]+[1 0 0])/2,'LineWidth',1);
+        hdl(10) = plot(ts(2:end),norm2E(9,2:end)./norm2mE(9,2:end),'LineStyle','-','Color',([1 0 1]+[0 0 1])/2,'LineWidth',1);
+        hold off
+        grid on
+        box on
+        set(gca,'FontSize',10)
+        xlabel('$t$ [s]','Interpreter',interpreter)
+        ylabel('Dispersion','Interpreter',interpreter)
+        leg = {'$\iota_{\mathrm{interf}}$','$e_{\mathrm{kin time}}$','$e_{\mathrm{conv}}$','$e_{\mathrm{grav}}$','$e_{\mathrm{pres}}$','$e_{\mathrm{pres-dil transfer}}$','$e_{\mathrm{grad kin}}$','$e_{\mathrm{diff}}$','$e_{\mathrm{visc}}$','$e_{\mathrm{surf}}$'};
+        l = legend(leg{:},'Location','NorthEast');
+        set(l,'Interpreter',interpreter)
+        mysaveas(gridpathname,[prefix 'dispersion_energy'],formats,renderer);
+        mymatlab2tikz(gridpathname,[prefix 'dispersion_energy.tex']);
     end
 end  
 
