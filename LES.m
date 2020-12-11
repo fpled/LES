@@ -19,8 +19,8 @@ performPCA = true;
 performPCAspace = true;
 performPCAtime = true;
 computeMean = false;
-postProcess = false;
-computeQoI = false;
+postProcess = true;
+computeQoI = true;
 applyFilter = true;
 computeError = true;
 constructMesh = false;
@@ -705,6 +705,13 @@ for t=0:p
         Rhot = reshape(rhot,[m,N]);
         prest = solve_pressure_problem(B,Rhot,Gradinvrhot,GradxN,GradyN,GradzN,LaplacianN);
         clear B Rhot Gradinvrhot
+        if verLessThan('matlab','9.1') % compatibility (<R2016b)
+            preshydrostatict = gravity.*bsxfun(@times,rhot,shiftdim(x-L/2,-2));
+        else
+            preshydrostatict = gravity.*rhot.*shiftdim(x-L/2,-2);
+        end
+        preshydrostatict = reshape(preshydrostatict,[m,N]);
+        prest = prest + preshydrostatict;
         if ~PostProcessingEnergy
             clear rhot
         end
@@ -1711,8 +1718,12 @@ if displayStatistics
     ts = (0:p)*dt;
     errL2Y = trapz(ts,norm2Y,2)./trapz(ts,norm2mY,2);
     fprintf('\nL2-norm = %.3e for velocity U',errL2Y(1));
-    fprintf('\nL2-norm = %.3e for pressure p',errL2Y(2));
     fprintf('\nL2-norm = %.3e for phase C',errL2Y(3));
+    fprintf('\nL2-norm = %.3e for pressure p',errL2Y(2));
+    if PostProcessingPressure
+        errL2pres = trapz(ts,norm2pres,2)./trapz(ts,norm2mpres,2);
+        fprintf('\nL2-norm = %.3e for pressure post-processed p',errL2pres);
+    end
     if PostProcessingTau
         errL2Tau = trapz(ts,norm2Tau,2)./trapz(ts,norm2mTau,2);
         fprintf('\nL2-norm = %.3e for tauTime',errL2Tau(1));
@@ -1720,10 +1731,6 @@ if displayStatistics
         fprintf('\nL2-norm = %.3e for div(tauDiff)',errL2Tau(3));
         fprintf('\nL2-norm = %.3e for tauSurf',errL2Tau(4));
         fprintf('\nL2-norm = %.3e for tauInterf',errL2Tau(5));
-    end
-    if PostProcessingPressure
-        errL2pres = trapz(ts,norm2pres,2)./trapz(ts,norm2mpres,2);
-        fprintf('\nL2-norm = %.3e for pressure post-processed p',errL2pres);
     end
     if PostProcessingEnergy
         errL2E = trapz(ts,norm2E,2)./trapz(ts,norm2mE,2);
