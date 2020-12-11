@@ -946,7 +946,7 @@ if computeStatistics
         end
         if PostProcessingEnergy
             mEt = reshape(mE(1,:,:,t+1),[ne,m]);
-            norm2mE(:,t+1) = arrayfun(@(i) sum(sum(mEt(i,:).^2)),1:5); % norm2mE(:,t+1) = arrayfun(@(i) norm(mEt(i,:),'fro')^2,1:ne);
+            norm2mE(:,t+1) = arrayfun(@(i) sum(sum(mEt(i,:).^2)),1:ne); % norm2mE(:,t+1) = arrayfun(@(i) norm(mEt(i,:),'fro')^2,1:ne);
             clear mEt
             if g<2^7
                 Et = E(:,:,:,t+1);
