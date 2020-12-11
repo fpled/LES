@@ -3,7 +3,7 @@ function Qu = int_trapz(x,C,u,dim)
 % s = size(u);
 % N = s(1);
 % n = s(2);
-% sx = s(3+(0:dim));
+% sx = s(2+(1:dim));
 switch dim
     case 1
         if verLessThan('matlab','9.1') % compatibility (<R2016b)

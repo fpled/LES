@@ -2,7 +2,7 @@ function normu = compute_norm(x,u,dim)
 
 % s = size(u);
 % N = s(1);
-% sx = s(2+(0:dim));
+% sx = s(1+(1:dim));
 switch dim
     case 1
         normu = sqrt(mean(trapz(x,u,2),1));

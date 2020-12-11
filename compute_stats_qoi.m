@@ -1,4 +1,4 @@
-function [mQ,stdQ,RQ,IQ] = compute_stats(Q,dt)
+function [mQ,stdQ,RQ,IQ] = compute_stats_qoi(Q,dt)
 
 p = size(Q,4)-1;
 N = size(Q,1);
