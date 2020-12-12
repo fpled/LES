@@ -18,16 +18,16 @@ saveSamples = true;
 performPCA = true;
 performPCAspace = true;
 performPCAtime = true;
-computeMean = false;
+computeMean = true;
 postProcess = true;
 computeQoI = true;
 applyFilter = true;
 computeError = true;
-constructMesh = false;
+constructMesh = true;
 
 displayEigenvalues = false;
 displayCovariance = false;
-displayStatistics = false;
+displayStatistics = true;
 displayQoI = false;
 displayError = false;
 
@@ -706,9 +706,9 @@ for t=0:p
         prest = solve_pressure_problem(B,Rhot,Gradinvrhot,GradxN,GradyN,GradzN,LaplacianN);
         clear B Rhot Gradinvrhot
         if verLessThan('matlab','9.1') % compatibility (<R2016b)
-            preshydrostatict = gravity.*bsxfun(@times,rhot,shiftdim(x-L/2,-2));
+            preshydrostatict = gravity.*bsxfun(@times,rhot,shiftdim(x(:)-L/2,-2));
         else
-            preshydrostatict = gravity.*rhot.*shiftdim(x-L/2,-2);
+            preshydrostatict = gravity.*rhot.*shiftdim(x(:)-L/2,-2);
         end
         preshydrostatict = reshape(preshydrostatict,[m,N]);
         prest = prest + preshydrostatict;
