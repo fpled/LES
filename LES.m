@@ -163,6 +163,7 @@ if g<2^7 && (strcmpi(usePCA,'no') || (strcmpi(usePCA,'single') && performPCA) ||
     fprintf('\nelapsed time = %f s',time_load);
     fprintf('\n');
     Y = Y(1:10,:,:,:);
+    N = size(Y,1);
 end
 
 %% Statistical reduction of DNS data
