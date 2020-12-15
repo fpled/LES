@@ -536,6 +536,140 @@ for t=0:p
     pt = Yt(dim+1,:,:,:,:);
     Ct = Yt(dim+2,:,:,:,:);
     clear Yt
+    
+%     tConv = zeros(3,g+1,g+1,g+1,N);
+%     tDiff = zeros(3,g+1,g+1,g+1,N);
+%     tSurf = zeros(3,g+1,g+1,g+1,N);
+%     tInterf = zeros(1,g+1,g+1,g+1,N);
+%     for l=1:N
+%         samplename = ['Sample ' num2str(l)];
+%         disp(samplename)
+%         
+%         % ul = reshape(ut(:,:,:,:,l),[dim,m]);
+%         % Cl = reshape(Ct(:,:,:,:,l),[1,m]);
+%         % uijk = zeros(3,g+1,g+1,g+1);
+%         % Cijk = zeros(g+1,g+1,g+1);
+%         % for i=1:g+1
+%         %     for j=1:g+1
+%         %         for k=1:g+1
+%         %             ind = (g+1)^2*(k-1)+(g+1)*(j-1)+i;
+%         %             uijk(:,i,j,k) = ul(:,ind);
+%         %             Cijk(1,i,j,k) = Cl(1,ind);
+%         %         end
+%         %     end
+%         % end
+%         uijk = ut(:,:,:,:,l);
+%         Cijk = Ct(:,:,:,:,l);
+%         
+%         graduijk = zeros(3,3,g+1,g+1,g+1);
+%         gradCijk = zeros(3,g+1,g+1,g+1);
+%         divuijk = zeros(1,g+1,g+1,g+1);
+%         for k=1:g+1
+%             for j=1:g+1
+%                 for c=1:3
+%                     u1 = uijk(c,:,j,k);
+%                     graduijk(1,c,:,j,k) = Dx*u1(:);
+%                 end
+%                 C1 = Cijk(1,:,j,k);
+%                 gradCijk(1,:,j,k) = Dx*C1(:);
+%                 u1 = uijk(1,:,j,k);
+%                 divu1 = Dx*u1(:);
+%                 divuijk(1,:,j,k) = divuijk(1,:,j,k) + reshape(divu1(:),size(divuijk(1,:,j,k)));
+%             end
+%         end
+%         for k=1:g+1
+%             for i=1:g+1
+%                 for c=1:3
+%                     u2 = uijk(c,i,:,k);
+%                     graduijk(2,c,i,:,k) = Dx*u2(:);
+%                 end
+%                 C2 = Cijk(1,i,:,k);
+%                 gradCijk(2,i,:,k) = Dx*C2(:);
+%                 u2 = uijk(2,i,:,k);
+%                 divu2 = Dx*u2(:);
+%                 divuijk(1,i,:,k) = divuijk(1,i,:,k) + reshape(divu2(:),size(divuijk(1,i,:,k)));
+%             end
+%         end
+%         for j=1:g+1
+%             for i=1:g+1
+%                 for c=1:3
+%                     u3 = uijk(c,i,j,:);
+%                     graduijk(3,c,i,j,:) = Dx*u3(:);
+%                 end
+%                 C3 = Cijk(1,i,j,:);
+%                 gradCijk(3,i,j,:) = Dx*C3(:);
+%                 u3 = uijk(3,i,j,:);
+%                 divu3 = Dx*u3(:);
+%                 divuijk(1,i,j,:) = divuijk(1,i,j,:) + reshape(divu3(:),size(divuijk(1,i,j,:)));
+%             end
+%         end
+%         
+%         Sijk = (graduijk+permute(graduijk,[2,1,3,4,5]))/2;
+%         
+%         normalijk = zeros(3,g+1,g+1,g+1);
+%         for k=1:g+1
+%             for j=1:g+1
+%                 for i=1:g+1
+%                     gradC = gradCijk(:,i,j,k);
+%                     if all(gradC==0)
+%                         normalijk(:,i,j,k) = zeros(3,1);
+%                     else
+%                         normalijk(:,i,j,k) = gradC./norm(gradC);
+%                     end
+%                 end
+%             end
+%         end
+%         
+%         divSijk = zeros(3,g+1,g+1,g+1);
+%         divnormalijk = zeros(g+1,g+1,g+1);
+%         for k=1:g+1
+%             for j=1:g+1
+%                 S1 = sum(Sijk(1,:,:,j,k),2);
+%                 n1 = normalijk(1,:,j,k);
+%                 divSijk(1,:,j,k) = Dx*S1(:);
+%                 divnormalijk(:,j,k) = Dx*n1(:);
+%             end
+%         end
+%         for k=1:g+1
+%             for i=1:g+1
+%                 S2 = sum(Sijk(2,:,i,:,k),2);
+%                 n2 = normalijk(2,i,:,k);
+%                 divn2 = divnormalijk(i,:,k);
+%                 divSijk(2,i,:,k) = Dx*S2(:);
+%                 divnormalijk(i,:,k) = divn2(:) + Dx*n2(:);
+%             end
+%         end
+%         for j=1:g+1
+%             for i=1:g+1
+%                 S3 = sum(Sijk(3,:,i,j,:),2);
+%                 n3 = normalijk(3,i,j,:);
+%                 divn3 = divnormalijk(i,j,:);
+%                 divSijk(3,i,j,:) = Dx*S3(:);
+%                 divnormalijk(i,j,:) = divn3(:)+ Dx*n3(:);
+%             end
+%         end
+%         
+%         for k=1:g+1
+%             for j=1:g+1
+%                 for i=1:g+1
+%                     mmu  = Cijk(1,i,j,k)*mu(2)  + (1-Cijk(1,i,j,k))*mu(1);
+%                     rrho = Cijk(1,i,j,k)*rho(2) + (1-Cijk(1,i,j,k))*rho(1);
+%                     
+%                     uu = uijk(:,i,j,k);
+%                     gradu = graduijk(:,:,i,j,k);
+%                     gradC = gradCijk(:,i,j,k);
+%                     divS  = divSijk(:,i,j,k);
+%                     kappa = divnormalijk(i,j,k);
+%                     
+%                     tConv(:,i,j,k,l) = rrho*gradu*uu;
+%                     tDiff(:,i,j,k,l) = 2*mmu*divS;
+%                     tSurf(:,i,j,k,l) = sigma*kappa*gradC;
+%                     tInterf(1,i,j,k,l) = dot(uu,gradC,1);
+%                 end
+%             end
+%         end
+%     end
+    
     rhot = Ct*rho(2) + (1-Ct)*rho(1);
     if verLessThan('matlab','9.1') % compatibility (<R2016b)
         rhout = bsxfun(@times,rhot,ut);
@@ -600,6 +734,7 @@ for t=0:p
     % mdivut = mean(divut(:,:,:,:,:),5);
 
     gradut = grad(ut,Dx);
+    % divut = reshape(gradut(1,1,:,:,:,:)+gradut(2,2,:,:,:,:)+gradut(3,3,:,:,:,:),[1,sx,N]);
     St = (gradut+permute(gradut,[2,1,3+(0:dim)]))/2;
     if ~PostProcessingEnergy
         clear gradut
@@ -641,15 +776,22 @@ for t=0:p
         end
         if verLessThan('matlab','9.1') % compatibility (<R2016b)
             divtauConvt = squeeze(sum(bsxfun(@times,grad(rhout,Dx),shiftdim(ut,-1)),2));
+            % divtauConvt_approx = rhot.*squeeze(bsxfun(@times,sum(grad(ut,Dx),shiftdim(ut,-1)),2));
         else
             divtauConvt = squeeze(sum(grad(rhout,Dx).*shiftdim(ut,-1),2));
+            % divtauConvt_approx = rhot.*squeeze(sum(grad(ut,Dx).*shiftdim(ut,-1),2));
         end
-        % divtauConvt = squeeze(sum(grad(rhout,Dx).*repmat(shiftdim(ut,-1),[dim,ones(1,dim+2)]),2));
+        % divtauConvt = squeeze(sum(grad(rhout,Dx).*repmat(shiftdim(ut,-1),[dim,ones(1,ndims(ut))]),2));
         % other formulae
-        % divtauConvt = div(permute(repmat(shiftdim(rhout,-1),[dim,ones(1,dim+2)]),[2,1,dim:(dim+3)]).*repmat(shiftdim(ut,-1),[dim,ones(1,dim+2)]),Dx);
+        % if verLessThan('matlab','9.1') % compatibility (<R2016b)
+        %     divtauConvt = div(permute(repmat(shiftdim(rhout,-1),[dim,ones(1,ndims(rhout))]),[2,1,dim:(dim+3)]).*repmat(shiftdim(ut,-1),[dim,ones(1,ndims(ut))]),Dx);
+        % else
+        %     divtauConvt = div(permute(shiftdim(rhout,-1),[2,1,3:ndims(rhout)+1]).*shiftdim(ut,-1),Dx);
+        % end
+        % divtauConvt = div(permute(repmat(shiftdim(rhout,-1),[dim,ones(1,ndims(rhout))]),[2,1,3:ndims(rhout)+1]).*repmat(shiftdim(ut,-1),[dim,ones(1,ndims(ut))]),Dx);
         tauInterft = dot(ut,gradCt,1);
         clear gradCt
-        divtauDifft = div(2*muSt,Dx);
+        divtauDifft = div(2*muSt,Dx); % divtauDifft = 2*mut.*div(St,Dx);
         Taut = cat(1,tauTimet,divtauConvt,divtauDifft,tauSurft,tauInterft);
         clear tauTimet tauInterft
         if ~PostProcessingPressure

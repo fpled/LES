@@ -15,7 +15,12 @@ for i=1:3
     si = size(ui);
     divui = reshape(Dx*ui(:,:),si);
     divui = ipermute(divui,order);
-    divu(:,:) = divu(:,:) + divui(:,:);
+    if s(1)==3
+        divui = sum(divui);
+        divu(i,:) = divui(:,:);
+    else
+        divu(:,:) = divu(:,:) + divui(:,:);
+    end
 end
 if s(1)~=3
     divu = shiftdim(divu,-1);
