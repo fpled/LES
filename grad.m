@@ -10,7 +10,7 @@ for i=1:3
     order = [i+1,setdiff(1:ndims(u),i+1)];
     ui = permute(u,order);
     si = size(ui);
-    gradui = reshape(Dx*ui(:,:),si);
+    gradui = reshape(Dx{i}*ui(:,:),si);
     gradui = ipermute(gradui,order);
     gradu(i,:) = gradui(:);
 end

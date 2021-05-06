@@ -20,7 +20,7 @@ if nargin<9 || isempty(time)
     time=0;
 end
 if nargin<10 || isempty(binary_output)
-    binary_output=1;
+    binary_output=true;
 end
 
 if ~iscell(nodalfields)
@@ -73,7 +73,12 @@ else
 end
 offset=0;
 
-filename = fullfile(pathname,strcat(filename,'_',num2str(part),'_',num2str(time),'.vtu'));
+[filepath,filename,ext] = fileparts(filename);
+if isempty(ext)
+    ext = '.vtu';
+end
+filename = strcat(filename,'_',num2str(part),'_',num2str(time),ext);
+filename = fullfile(pathname,filepath,filename);
 fid = fopen(filename,'w',endian_matlab);
 fprintf(fid,'<?xml version="1.0" ?>\n');
 

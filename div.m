@@ -13,7 +13,7 @@ for i=1:3
     end
     ui = permute(ui,order);
     si = size(ui);
-    divui = reshape(Dx*ui(:,:),si);
+    divui = reshape(Dx{i}*ui(:,:),si);
     divui = ipermute(divui,order);
     if s(1)==3
         divui = sum(divui);
