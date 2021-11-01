@@ -23,11 +23,18 @@ if nargin<10 || isempty(binary_output)
     binary_output=true;
 end
 
-if ~iscell(nodalfields)
+if ~isempty(nodalfields) && ~iscell(nodalfields)
     nodalfields={nodalfields};  
 end
-if ~iscell(nodalfieldnames)
+if ~isempty(nodalfieldnames) && ~iscell(nodalfieldnames)
     nodalfieldnames={nodalfieldnames};  
+end
+
+if ~isempty(elemfields) && ~iscell(elemfields)
+    elemfields={elemfields};  
+end
+if ~isempty(elemfieldnames) && ~iscell(elemfieldnames)
+    elemfieldnames={elemfieldnames};  
 end
 
 nelem=M.nbelem;
